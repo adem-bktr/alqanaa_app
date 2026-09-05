@@ -687,6 +687,31 @@ class DataService {
   }
 
   // ══════════════════════════════════════════════════════
+  //   🔒 كلمة سر لوحة الإدارة
+  // ══════════════════════════════════════════════════════
+  static Future<String?> getAdminPassword() async {
+    try {
+      final doc = await _db.collection('settings').doc('security').get();
+      final v = doc.data()?['adminPassword'];
+      return v is String && v.isNotEmpty ? v : null;
+    } catch (e) {
+      debugPrint('❌ getAdminPassword: $e');
+      return null;
+    }
+  }
+
+  static Future<void> setAdminPassword(String password) async {
+    await _db.collection('settings').doc('security').set(
+      {
+        'adminPassword': password,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+    debugPrint('🔒 تم تحديث كلمة سر الإدارة');
+  }
+
+  // ══════════════════════════════════════════════════════
   //   📊 الإحصائيات
   // ══════════════════════════════════════════════════════
   static Future<Map<String, dynamic>> getStats() async {

@@ -394,7 +394,7 @@ class _MainScreenState extends State<MainScreen>
           Padding(
             padding: const EdgeInsets.all(12),
             child: Column(children: [
-              _sidebarAction(Icons.account_balance_wallet_rounded, 'الزبائن والديون',
+              _sidebarAction(Icons.account_balance_wallet_rounded, 'الزبائن',
                       () => Navigator.push(context, SlidePageRoute(page: const DebtsScreen())),
                   isDark),
               const SizedBox(height: 6),
@@ -975,9 +975,6 @@ class _MainScreenState extends State<MainScreen>
         'onTap': () => Navigator.push(
             context, SlidePageRoute(page: const AdminScreen()))
             .then((_) => _loadAll())},
-      {'icon': '💳', 'label': 'الديون', 'color': const Color(0xFFFCE4EC),
-        'onTap': () => Navigator.push(
-            context, SlidePageRoute(page: const DebtsScreen()))},
       {'icon': '📊', 'label': 'إحصائيات', 'color': const Color(0xFFE3F2FD),
         'onTap': () => Navigator.push(
             context, SlidePageRoute(page: const StatsScreen()))},
@@ -989,47 +986,127 @@ class _MainScreenState extends State<MainScreen>
     ];
 
     return Row(
-      children: actions.map((action) {
-        return Expanded(
-          child: MouseRegion(
-            cursor: SystemMouseCursors.click,
-            child: GestureDetector(
-              onTap: action['onTap'] as VoidCallback,
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 4),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                decoration: BoxDecoration(
-                  color: cardBg,
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: [BoxShadow(
-                      color: Colors.black.withOpacity(isDark ? 0.3 : 0.06),
-                      blurRadius: 8, offset: const Offset(0, 3))],
-                ),
-                child: Column(children: [
-                  Container(
-                    width: 42, height: 42,
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? Colors.white.withOpacity(0.1)
-                          : action['color'] as Color,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Center(
-                        child: Text(action['icon'] as String,
-                            style: const TextStyle(fontSize: 22))),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(action['label'] as String,
-                      style: TextStyle(
-                        fontSize: 10, fontWeight: FontWeight.w600,
-                        color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-                      ), textAlign: TextAlign.center),
-                ]),
+        children: [
+        // ✅ بطاقة "الزبائن" — منفصلة لأنها تعرض شارة إجمالي الدين الحيّة
+        Expanded(child: _buildCustomersQuickAction(isDark, cardBg)),
+    ...actions.map((action) {
+    return Expanded(
+    child: MouseRegion(
+    cursor: SystemMouseCursors.click,
+    child: GestureDetector(
+    onTap: action['onTap'] as VoidCallback,
+    child: Container(
+    margin: const EdgeInsets.symmetric(horizontal: 4),
+    padding: const EdgeInsets.symmetric(vertical: 12),
+    decoration: BoxDecoration(
+    color: cardBg,
+    borderRadius: BorderRadius.circular(14),
+    boxShadow: [BoxShadow(
+    color: Colors.black.withOpacity(isDark ? 0.3 : 0.06),
+    blurRadius: 8, offset: const Offset(0, 3))],
+    ),
+    child: Column(children: [
+    Container(
+    width: 42, height: 42,
+    decoration: BoxDecoration(
+    color: isDark
+    ? Colors.white.withOpacity(0.1)
+        : action['color'] as Color,
+    borderRadius: BorderRadius.circular(12),
+    ),
+    child: Center(
+    child: Text(action['icon'] as String,
+    style: const TextStyle(fontSize: 22))),
+    ),
+    const SizedBox(height: 6),
+    Text(action['label'] as String,
+    style: TextStyle(
+    fontSize: 10, fontWeight: FontWeight.w600,
+    color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+    ), textAlign: TextAlign.center),
+    ]),
+    ),
+    ),
+    ),
+    );
+    }).toList(),
+    ]);
+  }
+
+  // ✅ بطاقة "الزبائن" — نفس شكل بطاقات الإجراءات السريعة + شارة إجمالي الدين
+  Widget _buildCustomersQuickAction(bool isDark, Color cardBg) {
+    return StreamBuilder<List<CustomerModel>>(
+      stream: DataService.getCustomersStream(),
+      builder: (context, snapshot) {
+        final totalDebt = (snapshot.data ?? const <CustomerModel>[])
+            .fold<double>(0, (sum, c) => sum + c.balance);
+        return MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTap: () => Navigator.push(
+                context, SlidePageRoute(page: const DebtsScreen())),
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [BoxShadow(
+                    color: Colors.black.withOpacity(isDark ? 0.3 : 0.06),
+                    blurRadius: 8, offset: const Offset(0, 3))],
               ),
+              child: Column(children: [
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Container(
+                      width: 42, height: 42,
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? Colors.white.withOpacity(0.1)
+                            : const Color(0xFFFCE4EC),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Center(
+                          child: Text('👥', style: TextStyle(fontSize: 22))),
+                    ),
+                    if (totalDebt > 0)
+                      Positioned(
+                        top: -4, right: -6,
+                        child: Container(
+                          padding:
+                          const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: cardBg, width: 1.5),
+                          ),
+                          constraints: const BoxConstraints(minWidth: 18),
+                          child: Text(
+                            totalDebt >= 1000
+                                ? '${(totalDebt / 1000).toStringAsFixed(1)}K'
+                                : totalDebt.toStringAsFixed(0),
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 8,
+                                fontWeight: FontWeight.bold),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text('الزبائن',
+                    style: TextStyle(
+                      fontSize: 10, fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                    ), textAlign: TextAlign.center),
+              ]),
             ),
           ),
         );
-      }).toList(),
+      },
     );
   }
 

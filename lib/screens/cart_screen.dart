@@ -9,6 +9,7 @@ import '../services/auth_service.dart';
 import '../services/notification_service.dart';
 import '../services/location_service.dart';
 import '../services/cart_service.dart';
+import '../services/printer_service.dart';
 import 'package:intl/intl.dart';
 
 class CartScreen extends StatefulWidget {
@@ -689,10 +690,18 @@ class _CartScreenState extends State<CartScreen> {
     return true;
   }
 
-  Future<void> _saveOrder() async {
+  Future<void> _saveOrder({bool printThermal = false}) async {
     if (!_validateInputs()) return;
-    final confirmed = await showConfirmDialog();
-    if (!confirmed) return;
+
+    if (printThermal) {
+      if (!PrinterService.isConnected) {
+        _showSnackBar('⚠️ الطابعة الحرارية غير متصلة', Colors.orange);
+        return;
+      }
+    } else {
+      final confirmed = await showConfirmDialog();
+      if (!confirmed) return;
+    }
 
     setState(() => isLoading = true);
 
@@ -726,6 +735,39 @@ class _CartScreenState extends State<CartScreen> {
         userId: currentUser?.id ?? '',
         status: 'pending',
       );
+
+      // ✅ إذا اختار الأدمن "طباعة وتأكيد": نطبع أولاً، وإذا فشلت الطباعة
+      // نوقف العملية بالكامل ولا نحفظ أي شيء — الطباعة الناجحة هي التأكيد.
+      if (printThermal) {
+        double? paidForPrint;
+        double? balanceForPrint;
+        if (_selectedCustomer != null) {
+          final paid = double.tryParse(
+              amountPaidController.text.trim().replaceAll(',', '.')) ??
+              total;
+          final remaining = total - paid;
+          paidForPrint = paid;
+          balanceForPrint = _selectedCustomer!.balance +
+              (remaining > 0 ? remaining : 0);
+        }
+
+        final printed = await PrinterService.printReceipt(
+          order: order,
+          customerName: nameController.text.trim(),
+          customerPhone: phoneController.text.trim(),
+          amountPaid: paidForPrint,
+          customerDebtBalance: balanceForPrint,
+        );
+
+        if (!printed) {
+          if (!mounted) return;
+          setState(() => isLoading = false);
+          _showSnackBar(
+              '❌ فشلت الطباعة — لم تُحفظ الطلبية، حاول مجددًا',
+              Colors.red);
+          return;
+        }
+      }
 
       await DataService.saveOrder(order);
       debugPrint('✅ الطلب محفوظ: $orderId');
@@ -764,7 +806,11 @@ class _CartScreenState extends State<CartScreen> {
       });
 
       if (!mounted) return;
-      _showSnackBar('✅ تم إرسال طلبك بنجاح', const Color(0xFF2E7D32));
+      _showSnackBar(
+          printThermal
+              ? '✅ تمت الطباعة وتأكيد الطلبية بنجاح'
+              : '✅ تم إرسال طلبك بنجاح',
+          const Color(0xFF2E7D32));
       Navigator.pop(context);
     } catch (e) {
       debugPrint('❌ خطأ في _saveOrder: $e');
@@ -1352,6 +1398,40 @@ class _CartScreenState extends State<CartScreen> {
           ),
           const SizedBox(height: 12),
 
+          // ✅ زر الطباعة الحرارية — يطبع الوصل ويؤكد الطلبية تلقائيًا (أدمن فقط)
+          if (widget.isAdmin)
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: isLoading
+                    ? null
+                    : () {
+                  final missingFlavor = widget.cart.any((item) =>
+                  item.product.hasFlavors &&
+                      (item.flavor == null || item.flavor!.isEmpty));
+                  if (missingFlavor) {
+                    _showSnackBar(
+                        'يرجى اختيار الطعم لجميع المنتجات',
+                        Colors.orange);
+                    return;
+                  }
+                  _saveOrder(printThermal: true);
+                },
+                icon: const Icon(Icons.print_rounded,
+                    color: Colors.white),
+                label: const Text('طباعة حرارية وتأكيد',
+                    style: TextStyle(
+                        color: Colors.white, fontSize: 15)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+          const SizedBox(height: 12),
+
           // زر الطباعة (Admin فقط)
           if (widget.isAdmin)
             SizedBox(
@@ -1485,114 +1565,155 @@ class _CartScreenState extends State<CartScreen> {
           : SafeArea(
         child: Container(
           color: cardColor,
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                style: TextStyle(color: textColor),
-                decoration: InputDecoration(
-                  hintText: 'اسم الزبون',
-                  hintStyle: TextStyle(
-                      color: isDark
-                          ? Colors.grey.shade500
-                          : Colors.grey),
-                  filled: true,
-                  fillColor: isDark
-                      ? const Color(0xFF2A2A3E)
-                      : const Color(0xFFF5F5F5),
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none),
-                  prefixIcon: Icon(Icons.person,
-                      color: isDark
-                          ? Colors.green.shade400
-                          : const Color(0xFF2E7D32)),
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: phoneController,
-                keyboardType: TextInputType.phone,
-                style: TextStyle(color: textColor),
-                decoration: InputDecoration(
-                  hintText: 'رقم الهاتف',
-                  hintStyle: TextStyle(
-                      color: isDark
-                          ? Colors.grey.shade500
-                          : Colors.grey),
-                  filled: true,
-                  fillColor: isDark
-                      ? const Color(0xFF2A2A3E)
-                      : const Color(0xFFF5F5F5),
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none),
-                  prefixIcon: Icon(Icons.phone,
-                      color: isDark
-                          ? Colors.green.shade400
-                          : const Color(0xFF2E7D32)),
-                ),
-              ),
-              const SizedBox(height: 8),
-              // ✅ ربط بزبون (اختياري - أدمن فقط)
-              _buildCustomerLinkSection(isDark),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                    color: const Color(0xFFE8F5E9),
-                    borderRadius: BorderRadius.circular(8)),
-                child: Row(
-                  mainAxisAlignment:
-                  MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('المجموع:',
-                        style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16)),
-                    Text(formatPrice(total),
-                        style: const TextStyle(
-                            color: Color(0xFF2E7D32),
-                            fontWeight: FontWeight.bold,
-                            fontSize: 20)),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    final missingFlavor =
-                    widget.cart.any((item) =>
-                    item.product.hasFlavors &&
-                        (item.flavor == null ||
-                            item.flavor!.isEmpty));
-                    if (missingFlavor) {
-                      _showSnackBar(
-                          'يرجى اختيار الطعم لجميع المنتجات',
-                          Colors.orange);
-                      return;
-                    }
-                    _saveOrder();
-                  },
-                  icon: const Icon(Icons.check_circle,
-                      color: Colors.white),
-                  label: const Text('تأكيد الطلبية',
-                      style: TextStyle(
-                          color: Colors.white, fontSize: 16)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF2E7D32),
-                    padding: const EdgeInsets.symmetric(
-                        vertical: 14),
-                    shape: RoundedRectangleBorder(
-                        borderRadius:
-                        BorderRadius.circular(12)),
+          padding: EdgeInsets.fromLTRB(
+              16, 12, 16, 8 + MediaQuery.of(context).viewInsets.bottom),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  style: TextStyle(color: textColor),
+                  decoration: InputDecoration(
+                    hintText: 'اسم الزبون',
+                    hintStyle: TextStyle(
+                        color: isDark
+                            ? Colors.grey.shade500
+                            : Colors.grey),
+                    filled: true,
+                    fillColor: isDark
+                        ? const Color(0xFF2A2A3E)
+                        : const Color(0xFFF5F5F5),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none),
+                    prefixIcon: Icon(Icons.person,
+                        color: isDark
+                            ? Colors.green.shade400
+                            : const Color(0xFF2E7D32)),
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 8),
+                TextField(
+                  controller: phoneController,
+                  keyboardType: TextInputType.phone,
+                  style: TextStyle(color: textColor),
+                  decoration: InputDecoration(
+                    hintText: 'رقم الهاتف',
+                    hintStyle: TextStyle(
+                        color: isDark
+                            ? Colors.grey.shade500
+                            : Colors.grey),
+                    filled: true,
+                    fillColor: isDark
+                        ? const Color(0xFF2A2A3E)
+                        : const Color(0xFFF5F5F5),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none),
+                    prefixIcon: Icon(Icons.phone,
+                        color: isDark
+                            ? Colors.green.shade400
+                            : const Color(0xFF2E7D32)),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                // ✅ ربط بزبون (اختياري - أدمن فقط)
+                _buildCustomerLinkSection(isDark),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                      color: const Color(0xFFE8F5E9),
+                      borderRadius: BorderRadius.circular(8)),
+                  child: Row(
+                    mainAxisAlignment:
+                    MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('المجموع:',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16)),
+                      Text(formatPrice(total),
+                          style: const TextStyle(
+                              color: Color(0xFF2E7D32),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 20)),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      final missingFlavor =
+                      widget.cart.any((item) =>
+                      item.product.hasFlavors &&
+                          (item.flavor == null ||
+                              item.flavor!.isEmpty));
+                      if (missingFlavor) {
+                        _showSnackBar(
+                            'يرجى اختيار الطعم لجميع المنتجات',
+                            Colors.orange);
+                        return;
+                      }
+                      _saveOrder();
+                    },
+                    icon: const Icon(Icons.check_circle,
+                        color: Colors.white),
+                    label: const Text('تأكيد الطلبية',
+                        style: TextStyle(
+                            color: Colors.white, fontSize: 16)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2E7D32),
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 14),
+                      shape: RoundedRectangleBorder(
+                          borderRadius:
+                          BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+                // ✅ زر الطباعة الحرارية — يطبع الوصل ويؤكد الطلبية تلقائيًا (أدمن فقط)
+                if (widget.isAdmin) ...[
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: isLoading
+                          ? null
+                          : () {
+                        final missingFlavor =
+                        widget.cart.any((item) =>
+                        item.product.hasFlavors &&
+                            (item.flavor == null ||
+                                item.flavor!.isEmpty));
+                        if (missingFlavor) {
+                          _showSnackBar(
+                              'يرجى اختيار الطعم لجميع المنتجات',
+                              Colors.orange);
+                          return;
+                        }
+                        _saveOrder(printThermal: true);
+                      },
+                      icon: const Icon(Icons.print_rounded,
+                          color: Colors.white),
+                      label: const Text('طباعة حرارية وتأكيد',
+                          style: TextStyle(
+                              color: Colors.white, fontSize: 15)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 12),
+                        shape: RoundedRectangleBorder(
+                            borderRadius:
+                            BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
         ),
       ),
