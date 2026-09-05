@@ -1,0 +1,7 @@
+[
+  {
+    "origin": ["https://alqanaa.web.app", "https://alqanaa-f16e4.web.app", "https://alqanaa-f16e4.firebaseapp.com", "http://localhost:*"],
+    "method": ["GET"],
+    "maxAgeSeconds": 3600
+  }
+]

@@ -1,0 +1,15 @@
+{
+  "projects": {
+    "default": "alqanaa-f16e4"
+  },
+  "targets": {
+    "alqanaa-f16e4": {
+      "hosting": {
+        "alqanaa": [
+          "alqanaa"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}
