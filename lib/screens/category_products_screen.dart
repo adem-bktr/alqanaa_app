@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+
 import '../models/models.dart';
 import '../services/data_service.dart';
 import '../services/auth_service.dart';
@@ -342,17 +342,20 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen>
                     ClipRRect(
                       borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                       child: product.imagePath.isNotEmpty
-                          ? CachedNetworkImage(
-                        imageUrl: product.imagePath,
+                          ? Image.network(
+                        product.imagePath,
                         fit: BoxFit.cover,
-                        placeholder: (_, __) => Container(
-                          color: const Color(0xFFE8F5E9),
-                          child: const Center(child: CircularProgressIndicator(color: Color(0xFF2E7D32))),
-                        ),
-                        errorWidget: (_, __, ___) => Container(
+                        errorBuilder: (context, error, stackTrace) => Container(
                           color: const Color(0xFFE8F5E9),
                           child: const Icon(Icons.inventory_2, size: 50, color: Color(0xFF2E7D32)),
                         ),
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return Container(
+                            color: const Color(0xFFE8F5E9),
+                            child: const Center(child: CircularProgressIndicator(color: Color(0xFF2E7D32))),
+                          );
+                        },
                       )
                           : Container(
                         color: const Color(0xFFE8F5E9),
@@ -487,11 +490,22 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen>
                   width: 100,
                   height: 100,
                   child: product.imagePath.isNotEmpty
-                      ? CachedNetworkImage(
-                    imageUrl: product.imagePath,
+                      ? Image.network(
+                    product.imagePath,
                     fit: BoxFit.cover,
-                    placeholder: (_, __) => Container(color: const Color(0xFFE8F5E9), child: const Center(child: CircularProgressIndicator(color: Color(0xFF2E7D32)))),
-                    errorWidget: (_, __, ___) => Container(color: const Color(0xFFE8F5E9), child: const Icon(Icons.image, color: Color(0xFF2E7D32))),
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      color: const Color(0xFFE8F5E9),
+                      child: const Icon(Icons.image, color: Color(0xFF2E7D32)),
+                    ),
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return Container(
+                        color: const Color(0xFFE8F5E9),
+                        child: const Center(
+                          child: CircularProgressIndicator(color: Color(0xFF2E7D32)),
+                        ),
+                      );
+                    },
                   )
                       : Container(color: const Color(0xFFE8F5E9), child: const Icon(Icons.inventory_2, color: Color(0xFF2E7D32), size: 40)),
                 ),

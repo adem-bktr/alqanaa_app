@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:badges/badges.dart' as badges;
 import '../models/models.dart';
 import '../services/data_service.dart';
@@ -11,7 +10,6 @@ import 'products_screen.dart';
 import 'cart_screen.dart';
 import 'orders_screen.dart';
 import 'admin_screen.dart';
-import 'stats_screen.dart';
 import 'login_screen.dart';
 import 'user_main_screen.dart';
 import 'printer_screen.dart';
@@ -48,6 +46,10 @@ class _MainScreenState extends State<MainScreen>
   bool isLoading      = true;
   bool isStatsLoading = true;
   int  _currentNavIndex = 0;
+
+  // ✅ Drawer (موبايل فقط) + بيانات الأدمن الحالي
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  UserModel? _adminUser;
 
   late AnimationController _shimmerController;
   late AnimationController _fadeController;
@@ -146,8 +148,18 @@ class _MainScreenState extends State<MainScreen>
   Future<void> _loadAll() async {
     if (!mounted) return;
     setState(() { isLoading = true; isStatsLoading = true; });
-    await Future.wait([_loadBrands(), _loadStats(), _loadRecentOrders()]);
+    await Future.wait(
+        [_loadBrands(), _loadStats(), _loadRecentOrders(), _loadAdminUser()]);
     if (mounted) _fadeController.forward(from: 0);
+  }
+
+  Future<void> _loadAdminUser() async {
+    try {
+      final user = await AuthService.getCurrentUser();
+      if (mounted) setState(() => _adminUser = user);
+    } catch (e) {
+      debugPrint('❌ _loadAdminUser: $e');
+    }
   }
 
   Future<void> _loadBrands() async {
@@ -269,8 +281,7 @@ class _MainScreenState extends State<MainScreen>
       {'icon': Icons.home_rounded,         'label': 'الرئيسية',     'index': 0},
       {'icon': Icons.receipt_long_rounded, 'label': 'الطلبات',      'index': 1},
       {'icon': Icons.store_rounded,        'label': 'المتجر',       'index': 2},
-      {'icon': Icons.bar_chart_rounded,    'label': 'الإحصائيات',   'index': 3},
-      {'icon': Icons.settings_rounded,     'label': 'الإعدادات',    'index': 4},
+      {'icon': Icons.settings_rounded,     'label': 'الإعدادات',    'index': 3},
     ];
 
     return Container(
@@ -467,6 +478,271 @@ class _MainScreenState extends State<MainScreen>
   }
 
   // ══════════════════════════════════
+  //  ✅ Drawer الأدمن (موبايل فقط)
+  // ══════════════════════════════════
+  Widget _buildAdminDrawer(bool isDark) {
+    final cardColor = isDark ? const Color(0xFF1E1E2E) : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final name = _adminUser?.name ?? 'الأدمن';
+    final email = _adminUser?.email ?? '';
+
+    final navItems = [
+      {'icon': Icons.home_rounded, 'label': 'الرئيسية', 'index': 0},
+      {'icon': Icons.receipt_long_rounded, 'label': 'الطلبات', 'index': 1},
+      {'icon': Icons.store_rounded, 'label': 'المتجر', 'index': 2},
+      {'icon': Icons.settings_rounded, 'label': 'الإعدادات', 'index': 3},
+    ];
+
+    return Drawer(
+      backgroundColor: cardColor,
+      child: SafeArea(
+        top: false,
+        child: Column(children: [
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.fromLTRB(
+                20, MediaQuery.of(context).padding.top + 20, 20, 24),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF1B5E20), Color(0xFF2E7D32), Color(0xFF43A047)],
+                begin: Alignment.topLeft, end: Alignment.bottomRight,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 70, height: 70,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2), shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white.withOpacity(0.5), width: 2),
+                  ),
+                  child: Center(
+                    child: Text(
+                      name.isNotEmpty ? name[0].toUpperCase() : 'A',
+                      style: const TextStyle(
+                          color: Colors.white, fontSize: 30, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(name,
+                    style: const TextStyle(
+                        color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                if (email.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(email,
+                      style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 13)),
+                ],
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Text('لوحة الإدارة',
+                      style: TextStyle(
+                          color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              children: [
+                ...navItems.map((item) {
+                  final idx = item['index'] as int;
+                  final isSelected = _currentNavIndex == idx;
+                  return _drawerItem(
+                    icon: item['icon'] as IconData,
+                    label: item['label'] as String,
+                    isDark: isDark,
+                    textColor: textColor,
+                    isSelected: isSelected,
+                    onTap: () {
+                      Navigator.pop(context);
+                      setState(() => _currentNavIndex = idx);
+                    },
+                  );
+                }),
+                Divider(color: isDark ? Colors.grey.shade800 : Colors.grey.shade200, height: 24),
+                _drawerItem(
+                  icon: Icons.shopping_cart_rounded,
+                  label: cart.isEmpty
+                      ? 'السلة'
+                      : 'السلة (${cart.fold(0, (sum, item) => sum + item.quantity)})',
+                  isDark: isDark,
+                  textColor: textColor,
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(context, SlidePageRoute(
+                      page: CartScreen(cart: cart, isAdmin: true),
+                      direction: SlideDirection.fromBottom,
+                    )).then((_) => setState(() {}));
+                  },
+                ),
+                _drawerItem(
+                  icon: Icons.people_alt_rounded,
+                  label: 'الزبائن',
+                  isDark: isDark,
+                  textColor: textColor,
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(context, SlidePageRoute(page: const DebtsScreen()));
+                  },
+                ),
+                _drawerItem(
+                  icon: Icons.print_rounded,
+                  label: 'الطابعة',
+                  isDark: isDark,
+                  textColor: textColor,
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(context, SlidePageRoute(page: const PrinterScreen()))
+                        .then((_) => setState(() {}));
+                  },
+                ),
+                _drawerItem(
+                  icon: Icons.visibility_rounded,
+                  label: 'معاينة كزبون',
+                  isDark: isDark,
+                  textColor: textColor,
+                  onTap: () {
+                    Navigator.pop(context);
+                    _previewAsUser();
+                  },
+                ),
+                Divider(color: isDark ? Colors.grey.shade800 : Colors.grey.shade200, height: 24),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: widget.onToggleDarkMode,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(borderRadius: BorderRadius.circular(12)),
+                        child: Row(children: [
+                          Container(
+                            width: 42, height: 42,
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? Colors.amber.withOpacity(0.15)
+                                  : Colors.indigo.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                                color: isDark ? Colors.amber : Colors.indigo, size: 22),
+                          ),
+                          const SizedBox(width: 14),
+                          Text(isDark ? 'الوضع النهاري' : 'الوضع الليلي',
+                              style: TextStyle(fontSize: 15, color: textColor, fontWeight: FontWeight.w500)),
+                          const Spacer(),
+                          Switch(
+                              value: isDark,
+                              activeColor: Colors.amber,
+                              onChanged: (_) => widget.onToggleDarkMode()),
+                        ]),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(14),
+                onTap: () {
+                  Navigator.pop(context);
+                  _logout();
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.red.withOpacity(0.3)),
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.logout_rounded, color: Colors.red, size: 22),
+                      SizedBox(width: 10),
+                      Text('تسجيل الخروج',
+                          style: TextStyle(
+                              color: Colors.red, fontSize: 15, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  Widget _drawerItem({
+    required IconData icon,
+    required String label,
+    required bool isDark,
+    required Color textColor,
+    required VoidCallback onTap,
+    bool isSelected = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: isSelected ? const Color(0xFF2E7D32).withOpacity(0.12) : Colors.transparent,
+              borderRadius: BorderRadius.circular(12),
+              border: isSelected ? Border.all(color: const Color(0xFF2E7D32).withOpacity(0.3)) : null,
+            ),
+            child: Row(children: [
+              Container(
+                width: 42, height: 42,
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? const Color(0xFF2E7D32).withOpacity(0.15)
+                      : isDark ? Colors.white.withOpacity(0.05) : Colors.grey.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon,
+                    color: isSelected ? const Color(0xFF2E7D32) : textColor.withOpacity(0.7), size: 22),
+              ),
+              const SizedBox(width: 14),
+              Text(label, style: TextStyle(
+                fontSize: 15,
+                color: isSelected ? const Color(0xFF2E7D32) : textColor,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+              )),
+              if (isSelected) ...[
+                const Spacer(),
+                Container(width: 6, height: 6,
+                    decoration: const BoxDecoration(color: Color(0xFF2E7D32), shape: BoxShape.circle)),
+              ],
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ══════════════════════════════════
   //  BUILD
   // ══════════════════════════════════
   @override
@@ -478,7 +754,6 @@ class _MainScreenState extends State<MainScreen>
       _buildDashboard(isDark),
       const OrdersScreen(),
       _buildBrandsTab(isDark),
-      const StatsScreen(),
       const AdminScreen(),
     ];
 
@@ -487,13 +762,22 @@ class _MainScreenState extends State<MainScreen>
       onKeyEvent: _handleKeyEvent,
       autofocus: true,
       child: Scaffold(
+        key: _scaffoldKey,
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        drawer: isDesktop ? null : _buildAdminDrawer(isDark),
 
         appBar: isDesktop ? null : PreferredSize(
           preferredSize: const Size.fromHeight(60),
           child: AppBar(
             backgroundColor: const Color(0xFF2E7D32),
             automaticallyImplyLeading: false,
+            leading: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: IconButton(
+                icon: const Icon(Icons.menu_rounded, color: Colors.white),
+                onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+              ),
+            ),
             title: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -524,45 +808,6 @@ class _MainScreenState extends State<MainScreen>
                 ),
               ],
             ),
-            actions: [
-              MouseRegion(cursor: SystemMouseCursors.click,
-                  child: _AdminAppBarBtn(
-                      icon: widget.isDarkMode ? Icons.light_mode : Icons.dark_mode,
-                      onTap: widget.onToggleDarkMode)),
-              MouseRegion(cursor: SystemMouseCursors.click,
-                child: badges.Badge(
-                  badgeContent: Text('$cartCount',
-                      style: const TextStyle(color: Colors.white, fontSize: 10)),
-                  showBadge: cart.isNotEmpty,
-                  badgeStyle: const badges.BadgeStyle(badgeColor: Colors.red),
-                  child: _AdminAppBarBtn(
-                    icon: Icons.shopping_cart_outlined,
-                    onTap: () => Navigator.push(context, SlidePageRoute(
-                      page: CartScreen(cart: cart, isAdmin: true),
-                      direction: SlideDirection.fromBottom,
-                    )).then((_) => setState(() {})),
-                  ),
-                ),
-              ),
-              MouseRegion(cursor: SystemMouseCursors.click,
-                  child: _AdminAppBarBtn(
-                      icon: Icons.visibility_rounded,
-                      onTap: _previewAsUser,
-                      tooltip: 'معاينة')),
-              MouseRegion(cursor: SystemMouseCursors.click,
-                child: _AdminAppBarBtn(
-                  icon: PrinterService.isConnected
-                      ? Icons.print_rounded
-                      : Icons.print_outlined,
-                  onTap: () => Navigator.push(
-                      context, SlidePageRoute(page: const PrinterScreen()))
-                      .then((_) => setState(() {})),
-                  tooltip: PrinterService.isConnected ? 'الطابعة متصلة' : 'توصيل الطابعة',
-                ),
-              ),
-              MouseRegion(cursor: SystemMouseCursors.click,
-                  child: _AdminAppBarBtn(icon: Icons.logout_rounded, onTap: _logout)),
-            ],
           ),
         ),
 
@@ -581,7 +826,7 @@ class _MainScreenState extends State<MainScreen>
                     child: Row(
                       children: [
                         Text(
-                          ['الرئيسية','الطلبات','المتجر','الإحصائيات','الإعدادات'][_currentNavIndex],
+                          ['الرئيسية','الطلبات','المتجر','الإعدادات'][_currentNavIndex],
                           style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
@@ -674,12 +919,6 @@ class _MainScreenState extends State<MainScreen>
                     color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
                 selectedIcon: const Icon(Icons.store_rounded, color: Color(0xFF2E7D32)),
                 label: 'المتجر',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.bar_chart_outlined,
-                    color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
-                selectedIcon: const Icon(Icons.bar_chart_rounded, color: Color(0xFF2E7D32)),
-                label: 'الإحصائيات',
               ),
               NavigationDestination(
                 icon: Icon(Icons.settings_outlined,
@@ -971,69 +1210,99 @@ class _MainScreenState extends State<MainScreen>
 
   Widget _buildQuickActions(bool isDark, Color cardBg) {
     final actions = [
-      {'icon': '⚙️', 'label': 'إدارة', 'color': const Color(0xFFE8F5E9),
+      {
+        'icon': Icons.settings_rounded,
+        'label': 'إدارة',
+        'subtitle': 'الفئات، المنتجات، الطلبات، الإعلانات',
+        'colors': const [Color(0xFF283593), Color(0xFF3949AB), Color(0xFF5C6BC0)],
         'onTap': () => Navigator.push(
             context, SlidePageRoute(page: const AdminScreen()))
-            .then((_) => _loadAll())},
-      {'icon': '📊', 'label': 'إحصائيات', 'color': const Color(0xFFE3F2FD),
+            .then((_) => _loadAll()),
+      },
+      {
+        'icon': Icons.print_rounded,
+        'label': 'الطابعة',
+        'subtitle': 'ربط وإدارة الطابعة الحرارية',
+        'colors': const [Color(0xFF6A1B9A), Color(0xFF8E24AA), Color(0xFFAB47BC)],
         'onTap': () => Navigator.push(
-            context, SlidePageRoute(page: const StatsScreen()))},
-      {'icon': '🖨️', 'label': 'الطابعة', 'color': const Color(0xFFF3E5F5),
-        'onTap': () => Navigator.push(
-            context, SlidePageRoute(page: const PrinterScreen()))},
-      {'icon': '👁️', 'label': 'معاينة', 'color': const Color(0xFFFFF3E0),
-        'onTap': () => _previewAsUser()},
+            context, SlidePageRoute(page: const PrinterScreen())),
+      },
+      {
+        'icon': Icons.visibility_rounded,
+        'label': 'معاينة',
+        'subtitle': 'شاهد التطبيق كما يراه الزبون',
+        'colors': const [Color(0xFFE65100), Color(0xFFEF6C00), Color(0xFFFF9800)],
+        'onTap': () => _previewAsUser(),
+      },
     ];
 
-    return Row(
-        children: [
+    return Column(
+      children: [
         // ✅ بطاقة "الزبائن" — منفصلة لأنها تعرض شارة إجمالي الدين الحيّة
-        Expanded(child: _buildCustomersQuickAction(isDark, cardBg)),
-    ...actions.map((action) {
-    return Expanded(
-    child: MouseRegion(
-    cursor: SystemMouseCursors.click,
-    child: GestureDetector(
-    onTap: action['onTap'] as VoidCallback,
-    child: Container(
-    margin: const EdgeInsets.symmetric(horizontal: 4),
-    padding: const EdgeInsets.symmetric(vertical: 12),
-    decoration: BoxDecoration(
-    color: cardBg,
-    borderRadius: BorderRadius.circular(14),
-    boxShadow: [BoxShadow(
-    color: Colors.black.withOpacity(isDark ? 0.3 : 0.06),
-    blurRadius: 8, offset: const Offset(0, 3))],
-    ),
-    child: Column(children: [
-    Container(
-    width: 42, height: 42,
-    decoration: BoxDecoration(
-    color: isDark
-    ? Colors.white.withOpacity(0.1)
-        : action['color'] as Color,
-    borderRadius: BorderRadius.circular(12),
-    ),
-    child: Center(
-    child: Text(action['icon'] as String,
-    style: const TextStyle(fontSize: 22))),
-    ),
-    const SizedBox(height: 6),
-    Text(action['label'] as String,
-    style: TextStyle(
-    fontSize: 10, fontWeight: FontWeight.w600,
-    color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-    ), textAlign: TextAlign.center),
-    ]),
-    ),
-    ),
-    ),
+        _buildCustomersQuickAction(isDark, cardBg),
+        const SizedBox(height: 10),
+        ...actions.map((action) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: action['onTap'] as VoidCallback,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: action['colors'] as List<Color>,
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [BoxShadow(
+                        color: (action['colors'] as List<Color>)[1]
+                            .withOpacity(0.35),
+                        blurRadius: 10, offset: const Offset(0, 4))],
+                  ),
+                  child: Row(children: [
+                    Container(
+                      width: 44, height: 44,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(action['icon'] as IconData,
+                          color: Colors.white, size: 24),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(action['label'] as String,
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15)),
+                          const SizedBox(height: 2),
+                          Text(action['subtitle'] as String,
+                              style: const TextStyle(
+                                  color: Colors.white70, fontSize: 11)),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.arrow_forward_ios_rounded,
+                        color: Colors.white70, size: 16),
+                  ]),
+                ),
+              ),
+            ),
+          );
+        }),
+      ],
     );
-    }).toList(),
-    ]);
   }
 
-  // ✅ بطاقة "الزبائن" — نفس شكل بطاقات الإجراءات السريعة + شارة إجمالي الدين
+  // ✅ بطاقة "الزبائن" — نفس أسلوب البطاقات الجديد + شارة إجمالي الدين
   Widget _buildCustomersQuickAction(bool isDark, Color cardBg) {
     return StreamBuilder<List<CustomerModel>>(
       stream: DataService.getCustomersStream(),
@@ -1046,62 +1315,52 @@ class _MainScreenState extends State<MainScreen>
             onTap: () => Navigator.push(
                 context, SlidePageRoute(page: const DebtsScreen())),
             child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-              padding: const EdgeInsets.symmetric(vertical: 12),
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: cardBg,
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: [BoxShadow(
-                    color: Colors.black.withOpacity(isDark ? 0.3 : 0.06),
-                    blurRadius: 8, offset: const Offset(0, 3))],
-              ),
-              child: Column(children: [
-                Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Container(
-                      width: 42, height: 42,
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? Colors.white.withOpacity(0.1)
-                            : const Color(0xFFFCE4EC),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Center(
-                          child: Text('👥', style: TextStyle(fontSize: 22))),
-                    ),
-                    if (totalDebt > 0)
-                      Positioned(
-                        top: -4, right: -6,
-                        child: Container(
-                          padding:
-                          const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.red,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: cardBg, width: 1.5),
-                          ),
-                          constraints: const BoxConstraints(minWidth: 18),
-                          child: Text(
-                            totalDebt >= 1000
-                                ? '${(totalDebt / 1000).toStringAsFixed(1)}K'
-                                : totalDebt.toStringAsFixed(0),
-                            style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 8,
-                                fontWeight: FontWeight.bold),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ),
-                  ],
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFAD1457), Color(0xFFD81B60), Color(0xFFEC407A)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-                const SizedBox(height: 6),
-                Text('الزبائن',
-                    style: TextStyle(
-                      fontSize: 10, fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-                    ), textAlign: TextAlign.center),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [BoxShadow(
+                    color: const Color(0xFFD81B60).withOpacity(0.35),
+                    blurRadius: 10, offset: const Offset(0, 4))],
+              ),
+              child: Row(children: [
+                Container(
+                  width: 44, height: 44,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.people_alt_rounded,
+                      color: Colors.white, size: 24),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('الزبائن',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15)),
+                      const SizedBox(height: 2),
+                      Text(
+                        totalDebt > 0
+                            ? 'إجمالي الدين: ${totalDebt.toStringAsFixed(0)} DA'
+                            : 'دليل الزبائن وسجل الديون',
+                        style: const TextStyle(
+                            color: Colors.white70, fontSize: 11),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.arrow_forward_ios_rounded,
+                    color: Colors.white70, size: 16),
               ]),
             ),
           ),
@@ -1489,13 +1748,22 @@ class _AnimatedBrandCardState extends State<_AnimatedBrandCard> {
                 widget.brand.logoPath.isNotEmpty
                     ? ClipRRect(
                   borderRadius: BorderRadius.circular(10),
-                  child: CachedNetworkImage(
-                    imageUrl: widget.brand.logoPath,
-                    width: 52, height: 52, fit: BoxFit.cover,
-                    errorWidget: (_, __, ___) => Icon(Icons.store, size: 28,
+                  child: Image.network(
+                    widget.brand.logoPath,
+                    width: 52,
+                    height: 52,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Icon(Icons.store, size: 28,
                         color: widget.isDark
                             ? Colors.green.shade400
                             : const Color(0xFF2E7D32)),
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return const Center(
+                        child: CircularProgressIndicator(
+                            color: Color(0xFF2E7D32), strokeWidth: 2),
+                      );
+                    },
                   ),
                 )
                     : Icon(Icons.store, size: 28,

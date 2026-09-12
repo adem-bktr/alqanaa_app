@@ -65,6 +65,7 @@ class _DebtsScreenState extends State<DebtsScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
+              style: const TextStyle(color: Colors.black87),
               controller: nameCtrl,
               autofocus: true,
               decoration: InputDecoration(
@@ -81,6 +82,7 @@ class _DebtsScreenState extends State<DebtsScreen> {
             ),
             const SizedBox(height: 10),
             TextField(
+              style: const TextStyle(color: Colors.black87),
               controller: phoneCtrl,
               keyboardType: TextInputType.phone,
               decoration: InputDecoration(
@@ -97,6 +99,7 @@ class _DebtsScreenState extends State<DebtsScreen> {
             ),
             const SizedBox(height: 10),
             TextField(
+              style: const TextStyle(color: Colors.black87),
               controller: addressCtrl,
               decoration: InputDecoration(
                 hintText: 'العنوان (اختياري)',
@@ -463,6 +466,7 @@ class _CustomerDebtScreenState extends State<CustomerDebtScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
+              style: const TextStyle(color: Colors.black87),
               controller: amountCtrl,
               autofocus: true,
               keyboardType:
@@ -480,6 +484,7 @@ class _CustomerDebtScreenState extends State<CustomerDebtScreen> {
             ),
             const SizedBox(height: 10),
             TextField(
+              style: const TextStyle(color: Colors.black87),
               controller: noteCtrl,
               decoration: InputDecoration(
                 hintText: 'ملاحظة (اختياري)',
@@ -556,6 +561,7 @@ class _CustomerDebtScreenState extends State<CustomerDebtScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
+              style: const TextStyle(color: Colors.black87),
               controller: nameCtrl,
               decoration: InputDecoration(
                 hintText: 'اسم الزبون',
@@ -569,6 +575,7 @@ class _CustomerDebtScreenState extends State<CustomerDebtScreen> {
             ),
             const SizedBox(height: 10),
             TextField(
+              style: const TextStyle(color: Colors.black87),
               controller: phoneCtrl,
               keyboardType: TextInputType.phone,
               decoration: InputDecoration(
@@ -583,6 +590,7 @@ class _CustomerDebtScreenState extends State<CustomerDebtScreen> {
             ),
             const SizedBox(height: 10),
             TextField(
+              style: const TextStyle(color: Colors.black87),
               controller: addressCtrl,
               decoration: InputDecoration(
                 hintText: 'العنوان (اختياري)',

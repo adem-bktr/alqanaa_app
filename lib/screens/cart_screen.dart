@@ -122,6 +122,7 @@ class _CartScreenState extends State<CartScreen> {
                 style: const TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             TextField(
+              style: const TextStyle(color: Colors.black87),
               controller: priceController,
               keyboardType:
               const TextInputType.numberWithOptions(decimal: true),
@@ -191,6 +192,7 @@ class _CartScreenState extends State<CartScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
+              style: const TextStyle(color: Colors.black87),
               controller: nameCtrl,
               decoration: InputDecoration(
                 hintText: 'اسم الزبون',
@@ -204,6 +206,7 @@ class _CartScreenState extends State<CartScreen> {
             ),
             const SizedBox(height: 10),
             TextField(
+              style: const TextStyle(color: Colors.black87),
               controller: phoneCtrl,
               keyboardType: TextInputType.phone,
               decoration: InputDecoration(
@@ -273,6 +276,7 @@ class _CartScreenState extends State<CartScreen> {
             child: Column(
               children: [
                 TextField(
+                  style: const TextStyle(color: Colors.black87),
                   decoration: InputDecoration(
                     hintText: 'ابحث بالاسم أو الهاتف...',
                     prefixIcon: const Icon(Icons.search),
@@ -453,6 +457,7 @@ class _CartScreenState extends State<CartScreen> {
             ),
           const SizedBox(height: 8),
           TextField(
+            style: const TextStyle(color: Colors.black87),
             controller: amountPaidController,
             keyboardType:
             const TextInputType.numberWithOptions(decimal: true),

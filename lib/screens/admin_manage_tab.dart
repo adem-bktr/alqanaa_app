@@ -4,6 +4,68 @@ part of 'admin_screen.dart';
 //    تبويب: إدارة (الطلبات، الإعلانات، التعديل/الحذف)
 // ══════════════════════════════════
 extension AdminManageTabX on _AdminScreenState {
+  // ✅ بطاقة دخول سريع لشاشة الإحصائيات (بعد نقلها جوا "إدارة")
+  Widget _buildStatsEntryCard(bool isDark) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () => Navigator.push(
+            context, MaterialPageRoute(builder: (_) => const StatsScreen())),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF1B5E20), Color(0xFF2E7D32), Color(0xFF43A047)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                  color: const Color(0xFF2E7D32).withOpacity(0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4)),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.bar_chart_rounded,
+                    color: Colors.white, size: 24),
+              ),
+              const SizedBox(width: 14),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('الإحصائيات',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15)),
+                    SizedBox(height: 2),
+                    Text('المبيعات، أكثر المنتجات مبيعًا، التقارير',
+                        style: TextStyle(color: Colors.white70, fontSize: 11)),
+                  ],
+                ),
+              ),
+              const Icon(Icons.arrow_forward_ios_rounded,
+                  color: Colors.white70, size: 16),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+
   Widget _buildManageTab(bool isDark) {
     final fillColor =
     isDark ? const Color(0xFF2A2A3E) : const Color(0xFFF5F5F5);
@@ -18,7 +80,10 @@ extension AdminManageTabX on _AdminScreenState {
               child: Column(
                 children: [
                   _SectionAnimator(
-                      delay: 0, child: _buildOrdersCard(isDark)),
+                      delay: 0, child: _buildStatsEntryCard(isDark)),
+                  const SizedBox(height: 16),
+                  _SectionAnimator(
+                      delay: 20, child: _buildOrdersCard(isDark)),
                   const SizedBox(height: 16),
                   _SectionAnimator(
                     delay: 100,
@@ -81,7 +146,9 @@ extension AdminManageTabX on _AdminScreenState {
       padding: const EdgeInsets.all(12),
       child: Column(
         children: [
-          _SectionAnimator(delay: 0, child: _buildOrdersCard(isDark)),
+          _SectionAnimator(delay: 0, child: _buildStatsEntryCard(isDark)),
+          const SizedBox(height: 12),
+          _SectionAnimator(delay: 20, child: _buildOrdersCard(isDark)),
           const SizedBox(height: 12),
           _SectionAnimator(
             delay: 100,

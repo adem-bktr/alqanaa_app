@@ -90,10 +90,31 @@ class _AlqanaaAppState extends State<AlqanaaApp> {
       themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
       theme: _lightTheme(),
       darkTheme: _darkTheme(),
-      // ✅ navigatorKey يمنع إعادة بناء الشاشة الحالية عند setState
       navigatorKey: _navigatorKey,
-      // ✅ home ثابت لا يتغير — الشاشة الأولى محددة في initState
-      home: _initialScreen,
+      // استخدام home مباشرة مع الفحص يضمن استقرار التنقل عند التحديث
+      home: _getInitialScreen(),
+    );
+  }
+
+  Widget _getInitialScreen() {
+    if (!widget.onboardingDone) {
+      return OnboardingScreen(
+        onToggleDarkMode: _toggleDarkMode,
+        isDarkMode: isDarkMode,
+      );
+    }
+    
+    final firebaseUser = FirebaseAuth.instance.currentUser;
+    if (firebaseUser == null) {
+      return LoginScreen(
+        onToggleDarkMode: _toggleDarkMode,
+        isDarkMode: isDarkMode,
+      );
+    }
+    
+    return SplashScreen(
+      onToggleDarkMode: _toggleDarkMode,
+      isDarkMode: isDarkMode,
     );
   }
 

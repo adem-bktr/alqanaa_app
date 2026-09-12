@@ -1,10 +1,13 @@
-import 'dart:io';
+import 'dart:io' show File;
+import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:image_picker/image_picker.dart' show XFile;
+import 'package:http/http.dart' as http;
 
 import '../models/models.dart' as app_models;
 
@@ -45,23 +48,57 @@ class DataService {
   //   📷 الصور
   // ══════════════════════════════════════════════════════
   static Future<String> uploadImage(String filePath, String folder) async {
+    if (filePath.isEmpty) return '';
     try {
-      final file = File(filePath);
-      if (!await file.exists()) {
-        debugPrint('⚠️ الملف غير موجود: $filePath');
-        return '';
-      }
+      debugPrint('🚀 بدء رفع الصورة: $filePath في مجلد $folder');
       final name = DateTime.now().millisecondsSinceEpoch.toString();
       final ref = _storage.ref().child('$folder/$name.jpg');
-      await ref.putFile(
-        file,
-        SettableMetadata(contentType: 'image/jpeg'),
-      );
-      final url = await ref.getDownloadURL();
-      debugPrint('📤 تم رفع الصورة: $url');
-      return url;
+      final metadata = SettableMetadata(contentType: 'image/jpeg');
+
+      if (kIsWeb) {
+        debugPrint('🌐 استخدام وضع الويب للرفع...');
+        Uint8List? bytes;
+        try {
+          final xFile = XFile(filePath);
+          bytes = await xFile.readAsBytes();
+          debugPrint('✅ تم قراءة البيانات باستخدام XFile (${bytes.length} bytes)');
+        } catch (e) {
+          debugPrint('⚠️ XFile failed: $e. Trying fetch/http...');
+          try {
+            final response = await http.get(Uri.parse(filePath));
+            bytes = response.bodyBytes;
+            debugPrint('✅ تم قراءة البيانات باستخدام http.get (${bytes.length} bytes)');
+          } catch (e2) {
+            debugPrint('❌ فشل كلي في قراءة بيانات الصورة على الويب: $e2');
+            return '';
+          }
+        }
+        
+        if (bytes != null && bytes.isNotEmpty) {
+          final uploadTask = ref.putData(bytes, metadata);
+          final snapshot = await uploadTask;
+          final url = await snapshot.ref.getDownloadURL();
+          debugPrint('📤 تم الرفع بنجاح (ويب): $url');
+          return url;
+        } else {
+          debugPrint('❌ بيانات الصورة فارغة');
+          return '';
+        }
+      } else {
+        debugPrint('📱 استخدام وضع الهاتف للرفع...');
+        final file = File(filePath);
+        if (!await file.exists()) {
+          debugPrint('⚠️ الملف غير موجود محلياً: $filePath');
+          return '';
+        }
+        final uploadTask = ref.putFile(file, metadata);
+        final snapshot = await uploadTask;
+        final url = await snapshot.ref.getDownloadURL();
+        debugPrint('📤 تم الرفع بنجاح (هاتف): $url');
+        return url;
+      }
     } catch (e) {
-      debugPrint('❌ uploadImage: $e');
+      debugPrint('❌ خطأ حرج في uploadImage: $e');
       return '';
     }
   }

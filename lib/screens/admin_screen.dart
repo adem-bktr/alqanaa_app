@@ -1,4 +1,5 @@
-import 'dart:io';
+import 'dart:io' show File;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
@@ -6,6 +7,7 @@ import '../models/models.dart';
 import '../services/auth_service.dart';
 import '../services/data_service.dart';
 import '../services/printer_service.dart';
+import 'stats_screen.dart';
 
 part 'admin_manage_tab.dart';
 part 'admin_users_tab.dart';
@@ -540,6 +542,10 @@ class _AdminScreenState extends State<AdminScreen>
       final picked =
       await picker.pickImage(source: source, imageQuality: 85);
       if (picked == null) return null;
+
+      // ✅ في الويب، نتجاوز عملية القص لضمان عمل الإضافة بدون تعليق
+      if (kIsWeb) return picked.path;
+
       final cropped = await ImageCropper().cropImage(
         sourcePath: picked.path,
         compressQuality: 85,
@@ -614,13 +620,18 @@ class _AdminScreenState extends State<AdminScreen>
     }
     setState(() => isLoadingBrand = true);
     try {
+      debugPrint('🔨 بدء عملية إضافة العلامة: ${brandNameController.text}');
       final brand = Brand(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         name: brandNameController.text.trim(),
         logoPath: '',
         categoryId: selectedCategoryForBrand?.id ?? '',
       );
+      
+      debugPrint('📸 رفع الصورة للعلامة...');
       await DataService.saveBrand(brand, logoPath: brandLogoPath);
+      
+      debugPrint('✅ تم حفظ العلامة في Firestore');
       brandNameController.clear();
       setState(() {
         brandLogoPath = null;
@@ -631,6 +642,7 @@ class _AdminScreenState extends State<AdminScreen>
       _showSnackBar(
           '✅ ${brand.name} تم الإضافة', const Color(0xFF2E7D32));
     } catch (e) {
+      debugPrint('❌ خطأ في addBrand: $e');
       if (mounted) setState(() => isLoadingBrand = false);
       _showSnackBar('فشل إضافة العلامة: $e', Colors.red);
     }
@@ -644,6 +656,7 @@ class _AdminScreenState extends State<AdminScreen>
     }
     setState(() => isLoadingProduct = true);
     try {
+      debugPrint('🔨 بدء عملية إضافة المنتج: ${productNameController.text}');
       final product = Product(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         brandId: selectedBrand!.id,
@@ -665,7 +678,11 @@ class _AdminScreenState extends State<AdminScreen>
         int.tryParse(maxQtySpecialController.text) ?? 0,
         flavors: newProductFlavors,
       );
+      
+      debugPrint('📸 رفع الصورة للمنتج...');
       await DataService.saveProduct(product, imagePath: productImagePath);
+      
+      debugPrint('✅ تم حفظ المنتج في Firestore');
       productNameController.clear();
       cartonNormalController.clear();
       unitNormalController.clear();
@@ -688,6 +705,7 @@ class _AdminScreenState extends State<AdminScreen>
       _showSnackBar(
           '✅ ${product.name} تم الإضافة', const Color(0xFF2E7D32));
     } catch (e) {
+      debugPrint('❌ خطأ في addProduct: $e');
       if (mounted) setState(() => isLoadingProduct = false);
       _showSnackBar('فشل إضافة المنتج: $e', Colors.red);
     }
@@ -893,8 +911,9 @@ class _AdminScreenState extends State<AdminScreen>
                     child: newLogoPath != null
                         ? ClipRRect(
                       borderRadius: BorderRadius.circular(12),
-                      child: Image.file(File(newLogoPath!),
-                          fit: BoxFit.cover),
+                      child: kIsWeb
+                          ? Image.network(newLogoPath!, fit: BoxFit.cover)
+                          : Image.file(File(newLogoPath!), fit: BoxFit.cover),
                     )
                         : const Icon(Icons.add_a_photo,
                         color: Color(0xFF2E7D32), size: 35),
@@ -906,10 +925,12 @@ class _AdminScreenState extends State<AdminScreen>
                 DropdownButtonFormField<Category>(
                   value: _safeCategoryValue(selectedCat),
                   hint: const Text('اختر الفئة'),
+                  style: const TextStyle(color: Colors.black87),
                   items: categories
                       .map((c) => DropdownMenuItem(
                       value: c,
-                      child: Text('${c.icon} ${c.name}')))
+                      child: Text('${c.icon} ${c.name}',
+                          style: const TextStyle(color: Colors.black87))))
                       .toList(),
                   onChanged: (v) => setSt(() => selectedCat = v),
                   decoration: InputDecoration(
@@ -1013,8 +1034,9 @@ class _AdminScreenState extends State<AdminScreen>
                           ? ClipRRect(
                           borderRadius:
                           BorderRadius.circular(12),
-                          child: Image.file(File(newImagePath!),
-                              fit: BoxFit.cover))
+                          child: kIsWeb
+                              ? Image.network(newImagePath!, fit: BoxFit.cover)
+                              : Image.file(File(newImagePath!), fit: BoxFit.cover))
                           : const Icon(Icons.add_a_photo,
                           color: Color(0xFF2E7D32), size: 35),
                     ),
@@ -1026,10 +1048,12 @@ class _AdminScreenState extends State<AdminScreen>
                 DropdownButtonFormField<Category>(
                   value: _safeCategoryValue(editCategory),
                   hint: const Text('اختر الفئة'),
+                  style: const TextStyle(color: Colors.black87),
                   items: categories
                       .map((c) => DropdownMenuItem(
                       value: c,
-                      child: Text('${c.icon} ${c.name}')))
+                      child: Text('${c.icon} ${c.name}',
+                          style: const TextStyle(color: Colors.black87))))
                       .toList(),
                   onChanged: (v) => setSt(() => editCategory = v),
                   decoration: InputDecoration(
@@ -1535,38 +1559,48 @@ class _AdminScreenState extends State<AdminScreen>
       return _buildPasswordGate(isDark);
     }
 
-    // ✅ Desktop: بدون Scaffold
-    if (isDesktop) {
-      return _isLoading
-          ? _buildShimmerLoading(isDark)
-          : FadeTransition(
-        opacity: _fadeAnimation,
-        child: Row(
-          children: [
-            _buildDesktopSidebar(isDark),
-            Expanded(
-              child: Column(
-                children: [
-                  _buildDesktopTopBar(isDark),
-                  Expanded(
-                    child: IndexedStack(
-                      index: _currentTab,
-                      children: [
-                        _buildAddTab(isDark),
-                        _buildManageTab(isDark),
-                        _buildUsersTab(isDark),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
-    }
+    // ✅ حماية الشاشة من الخروج المفاجئ (الرجوع للخلف) المسبب للشاشة البيضاء
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        // منطق إضافي للرجوع في الأدمين إذا لزم الأمر
+      },
+      child: isDesktop ? _buildDesktopLayout(isDark) : _buildMobileLayout(isDark),
+    );
+  }
 
-    // ✅ Mobile: Scaffold كامل
+  Widget _buildDesktopLayout(bool isDark) {
+    return _isLoading
+        ? _buildShimmerLoading(isDark)
+        : FadeTransition(
+      opacity: _fadeAnimation,
+      child: Row(
+        children: [
+          _buildDesktopSidebar(isDark),
+          Expanded(
+            child: Column(
+              children: [
+                _buildDesktopTopBar(isDark),
+                Expanded(
+                  child: IndexedStack(
+                    index: _currentTab,
+                    children: [
+                      _buildAddTab(isDark),
+                      _buildManageTab(isDark),
+                      _buildUsersTab(isDark),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMobileLayout(bool isDark) {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
@@ -2481,6 +2515,7 @@ class _AdminScreenState extends State<AdminScreen>
                 children: [
                   Expanded(
                     child: TextField(
+                      style: const TextStyle(color: Colors.black87),
                       controller: cartonSpecialController,
                       keyboardType: TextInputType.number,
                       decoration: InputDecoration(
@@ -2497,6 +2532,7 @@ class _AdminScreenState extends State<AdminScreen>
                   const SizedBox(width: 8),
                   Expanded(
                     child: TextField(
+                      style: const TextStyle(color: Colors.black87),
                       controller: unitSpecialController,
                       keyboardType: TextInputType.number,
                       decoration: InputDecoration(
@@ -2532,6 +2568,7 @@ class _AdminScreenState extends State<AdminScreen>
                   TextStyle(color: Colors.grey, fontSize: 11)),
               const SizedBox(height: 8),
               TextField(
+                style: const TextStyle(color: Colors.black87),
                 controller: discountController,
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(
@@ -2578,6 +2615,7 @@ class _AdminScreenState extends State<AdminScreen>
                                 fontWeight: FontWeight.bold)),
                         const SizedBox(height: 4),
                         TextField(
+                          style: const TextStyle(color: Colors.black87),
                           controller: maxQtyNormalController,
                           keyboardType: TextInputType.number,
                           decoration: InputDecoration(
@@ -2606,6 +2644,7 @@ class _AdminScreenState extends State<AdminScreen>
                                 fontWeight: FontWeight.bold)),
                         const SizedBox(height: 4),
                         TextField(
+                          style: const TextStyle(color: Colors.black87),
                           controller: maxQtySpecialController,
                           keyboardType: TextInputType.number,
                           decoration: InputDecoration(
@@ -2686,8 +2725,9 @@ class _AdminScreenState extends State<AdminScreen>
             child: bannerImagePath != null
                 ? ClipRRect(
                 borderRadius: BorderRadius.circular(14),
-                child: Image.file(File(bannerImagePath!),
-                    fit: BoxFit.cover))
+                child: kIsWeb
+                    ? Image.network(bannerImagePath!, fit: BoxFit.cover)
+                    : Image.file(File(bannerImagePath!), fit: BoxFit.cover))
                 : Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -2812,6 +2852,7 @@ class _AdminScreenState extends State<AdminScreen>
             children: [
               Expanded(
                 child: TextField(
+                  style: const TextStyle(color: Colors.black87),
                   controller: controller,
                   decoration: InputDecoration(
                     hintText: 'مثال: شوكولا، فانيلا...',
@@ -3019,6 +3060,7 @@ class _AdminScreenState extends State<AdminScreen>
     return TextField(
       controller: ctrl,
       keyboardType: type,
+      style: const TextStyle(color: Colors.black87),
       decoration: InputDecoration(
         hintText: hint,
         filled: true,
@@ -3107,8 +3149,9 @@ class _AdminScreenState extends State<AdminScreen>
       child: imagePath != null
           ? ClipRRect(
           borderRadius: BorderRadius.circular(14),
-          child:
-          Image.file(File(imagePath), fit: BoxFit.cover))
+          child: kIsWeb
+              ? Image.network(imagePath, fit: BoxFit.cover)
+              : Image.file(File(imagePath), fit: BoxFit.cover))
           : const Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [

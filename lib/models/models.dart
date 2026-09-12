@@ -53,8 +53,44 @@ String _p2(int n) => n.toString().padLeft(2, '0');
 String fmtDate(DateTime d) =>
     '${_p2(d.day)}/${_p2(d.month)}/${d.year} - ${_p2(d.hour)}:${_p2(d.minute)}';
 
+/// ✅ خريطة الأيقونات المسموح بها (لحل مشكلة Tree Shaking)
+const Map<int, IconData> _allowedIcons = {
+  0xe3c8: Icons.local_offer,
+  0xe88a: Icons.home,
+  0xe8cc: Icons.shopping_cart,
+  0xe8b6: Icons.search,
+  0xef6e: Icons.person,
+  0xe5d2: Icons.menu,
+  0xe145: Icons.add,
+  0xe872: Icons.delete,
+  0xe3b7: Icons.edit,
+  0xe5ca: Icons.check,
+  0xe5cd: Icons.close,
+  0xe5c4: Icons.arrow_back,
+  0xe5c8: Icons.arrow_forward,
+  0xe0b0: Icons.phone,
+  0xe0c9: Icons.message,
+  0xe85d: Icons.event,
+  0xe8d1: Icons.store,
+  0xe551: Icons.restaurant,
+  0xe52e: Icons.local_shipping,
+  0xe227: Icons.attach_money,
+  0xef44: Icons.category,
+  0xe85e: Icons.favorite,
+  0xe87d: Icons.favorite_border,
+  0xe838: Icons.star,
+  0xe83a: Icons.star_border,
+};
+
 IconData _iconFromCodePoint(int codePoint, String? fontFamily) {
-  return IconData(codePoint, fontFamily: fontFamily ?? 'MaterialIcons');
+  // البحث في الخريطة أولاً
+  if (_allowedIcons.containsKey(codePoint)) {
+    return _allowedIcons[codePoint]!;
+  }
+  
+  // إذا لم توجد في الخريطة، نستخدم أيقونة افتراضية آمنة
+  // هذا يمنع تعطل البناء (Build) لأننا نرجع قيمة ثابتة في كل الحالات
+  return Icons.help_outline;
 }
 
 // ══════════════════════════════════════════════════════════

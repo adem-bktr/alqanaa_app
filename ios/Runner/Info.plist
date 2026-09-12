@@ -66,5 +66,22 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>نحتاج للوصول لموقعك لتحديد عنوان التوصيل بدقة.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>نحتاج للوصول لموقعك لتحديد عنوان التوصيل بدقة.</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>نحتاج للبلوتوث للاتصال بالطابعة الحرارية وطباعة الفواتير.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>نحتاج للبلوتوث للاتصال بالطابعة الحرارية وطباعة الفواتير.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>نحتاج للكاميرا لتصوير المنتجات أو مسح الكود.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>نحتاج للوصول للصور لاختيار صور للمنتجات.</string>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>sms</string>
+		<string>tel</string>
+	</array>
 </dict>
 </plist>

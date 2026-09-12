@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+
 import 'package:badges/badges.dart' as badges;
 import 'package:url_launcher/url_launcher.dart';
 import '../models/models.dart';
@@ -707,11 +707,17 @@ class _UserMainScreenState extends State<UserMainScreen>
                 borderRadius: BorderRadius.circular(20),
                 child: Stack(children: [
                   if (banner.imageUrl.isNotEmpty)
-                    CachedNetworkImage(
-                      imageUrl: banner.imageUrl, width: double.infinity, height: double.infinity,
+                    Image.network(
+                      banner.imageUrl,
+                      width: double.infinity,
+                      height: double.infinity,
                       fit: BoxFit.cover,
-                      placeholder: (_, __) => _buildBannerBg(banner),
-                      errorWidget: (_, __, ___) => _buildBannerBg(banner),
+                      gaplessPlayback: true, // يمنع الوميض عند الانتقال
+                      errorBuilder: (_, __, ___) => _buildBannerBg(banner),
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return _buildBannerBg(banner);
+                      },
                     )
                   else _buildBannerBg(banner),
                   Container(
@@ -1179,12 +1185,21 @@ class _UserMainScreenState extends State<UserMainScreen>
     final cartCount = cart.fold(0, (sum, item) => sum + item.quantity);
 
     // ✅ KeyboardListener يغلف كل الشاشة
-    return KeyboardListener(
-      focusNode: _keyboardFocusNode,
-      onKeyEvent: _handleKeyEvent,
-      autofocus: true,
-      child: Scaffold(
-        key: _scaffoldKey,
+    return PopScope(
+      canPop: false, // يمنع الرجوع للخلف الذي قد يسبب شاشة بيضاء في الويب
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        // هنا يمكنك إضافة منطق معين عند محاولة الرجوع، مثلا إغلاق الدرج إذا كان مفتوحا
+        if (_scaffoldKey.currentState?.isDrawerOpen ?? false) {
+          _scaffoldKey.currentState?.closeDrawer();
+        }
+      },
+      child: KeyboardListener(
+        focusNode: _keyboardFocusNode,
+        onKeyEvent: _handleKeyEvent,
+        autofocus: true,
+        child: Scaffold(
+          key: _scaffoldKey,
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         drawer: _buildDrawer(isDark),
         appBar: PreferredSize(
@@ -1368,8 +1383,9 @@ class _UserMainScreenState extends State<UserMainScreen>
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildShimmerLoading(bool isDark) {
     final baseColor      = isDark ? const Color(0xFF2A2A3E) : Colors.grey.shade200;
@@ -1533,16 +1549,24 @@ class _ProductMiniCardState extends State<_ProductMiniCard> {
                       fit: StackFit.expand,
                       children: [
                         widget.product.imagePath.isNotEmpty
-                            ? CachedNetworkImage(
-                          imageUrl: widget.product.imagePath, fit: BoxFit.cover,
-                          placeholder: (_, __) => Container(
+                            ? Image.network(
+                          widget.product.imagePath,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => Container(
+                            color: const Color(0xFFE8F5E9),
+                            child: const Icon(Icons.inventory_2_rounded,
+                                color: Color(0xFF2E7D32), size: 32),
+                          ),
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Container(
                               color: const Color(0xFFE8F5E9),
-                              child: const Center(child: CircularProgressIndicator(
-                                  color: Color(0xFF2E7D32), strokeWidth: 2))),
-                          errorWidget: (_, __, ___) => Container(
-                              color: const Color(0xFFE8F5E9),
-                              child: const Icon(Icons.inventory_2_rounded,
-                                  color: Color(0xFF2E7D32), size: 32)),
+                              child: const Center(
+                                child: CircularProgressIndicator(
+                                    color: Color(0xFF2E7D32), strokeWidth: 2),
+                              ),
+                            );
+                          },
                         )
                             : Container(
                             color: const Color(0xFFE8F5E9),
@@ -1717,10 +1741,20 @@ class _AnimatedBrandCardState extends State<_AnimatedBrandCard> {
                 widget.brand.logoPath.isNotEmpty
                     ? ClipRRect(
                   borderRadius: BorderRadius.circular(12),
-                  child: CachedNetworkImage(
-                    imageUrl: widget.brand.logoPath, width: 56, height: 56, fit: BoxFit.cover,
-                    errorWidget: (_, __, ___) =>
+                  child: Image.network(
+                    widget.brand.logoPath,
+                    width: 56,
+                    height: 56,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) =>
                     const Icon(Icons.store_rounded, size: 32, color: Color(0xFF2E7D32)),
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return const Center(
+                        child: CircularProgressIndicator(
+                            color: Color(0xFF2E7D32), strokeWidth: 2),
+                      );
+                    },
                   ),
                 )
                     : const Icon(Icons.store_rounded, size: 32, color: Color(0xFF2E7D32)),

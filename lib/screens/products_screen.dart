@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+
 import '../models/models.dart';
 import '../services/data_service.dart';
 import '../services/auth_service.dart';
@@ -1010,25 +1010,27 @@ class _AnimatedProductCardState extends State<_AnimatedProductCard>
                         borderRadius: const BorderRadius.vertical(
                             top: Radius.circular(16)),
                         child: widget.product.imagePath.isNotEmpty
-                            ? CachedNetworkImage(
-                          imageUrl: widget.product.imagePath,
+                            ? Image.network(
+                          widget.product.imagePath,
                           fit: BoxFit.cover,
-                          httpHeaders: const {
-                            'Access-Control-Allow-Origin': '*'
-                          },
-                          placeholder: (_, __) => Container(
-                            color: const Color(0xFFE8F5E9),
-                            child: const Center(
-                              child: CircularProgressIndicator(
-                                  color: Color(0xFF2E7D32)),
-                            ),
-                          ),
-                          errorWidget: (_, __, ___) => Container(
+                          gaplessPlayback: true,
+                          cacheWidth: 400, // تحسين الأداء بتحديد حجم الذاكرة
+                          errorBuilder: (context, error, stackTrace) => Container(
                             color: const Color(0xFFE8F5E9),
                             child: const Icon(Icons.image,
                                 size: 50,
                                 color: Color(0xFF2E7D32)),
                           ),
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Container(
+                              color: const Color(0xFFE8F5E9),
+                              child: const Center(
+                                child: CircularProgressIndicator(
+                                    color: Color(0xFF2E7D32)),
+                              ),
+                            );
+                          },
                         )
                             : Container(
                           color: const Color(0xFFE8F5E9),
@@ -1303,23 +1305,26 @@ class _AnimatedProductListItemState
                     width: 100,
                     height: 100,
                     child: widget.product.imagePath.isNotEmpty
-                        ? CachedNetworkImage(
-                      imageUrl: widget.product.imagePath,
+                        ? Image.network(
+                      widget.product.imagePath,
                       fit: BoxFit.cover,
-                      httpHeaders: const {
-                        'Access-Control-Allow-Origin': '*'
-                      },
-                      placeholder: (_, __) => Container(
-                        color: const Color(0xFFE8F5E9),
-                        child: const Center(
-                            child: CircularProgressIndicator(
-                                color: Color(0xFF2E7D32))),
-                      ),
-                      errorWidget: (_, __, ___) => Container(
+                      gaplessPlayback: true,
+                      cacheWidth: 300,
+                      errorBuilder: (context, error, stackTrace) => Container(
                         color: const Color(0xFFE8F5E9),
                         child: const Icon(Icons.image,
                             color: Color(0xFF2E7D32)),
                       ),
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Container(
+                          color: const Color(0xFFE8F5E9),
+                          child: const Center(
+                            child: CircularProgressIndicator(
+                                color: Color(0xFF2E7D32)),
+                          ),
+                        );
+                      },
                     )
                         : Container(
                       color: const Color(0xFFE8F5E9),
