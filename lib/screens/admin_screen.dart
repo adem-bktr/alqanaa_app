@@ -539,8 +539,11 @@ class _AdminScreenState extends State<AdminScreen>
         ),
       );
       if (source == null) return null;
-      final picked =
-      await picker.pickImage(source: source, imageQuality: 85);
+      final picked = await picker.pickImage(
+        source: source,
+        imageQuality: 85,
+        requestFullMetadata: false, // ✅ لضمان عدم التعليق في iOS بسبب الخصوصية
+      );
       if (picked == null) return null;
 
       // ✅ في الويب، نتجاوز عملية القص لضمان عمل الإضافة بدون تعليق

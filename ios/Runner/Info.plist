@@ -78,6 +78,10 @@
 	<string>نحتاج للكاميرا لتصوير المنتجات أو مسح الكود.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>نحتاج للوصول للصور لاختيار صور للمنتجات.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>نحتاج لحفظ الصور المختارة والمعالجة في معرض الصور الخاص بك.</string>
+	<key>PHPhotoLibraryPreventAutomaticLimitedAccessAlert</key>
+	<false/>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>sms</string>
