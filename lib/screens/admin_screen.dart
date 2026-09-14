@@ -403,6 +403,81 @@ class _AdminScreenState extends State<AdminScreen>
     }
   }
 
+  Future<double?> _showEditSinglePriceDialog(double currentPrice, String productName) async {
+    final ctrl = TextEditingController(text: currentPrice.toStringAsFixed(0));
+    return await showDialog<double>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('تعديل سعر $productName'),
+        content: TextField(
+          controller: ctrl,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(suffixText: 'DA'),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, double.tryParse(ctrl.text)),
+            child: const Text('حفظ'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<Map<String, dynamic>?> _showSelectProductForOrder() async {
+    final products = await DataService.getAllProducts();
+    if (products.isEmpty) return null;
+
+    String query = '';
+    return await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setSt) => AlertDialog(
+          title: const Text('اختر منتجاً لإضافته'),
+          content: SizedBox(
+            width: double.maxFinite,
+            height: 400,
+            child: Column(
+              children: [
+                TextField(
+                  decoration: const InputDecoration(hintText: 'بحث...', prefixIcon: Icon(Icons.search)),
+                  onChanged: (v) => setSt(() => query = v.toLowerCase()),
+                ),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: products.length,
+                    itemBuilder: (context, i) {
+                      final p = products[i];
+                      if (query.isNotEmpty && !p.name.toLowerCase().contains(query)) return const SizedBox.shrink();
+                      return ListTile(
+                        title: Text(p.name),
+                        subtitle: Text('${p.priceCartonNormal.toStringAsFixed(0)} DA'),
+                        onTap: () {
+                          Navigator.pop(context, {
+                            'productId': p.id,
+                            'productName': p.name,
+                            'quantity': 1,
+                            'price': p.priceCartonNormal,
+                            'unitPrice': p.priceCartonNormal,
+                            'isCarton': true,
+                            'typeLabel': 'كرتون',
+                            'flavor': '',
+                          });
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   String _formatDate(DateTime? date) {
     if (date == null) return 'غير محدد';
     return '${date.day.toString().padLeft(2, '0')}/'

@@ -1192,6 +1192,26 @@ extension AdminManageTabX on _AdminScreenState {
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Divider(),
+                // زر إضافة منتج جديد
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      final newItem = await _showSelectProductForOrder();
+                      if (newItem != null) {
+                        setSt(() => editedItems.add(newItem));
+                      }
+                    },
+                    icon: const Icon(Icons.add_shopping_cart, size: 18),
+                    label: const Text('إضافة منتج جديد للطلبية'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue.shade700,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ),
+                const Divider(),
                 Expanded(
                   child: ListView.separated(
                     shrinkWrap: true,
@@ -1206,7 +1226,22 @@ extension AdminManageTabX on _AdminScreenState {
 
                       return ListTile(
                         title: Text(name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                        subtitle: Text('السعر: ${price.toStringAsFixed(0)} DA'),
+                        subtitle: InkWell(
+                          onTap: () async {
+                            final newPrice = await _showEditSinglePriceDialog(price, name);
+                            if (newPrice != null) {
+                              setSt(() => item['price'] = newPrice);
+                            }
+                          },
+                          child: Row(
+                            children: [
+                              Text('السعر: ${price.toStringAsFixed(0)} DA', 
+                                style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
+                              const SizedBox(width: 4),
+                              const Icon(Icons.edit, size: 12, color: Colors.blue),
+                            ],
+                          ),
+                        ),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -1222,7 +1257,7 @@ extension AdminManageTabX on _AdminScreenState {
                                 });
                               },
                             ),
-                            Text('$qty $type'),
+                            Text('$qty', style: const TextStyle(fontWeight: FontWeight.bold)),
                             IconButton(
                               icon: const Icon(Icons.add_circle_outline, color: Colors.green),
                               onPressed: () {

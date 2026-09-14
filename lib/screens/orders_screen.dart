@@ -671,7 +671,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
   Future<Map<String, dynamic>?> _showSelectProductForOrder() async {
     // جلب المنتجات
-    final products = await DataService.getProductsList();
+    final products = await DataService.getAllProducts();
     if (products.isEmpty) return null;
 
     String query = '';
