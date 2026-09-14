@@ -22,14 +22,14 @@ jobs:
 
       - name: Build iOS
         run: |
+          flutter build ios --config-only
+          echo "CODE_SIGNING_ALLOWED=NO" >> ios/Flutter/Generated.xcconfig
+          echo "CODE_SIGNING_REQUIRED=NO" >> ios/Flutter/Generated.xcconfig
+          echo "CODE_SIGNING_IDENTITY=" >> ios/Flutter/Generated.xcconfig
+          echo "PROVISIONING_PROFILE_SPECIFIER=" >> ios/Flutter/Generated.xcconfig
+          echo "DEVELOPMENT_TEAM=" >> ios/Flutter/Generated.xcconfig
+          echo "COMPILER_INDEX_STORE_ENABLE=NO" >> ios/Flutter/Generated.xcconfig
           flutter build ios --release --no-codesign --build-number=${{ github.run_number }} --build-name=1.0.${{ github.run_number }}
-        env:
-          CODE_SIGNING_ALLOWED: NO
-          CODE_SIGNING_REQUIRED: NO
-          CODE_SIGN_IDENTITY: ""
-          PROVISIONING_PROFILE_SPECIFIER: ""
-          DEVELOPMENT_TEAM: ""
-          COMPILER_INDEX_STORE_ENABLE: NO
 
       - name: Create IPA
         run: |
