@@ -750,13 +750,6 @@ class _MainScreenState extends State<MainScreen>
     final isDark    = widget.isDarkMode;
     final cartCount = cart.fold(0, (sum, item) => sum + item.quantity);
 
-    final pages = [
-      _buildDashboard(isDark),
-      const OrdersScreen(),
-      _buildBrandsTab(isDark),
-      const AdminScreen(),
-    ];
-
     return KeyboardListener(
       focusNode: _keyboardFocus,
       onKeyEvent: _handleKeyEvent,
@@ -825,9 +818,9 @@ class _MainScreenState extends State<MainScreen>
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: Row(
                       children: [
-                        Text(
-                          ['الرئيسية','الطلبات','المتجر','الإعدادات'][_currentNavIndex],
-                          style: const TextStyle(
+                        const Text(
+                          'الرئيسية',
+                          style: TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
                               fontSize: 18),
@@ -864,71 +857,13 @@ class _MainScreenState extends State<MainScreen>
                       ],
                     ),
                   ),
-                  Expanded(child: IndexedStack(index: _currentNavIndex, children: pages)),
+                  Expanded(child: _buildDashboard(isDark)),
                 ],
               ),
             ),
           ],
         )
-            : IndexedStack(index: _currentNavIndex, children: pages),
-
-        bottomNavigationBar: isDesktop ? null : Container(
-          decoration: BoxDecoration(
-            boxShadow: [BoxShadow(
-                color: Colors.black.withOpacity(0.08),
-                blurRadius: 12,
-                offset: const Offset(0, -2))],
-          ),
-          child: NavigationBar(
-            selectedIndex: _currentNavIndex,
-            onDestinationSelected: (index) => setState(() => _currentNavIndex = index),
-            backgroundColor: isDark ? const Color(0xFF1E1E2E) : Colors.white,
-            indicatorColor: const Color(0xFF2E7D32).withOpacity(0.15),
-            surfaceTintColor: Colors.transparent,
-            shadowColor: Colors.transparent,
-            elevation: 0, height: 65,
-            labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-            destinations: [
-              NavigationDestination(
-                icon: Icon(Icons.home_outlined,
-                    color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
-                selectedIcon: const Icon(Icons.home_rounded, color: Color(0xFF2E7D32)),
-                label: 'الرئيسية',
-              ),
-              NavigationDestination(
-                icon: StreamBuilder<int>(
-                  stream: DataService.getPendingOrdersCount(),
-                  builder: (context, snapshot) {
-                    final count = snapshot.data ?? 0;
-                    return badges.Badge(
-                      showBadge: count > 0,
-                      badgeContent: Text('$count',
-                          style: const TextStyle(color: Colors.white, fontSize: 9)),
-                      badgeStyle: const badges.BadgeStyle(
-                          badgeColor: Colors.red, padding: EdgeInsets.all(4)),
-                      child: Icon(Icons.receipt_long_outlined,
-                          color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
-                    );
-                  },
-                ),
-                selectedIcon: const Icon(Icons.receipt_long_rounded, color: Color(0xFF2E7D32)),
-                label: 'الطلبات',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.store_outlined,
-                    color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
-                selectedIcon: const Icon(Icons.store_rounded, color: Color(0xFF2E7D32)),
-                label: 'المتجر',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.settings_outlined,
-                    color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
-                selectedIcon: const Icon(Icons.settings_rounded, color: Color(0xFF2E7D32)),
-                label: 'الإعدادات',
-              ),
-            ],
-          ),
-        ),
+            : _buildDashboard(isDark),
       ),
     );
   }
@@ -1212,12 +1147,28 @@ class _MainScreenState extends State<MainScreen>
     final actions = [
       {
         'icon': Icons.settings_rounded,
-        'label': 'إدارة',
-        'subtitle': 'الفئات، المنتجات، الطلبات، الإعلانات',
+        'label': 'لوحة الإدارة',
+        'subtitle': 'الفئات، المنتجات، والبانرات',
         'colors': const [Color(0xFF283593), Color(0xFF3949AB), Color(0xFF5C6BC0)],
         'onTap': () => Navigator.push(
             context, SlidePageRoute(page: const AdminScreen()))
             .then((_) => _loadAll()),
+      },
+      {
+        'icon': Icons.receipt_long_rounded,
+        'label': 'سجل الطلبات',
+        'subtitle': 'إدارة الطلبيات الحالية والسابقة',
+        'colors': const [Color(0xFF2E7D32), Color(0xFF388E3C), Color(0xFF43A047)],
+        'onTap': () => Navigator.push(
+            context, SlidePageRoute(page: const OrdersScreen())),
+      },
+      {
+        'icon': Icons.bar_chart_rounded,
+        'label': 'تقارير المبيعات',
+        'subtitle': 'الأرباح وجرد الكميات المباعة',
+        'colors': const [Color(0xFFE64A19), Color(0xFFF4511E), Color(0xFFFF5722)],
+        'onTap': () => Navigator.push(
+            context, SlidePageRoute(page: const StatsScreen())),
       },
       {
         'icon': Icons.print_rounded,
@@ -1229,7 +1180,7 @@ class _MainScreenState extends State<MainScreen>
       },
       {
         'icon': Icons.visibility_rounded,
-        'label': 'معاينة',
+        'label': 'معاينة التطبيق',
         'subtitle': 'شاهد التطبيق كما يراه الزبون',
         'colors': const [Color(0xFFE65100), Color(0xFFEF6C00), Color(0xFFFF9800)],
         'onTap': () => _previewAsUser(),

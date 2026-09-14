@@ -43,6 +43,8 @@ class _AdminScreenState extends State<AdminScreen>
   final bannerTitleController = TextEditingController();
   final bannerSubtitleController = TextEditingController();
   final bannerOrderController = TextEditingController();
+  final purchasePriceController = TextEditingController(); // ✅
+  final stockQuantityController = TextEditingController(); // ✅
 
   List<Brand> brands = [];
   List<Product> products = [];
@@ -193,6 +195,8 @@ class _AdminScreenState extends State<AdminScreen>
     bannerTitleController.dispose();
     bannerSubtitleController.dispose();
     bannerOrderController.dispose();
+    purchasePriceController.dispose();
+    stockQuantityController.dispose();
     _adminPasswordController.dispose();
     _adminPasswordConfirmController.dispose();
     _fadeController.dispose();
@@ -760,6 +764,8 @@ class _AdminScreenState extends State<AdminScreen>
         maxQtySpecial:
         int.tryParse(maxQtySpecialController.text) ?? 0,
         flavors: newProductFlavors,
+        purchasePrice: double.tryParse(purchasePriceController.text) ?? 0,
+        stockQuantity: int.tryParse(stockQuantityController.text) ?? 0,
       );
       
       debugPrint('📸 رفع الصورة للمنتج...');
@@ -775,6 +781,8 @@ class _AdminScreenState extends State<AdminScreen>
       maxQtyNormalController.clear();
       maxQtySpecialController.clear();
       flavorController.clear();
+      purchasePriceController.clear();
+      stockQuantityController.clear();
       setState(() {
         productImagePath = null;
         selectedSellType = SellType.cartonOnly;
@@ -1077,6 +1085,8 @@ class _AdminScreenState extends State<AdminScreen>
     TextEditingController(text: product.maxQtyNormal.toString());
     final maxSCtrl =
     TextEditingController(text: product.maxQtySpecial.toString());
+    final buyPriceCtrl = TextEditingController(text: product.purchasePrice.toString());
+    final stockCtrl = TextEditingController(text: product.stockQuantity.toString());
     final editFlavorController = TextEditingController();
     String? newImagePath;
     SellType editSellType = product.sellType;
@@ -1146,6 +1156,32 @@ class _AdminScreenState extends State<AdminScreen>
                       borderRadius: BorderRadius.circular(10),
                       borderSide: BorderSide.none,
                     ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _buildSection(
+                  color: Colors.blue.shade50,
+                  border: Border.all(color: Colors.blue.shade200),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('إدارة المخزن والشراء',
+                          style: TextStyle(
+                              color: Colors.blue,
+                              fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                      Row(children: [
+                        Expanded(
+                            child: _dialogField(
+                                buyPriceCtrl, 'سعر الشراء',
+                                type: TextInputType.number)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                            child: _dialogField(
+                                stockCtrl, 'الكمية الحالية',
+                                type: TextInputType.number)),
+                      ]),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -1361,6 +1397,8 @@ class _AdminScreenState extends State<AdminScreen>
                   int.tryParse(maxSCtrl.text) ?? 0,
                   flavors: editFlavors,
                   isFeatured: editIsFeatured,
+                  purchasePrice: double.tryParse(buyPriceCtrl.text) ?? 0,
+                  stockQuantity: int.tryParse(stockCtrl.text) ?? 0,
                 );
                 await DataService.updateProduct(updated,
                     imagePath: newImagePath);
@@ -1382,6 +1420,7 @@ class _AdminScreenState extends State<AdminScreen>
         ),
       ),
     );
+  }
   }
 
   Future<void> _showChangeRoleDialog(UserModel user) async {
@@ -2512,6 +2551,54 @@ class _AdminScreenState extends State<AdminScreen>
           ),
         ),
         const SizedBox(height: 12),
+        _buildSection(
+          color: Colors.blue.shade50,
+          border: Border.all(color: Colors.blue.shade200),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('إدارة المخزن والشراء',
+                  style: TextStyle(
+                      color: Colors.blue,
+                      fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Row(children: [
+                Expanded(
+                  child: TextField(
+                    controller: purchasePriceController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      hintText: 'سعر الشراء',
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: stockQuantityController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      hintText: 'الكمية في المخزن',
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                ),
+              ]),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
         _buildSection(
           color: const Color(0xFFE8F5E9),
           child: Column(
