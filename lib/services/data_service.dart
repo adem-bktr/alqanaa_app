@@ -806,6 +806,23 @@ class DataService {
       })
           .toList();
 
+      // ✅ مبيعات المنتجات لليوم تحديداً
+      final Map<String, int> todayItemsQty = {};
+      final Map<String, double> todayItemsRevenue = {};
+      for (final o in today) {
+        for (final it in o.items) {
+          final name = (it['productName'] ?? '').toString();
+          if (name.isEmpty) continue;
+          todayItemsQty[name] = (todayItemsQty[name] ?? 0) + _i(it['quantity']);
+          todayItemsRevenue[name] = (todayItemsRevenue[name] ?? 0) + (_d(it['price']) * _i(it['quantity']));
+        }
+      }
+      final todayProducts = todayItemsQty.entries.map((e) => {
+        'name': e.key,
+        'quantity': e.value,
+        'revenue': todayItemsRevenue[e.key] ?? 0,
+      }).toList();
+
       double sum(List<app_models.Order> l) =>
           l.fold(0.0, (s, o) => s + o.total);
 
@@ -822,6 +839,7 @@ class DataService {
         'weekSales': sum(week),
         'monthSales': sum(month),
         'topProducts': topProducts,
+        'todayProducts': todayProducts, // ✅ مضاف
       };
     } catch (e) {
       debugPrint('❌ getStats: $e');

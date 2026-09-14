@@ -927,14 +927,22 @@ extension AdminManageTabX on _AdminScreenState {
                   padding: const EdgeInsets.symmetric(
                       horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
+                    color: Colors.blue,
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: const Text('تعديل',
-                      style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.blue,
-                          fontWeight: FontWeight.bold)),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.edit,
+                          color: Colors.white, size: 11),
+                      SizedBox(width: 2),
+                      Text('تعديل',
+                          style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold)),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(width: 4),

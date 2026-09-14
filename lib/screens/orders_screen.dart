@@ -492,7 +492,6 @@ class _OrdersScreenState extends State<OrdersScreen> {
   //  ✅ تعديل الطلبية (جديد)
   // ══════════════════════════════════
   Future<void> _showEditOrderDialog(Order order) async {
-    // نسخة محلية للتعديل
     List<Map<String, dynamic>> editedItems = List.from(
         order.items.map((it) => Map<String, dynamic>.from(it)));
     
@@ -517,6 +516,26 @@ class _OrdersScreenState extends State<OrdersScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Divider(),
+                // زر إضافة منتج جديد
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      final newItem = await _showSelectProductForOrder();
+                      if (newItem != null) {
+                        setSt(() => editedItems.add(newItem));
+                      }
+                    },
+                    icon: const Icon(Icons.add_shopping_cart, size: 18),
+                    label: const Text('إضافة منتج جديد للطلبية'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue.shade700,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ),
+                const Divider(),
                 Expanded(
                   child: ListView.separated(
                     shrinkWrap: true,
@@ -531,7 +550,22 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
                       return ListTile(
                         title: Text(name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                        subtitle: Text('السعر: ${formatter.format(price)} DA'),
+                        subtitle: InkWell(
+                          onTap: () async {
+                            final newPrice = await _showEditSinglePriceDialog(price, name);
+                            if (newPrice != null) {
+                              setSt(() => item['price'] = newPrice);
+                            }
+                          },
+                          child: Row(
+                            children: [
+                              Text('السعر: ${formatter.format(price)} DA', 
+                                style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
+                              const SizedBox(width: 4),
+                              const Icon(Icons.edit, size: 12, color: Colors.blue),
+                            ],
+                          ),
+                        ),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -547,7 +581,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                                 });
                               },
                             ),
-                            Text('$qty $type', style: const TextStyle(fontWeight: FontWeight.bold)),
+                            Text('$qty', style: const TextStyle(fontWeight: FontWeight.bold)),
                             IconButton(
                               icon: const Icon(Icons.add_circle_outline, color: Colors.green),
                               onPressed: () {
@@ -610,6 +644,82 @@ class _OrdersScreenState extends State<OrdersScreen> {
         }
       }
     }
+  }
+
+  Future<double?> _showEditSinglePriceDialog(double currentPrice, String productName) async {
+    final ctrl = TextEditingController(text: currentPrice.toStringAsFixed(0));
+    return await showDialog<double>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('تعديل سعر $productName'),
+        content: TextField(
+          controller: ctrl,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(suffixText: 'DA'),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, double.tryParse(ctrl.text)),
+            child: const Text('حفظ'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<Map<String, dynamic>?> _showSelectProductForOrder() async {
+    // جلب المنتجات
+    final products = await DataService.getProductsList();
+    if (products.isEmpty) return null;
+
+    String query = '';
+    return await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setSt) => AlertDialog(
+          title: const Text('اختر منتجاً لإضافته'),
+          content: SizedBox(
+            width: double.maxFinite,
+            height: 400,
+            child: Column(
+              children: [
+                TextField(
+                  decoration: const InputDecoration(hintText: 'بحث...', prefixIcon: Icon(Icons.search)),
+                  onChanged: (v) => setSt(() => query = v.toLowerCase()),
+                ),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: products.length,
+                    itemBuilder: (context, i) {
+                      final p = products[i];
+                      if (query.isNotEmpty && !p.name.toLowerCase().contains(query)) return const SizedBox.shrink();
+                      return ListTile(
+                        title: Text(p.name),
+                        subtitle: Text('${p.priceCartonNormal.toStringAsFixed(0)} DA'),
+                        onTap: () {
+                          Navigator.pop(context, {
+                            'productId': p.id,
+                            'productName': p.name,
+                            'quantity': 1,
+                            'price': p.priceCartonNormal,
+                            'unitPrice': p.priceCartonNormal,
+                            'isCarton': true,
+                            'typeLabel': 'كرتون',
+                            'flavor': '',
+                          });
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _resendWhatsApp(Order order) async {

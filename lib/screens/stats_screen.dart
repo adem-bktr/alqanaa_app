@@ -291,8 +291,118 @@ class _StatsScreenState extends State<StatsScreen> {
                   ],
                 ),
               ),
+              const SizedBox(height: 24),
+
+              // ── مبيعات اليوم حسب المنتج ──
+              _buildTodayProductsTable(isDark, cardColor, textColor),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTodayProductsTable(bool isDark, Color cardColor, Color textColor) {
+    final todayProducts = (stats['todayProducts'] as List?) ?? [];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.3 : 0.06),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.list_alt, color: Colors.blue, size: 24),
+              const SizedBox(width: 10),
+              Text(
+                'مبيعات اليوم حسب المنتج',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: textColor,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (todayProducts.isEmpty)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(20),
+                child: Text('لا توجد مبيعات اليوم بعد',
+                    style: TextStyle(color: Colors.grey)),
+              ),
+            )
+          else
+            Table(
+              border: TableBorder(
+                horizontalInside: BorderSide(
+                    color: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
+                    width: 1),
+              ),
+              columnWidths: const {
+                0: FlexColumnWidth(3),
+                1: FlexColumnWidth(1),
+                2: FlexColumnWidth(2),
+              },
+              children: [
+                TableRow(
+                  children: [
+                    _tableHeader('المنتج', isDark),
+                    _tableHeader('الكمية', isDark),
+                    _tableHeader('الإجمالي', isDark),
+                  ],
+                ),
+                ...todayProducts.map((p) => TableRow(
+                  children: [
+                    _tableCell(p['name']?.toString() ?? '', textColor),
+                    _tableCell(p['quantity']?.toString() ?? '0', textColor),
+                    _tableCell('${formatter.format(p['revenue'] ?? 0)} DA',
+                        const Color(0xFF2E7D32),
+                        bold: true),
+                  ],
+                )),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _tableHeader(String label, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontWeight: FontWeight.bold,
+          color: isDark ? Colors.grey.shade400 : Colors.grey.shade700,
+          fontSize: 14,
+        ),
+      ),
+    );
+  }
+
+  Widget _tableCell(String value, Color color, {bool bold = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+      child: Text(
+        value,
+        style: TextStyle(
+          color: color,
+          fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+          fontSize: 13,
         ),
       ),
     );
@@ -625,6 +735,8 @@ class _StatsScreenState extends State<StatsScreen> {
                   ],
                 ),
               ),
+              const SizedBox(height: 12),
+              _buildTodayProductsTable(isDark, cardColor, textColor),
             ],
           ),
         ),
