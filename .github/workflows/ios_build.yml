@@ -22,19 +22,12 @@ jobs:
 
       - name: Build iOS
         run: |
-          flutter build ios --config-only
-          echo "CODE_SIGNING_ALLOWED=NO" >> ios/Flutter/Generated.xcconfig
-          echo "CODE_SIGNING_REQUIRED=NO" >> ios/Flutter/Generated.xcconfig
-          echo "CODE_SIGNING_IDENTITY=" >> ios/Flutter/Generated.xcconfig
-          echo "PROVISIONING_PROFILE_SPECIFIER=" >> ios/Flutter/Generated.xcconfig
-          echo "DEVELOPMENT_TEAM=" >> ios/Flutter/Generated.xcconfig
-          echo "COMPILER_INDEX_STORE_ENABLE=NO" >> ios/Flutter/Generated.xcconfig
-          flutter build ios --release --no-codesign --build-number=${{ github.run_number }} --build-name=1.0.${{ github.run_number }}
+          flutter build ios --simulator --release --build-number=${{ github.run_number }} --build-name=1.0.${{ github.run_number }}
 
       - name: Create IPA
         run: |
           mkdir -p Payload
-          mv build/ios/iphoneos/Runner.app Payload/
+          mv build/ios/iphonesimulator/Runner.app Payload/
           zip -r Runner.ipa Payload
 
       - name: Upload Artifact
