@@ -7,6 +7,7 @@ import '../models/models.dart';
 import '../services/auth_service.dart';
 import '../services/data_service.dart';
 import '../services/printer_service.dart';
+import '../utils/converters.dart';
 import 'stats_screen.dart';
 
 part 'admin_manage_tab.dart';
@@ -21,6 +22,10 @@ class AdminScreen extends StatefulWidget {
 
 class _AdminScreenState extends State<AdminScreen>
     with TickerProviderStateMixin, WidgetsBindingObserver {
+  
+  double _d(dynamic v) => toDouble(v);
+  int _i(dynamic v) => toInt(v);
+
   final brandNameController = TextEditingController();
   final productNameController = TextEditingController();
   final cartonNormalController = TextEditingController();

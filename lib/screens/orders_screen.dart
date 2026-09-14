@@ -11,6 +11,7 @@ import '../models/models.dart';
 import '../services/data_service.dart';
 import '../services/notification_service.dart';
 import '../services/printer_service.dart';
+import '../utils/converters.dart';
 
 class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key});
@@ -26,6 +27,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
   bool _isDisposed = false;
   bool _isActive = true;
+
+  double _d(dynamic v) => toDouble(v);
+  int _i(dynamic v) => toInt(v);
 
   // ══════════════════════════════════
   //  Responsive

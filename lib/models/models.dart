@@ -1,51 +1,15 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import '../utils/converters.dart';
 
 // ══════════════════════════════════════════════════════════
-//   🔧 أدوات تحويل آمنة (جديدة)
+//   🔧 أدوات تحويل آمنة (تم النقل إلى converters.dart)
 // ══════════════════════════════════════════════════════════
-String _s(dynamic v) {
-  if (v == null) return '';
-  if (v is String) return v;
-  if (v is Timestamp) return v.toDate().toIso8601String();
-  if (v is DateTime) return v.toIso8601String();
-  return v.toString();
-}
-
-double _d(dynamic v) {
-  if (v == null) return 0;
-  if (v is num) return v.toDouble();
-  return double.tryParse(v.toString().replaceAll(',', '.')) ?? 0;
-}
-
-int _i(dynamic v) {
-  if (v == null) return 0;
-  if (v is num) return v.toInt();
-  return int.tryParse(v.toString()) ?? 0;
-}
-
-bool _b(dynamic v, {bool def = false}) {
-  if (v == null) return def;
-  if (v is bool) return v;
-  final s = v.toString().toLowerCase();
-  if (s == 'true' || s == '1') return true;
-  if (s == 'false' || s == '0') return false;
-  return def;
-}
-
-/// ✅ يقبل Timestamp / DateTime / String / int — لا ينهار أبداً
-DateTime? _dt(dynamic v) {
-  if (v == null) return null;
-  if (v is DateTime) return v;
-  if (v is Timestamp) return v.toDate();
-  if (v is int) return DateTime.fromMillisecondsSinceEpoch(v);
-  if (v is String) return DateTime.tryParse(v);
-  try {
-    return (v as dynamic).toDate() as DateTime;
-  } catch (_) {
-    return null;
-  }
-}
+String _s(dynamic v) => toStr(v);
+double _d(dynamic v) => toDouble(v);
+int _i(dynamic v) => toInt(v);
+bool _b(dynamic v, {bool def = false}) => toBool(v, def: def);
+DateTime? _dt(dynamic v) => toDateTime(v);
 
 String _p2(int n) => n.toString().padLeft(2, '0');
 
