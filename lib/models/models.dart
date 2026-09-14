@@ -463,6 +463,8 @@ class Order {
   final double? latitude;
   final double? longitude;
   final String? address;
+  final double paidAmount;      // ✅ التسديد
+  final double remainingBalance; // ✅ الدين المتبقي
 
   // ✅ جديد
   final DateTime? createdAt;
@@ -481,6 +483,8 @@ class Order {
     this.latitude,
     this.longitude,
     this.address,
+    this.paidAmount = 0,
+    this.remainingBalance = 0,
     this.createdAt,
     this.updatedAt,
   });
@@ -496,6 +500,8 @@ class Order {
     double? latitude,
     double? longitude,
     String? address,
+    double paidAmount = 0,
+    double remainingBalance = 0,
   }) {
     final now = DateTime.now();
     return Order(
@@ -511,6 +517,8 @@ class Order {
       latitude: latitude,
       longitude: longitude,
       address: address,
+      paidAmount: paidAmount,
+      remainingBalance: remainingBalance,
       createdAt: now,
     );
   }
@@ -528,6 +536,8 @@ class Order {
     'latitude': latitude,
     'longitude': longitude,
     'address': address,
+    'paidAmount': paidAmount,
+    'remainingBalance': remainingBalance,
   };
 
   factory Order.fromJson(Map<String, dynamic> json) {
@@ -567,6 +577,8 @@ class Order {
       latitude: json['latitude'] == null ? null : _d(json['latitude']),
       longitude: json['longitude'] == null ? null : _d(json['longitude']),
       address: json['address'] == null ? null : _s(json['address']),
+      paidAmount: _d(json['paidAmount']),
+      remainingBalance: _d(json['remainingBalance']),
       createdAt: created,
       updatedAt: _dt(json['updatedAt']),
     );
@@ -579,6 +591,8 @@ class Order {
     String? address,
     double? total,
     List<Map<String, dynamic>>? items,
+    double? paidAmount,
+    double? remainingBalance,
   }) =>
       Order(
         id: id,
@@ -593,6 +607,8 @@ class Order {
         latitude: latitude ?? this.latitude,
         longitude: longitude ?? this.longitude,
         address: address ?? this.address,
+        paidAmount: paidAmount ?? this.paidAmount,
+        remainingBalance: remainingBalance ?? this.remainingBalance,
         createdAt: createdAt,
         updatedAt: updatedAt,
       );

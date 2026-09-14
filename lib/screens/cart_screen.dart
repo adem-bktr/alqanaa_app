@@ -717,6 +717,12 @@ class _CartScreenState extends State<CartScreen> {
       final orderId =
       DateTime.now().millisecondsSinceEpoch.toString();
 
+      final paid = double.tryParse(
+          amountPaidController.text.trim().replaceAll(',', '.')) ??
+          total;
+      final remaining = total - paid;
+      final customerBalance = _selectedCustomer != null ? _selectedCustomer!.balance + (remaining > 0 ? remaining : 0) : 0.0;
+
       final order = Order(
         id: orderId,
         customerName: nameController.text.trim(),
@@ -739,29 +745,19 @@ class _CartScreenState extends State<CartScreen> {
         date: date,
         userId: currentUser?.id ?? '',
         status: 'pending',
+        paidAmount: paid,
+        remainingBalance: customerBalance,
       );
 
       // ✅ إذا اختار الأدمن "طباعة وتأكيد": نطبع أولاً، وإذا فشلت الطباعة
       // نوقف العملية بالكامل ولا نحفظ أي شيء — الطباعة الناجحة هي التأكيد.
       if (printThermal) {
-        double? paidForPrint;
-        double? balanceForPrint;
-        if (_selectedCustomer != null) {
-          final paid = double.tryParse(
-              amountPaidController.text.trim().replaceAll(',', '.')) ??
-              total;
-          final remaining = total - paid;
-          paidForPrint = paid;
-          balanceForPrint = _selectedCustomer!.balance +
-              (remaining > 0 ? remaining : 0);
-        }
-
         final printed = await PrinterService.printReceipt(
           order: order,
           customerName: nameController.text.trim(),
           customerPhone: phoneController.text.trim(),
-          amountPaid: paidForPrint,
-          customerDebtBalance: balanceForPrint,
+          amountPaid: paid,
+          customerDebtBalance: customerBalance,
         );
 
         if (!printed) {
@@ -779,10 +775,6 @@ class _CartScreenState extends State<CartScreen> {
 
       // ✅ تسجيل الدين إذا الطلبية مربوطة بزبون ومازال باقي مبلغ
       if (_selectedCustomer != null) {
-        final paid = double.tryParse(
-            amountPaidController.text.trim().replaceAll(',', '.')) ??
-            total;
-        final remaining = total - paid;
         if (remaining > 0) {
           await DataService.addDebtTransaction(
             customerId: _selectedCustomer!.id,

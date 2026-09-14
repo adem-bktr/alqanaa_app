@@ -4,6 +4,7 @@ import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/models.dart';
 
 class PrinterService {
@@ -14,6 +15,38 @@ class PrinterService {
   static bool get isConnected => _isConnected;
   static String? get connectedDeviceName => _connectedName;
   static String? get connectedDeviceAddress => _connectedAddress;
+
+  // ══════════════════════════════════════════════════════
+  //  ✅ الربط التلقائي
+  // ══════════════════════════════════════════════════════
+  static Future<void> autoConnect() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final lastAddr = prefs.getString('last_printer_address');
+      final lastName = prefs.getString('last_printer_name');
+
+      if (lastAddr != null && lastAddr.isNotEmpty) {
+        debugPrint('⏳ محاولة اتصال تلقائي بـ $lastName...');
+        final ok = await PrintBluetoothThermal.connect(macPrinterAddress: lastAddr);
+        if (ok) {
+          _connectedAddress = lastAddr;
+          _connectedName = lastName ?? 'طابعة محفوظة';
+          _isConnected = true;
+          debugPrint('✅ تم الاتصال التلقائي بنجاح');
+        }
+      }
+    } catch (e) {
+      debugPrint('⚠️ فشل الاتصال التلقائي: $e');
+    }
+  }
+
+  static Future<void> _saveLastPrinter(String address, String name) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('last_printer_address', address);
+      await prefs.setString('last_printer_name', name);
+    } catch (_) {}
+  }
 
   // ══════════════════════════════════════════════════════
   //  ✅ 1. تنسيق المبالغ يدوياً
@@ -170,6 +203,7 @@ class PrinterService {
         _connectedAddress = addr;
         _connectedName = getDeviceName(device);
         _isConnected = true;
+        await _saveLastPrinter(_connectedAddress!, _connectedName!);
         await Future.delayed(const Duration(milliseconds: 500));
         debugPrint('✅ متصل بـ $_connectedName');
       } else {
@@ -396,12 +430,15 @@ class PrinterService {
     return b;
   }
 
-  // ── معلومات الدين (تظهر فقط إذا الطلبية مربوطة بزبون من الدليل) ──
+  // ── معلومات الدين ──
   static List<int> _buildDebtInfo(
-      Generator g, double orderTotal, double? amountPaid, double? newBalance) {
-    if (newBalance == null) return [];
+      Generator g, double orderTotal, double? amountPaid, double? newBalance, Order order) {
     List<int> b = [];
-    final paid = amountPaid ?? orderTotal;
+    
+    // الأولوية للقيم المحفوظة في الطلبية
+    final paid = order.paidAmount > 0 ? order.paidAmount : (amountPaid ?? orderTotal);
+    final totalBalance = order.remainingBalance > 0 ? order.remainingBalance : (newBalance ?? 0);
+    
     final remaining = orderTotal - paid;
 
     b += _t(g, _line2, styles: const PosStyles(align: PosAlign.center));
@@ -413,11 +450,14 @@ class PrinterService {
         styles: const PosStyles(bold: true),
       );
     }
-    b += _t(
-      g,
-      'Solde dette client : ${_money(newBalance)} DA',
-      styles: const PosStyles(bold: true),
-    );
+    
+    if (totalBalance > 0) {
+      b += _t(
+        g,
+        'Solde dette client : ${_money(totalBalance)} DA',
+        styles: const PosStyles(bold: true),
+      );
+    }
     return b;
   }
 
@@ -483,7 +523,7 @@ class PrinterService {
       bytes += _buildTableHeader(g);
       bytes += _buildItems(g, order.items);
       bytes += _buildTotal(g, orderTotal);
-      bytes += _buildDebtInfo(g, orderTotal, amountPaid, customerDebtBalance);
+      bytes += _buildDebtInfo(g, orderTotal, amountPaid, customerDebtBalance, order);
       bytes += _buildFooter(g);
 
       debugPrint('📦 حجم الإيصال: ${bytes.length} byte');

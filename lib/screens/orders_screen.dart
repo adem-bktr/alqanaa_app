@@ -484,6 +484,130 @@ class _OrdersScreenState extends State<OrdersScreen> {
     }
   }
 
+  // ══════════════════════════════════
+  //  ✅ تعديل الطلبية (جديد)
+  // ══════════════════════════════════
+  Future<void> _showEditOrderDialog(Order order) async {
+    // نسخة محلية للتعديل
+    List<Map<String, dynamic>> editedItems = List.from(
+        order.items.map((it) => Map<String, dynamic>.from(it)));
+    
+    double calculateNewTotal() {
+      return editedItems.fold(0.0, (sum, it) {
+        final price = _d(it['price']);
+        final qty = _i(it['quantity']);
+        return sum + (price * qty);
+      });
+    }
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setSt) => AlertDialog(
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16)),
+          title: Text('تعديل طلب ${order.customerName}'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Divider(),
+                Expanded(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: editedItems.length,
+                    separatorBuilder: (_, __) => const Divider(),
+                    itemBuilder: (context, i) {
+                      final item = editedItems[i];
+                      final name = item['productName'] ?? 'منتج';
+                      final qty = _i(item['quantity']);
+                      final price = _d(item['price']);
+                      final type = item['typeLabel'] ?? 'كرتون';
+
+                      return ListTile(
+                        title: Text(name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                        subtitle: Text('السعر: ${formatter.format(price)} DA'),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
+                              onPressed: () {
+                                setSt(() {
+                                  if (qty > 1) {
+                                    item['quantity'] = qty - 1;
+                                  } else {
+                                    editedItems.removeAt(i);
+                                  }
+                                });
+                              },
+                            ),
+                            Text('$qty $type', style: const TextStyle(fontWeight: FontWeight.bold)),
+                            IconButton(
+                              icon: const Icon(Icons.add_circle_outline, color: Colors.green),
+                              onPressed: () {
+                                setSt(() {
+                                  item['quantity'] = qty + 1;
+                                });
+                              },
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const Divider(),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('الإجمالي الجديد:', style: TextStyle(fontWeight: FontWeight.bold)),
+                      Text('${formatter.format(calculateNewTotal())} DA',
+                          style: const TextStyle(color: Color(0xFF2E7D32), fontWeight: FontWeight.bold, fontSize: 16)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('إلغاء')),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2E7D32)),
+              child: const Text('حفظ التعديلات', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (result == true) {
+      try {
+        final newTotal = calculateNewTotal();
+        final updatedOrder = order.copyWith(
+          items: editedItems,
+          total: newTotal,
+        );
+        await DataService.updateFullOrder(updatedOrder);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('✅ تم تحديث الطلب بنجاح'), backgroundColor: Colors.green),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('❌ فشل التحديث: $e'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    }
+  }
+
   Future<void> _resendWhatsApp(Order order) async {
     final itemsText = order.items.map((i) {
       final price = (i['price'] as num?)?.toDouble() ?? 0;
@@ -1291,12 +1415,29 @@ class _OrdersScreenState extends State<OrdersScreen> {
           tooltip: 'موقع الزبون',
         ),
         PopupMenuButton<String>(
-          icon: Icon(Icons.update,
+          icon: Icon(Icons.more_vert,
               color: _statusColor(order.status)),
-          tooltip: 'تغيير الحالة',
-          onSelected: (status) =>
-              _changeOrderStatus(order, status),
+          tooltip: 'خيارات إضافية',
+          onSelected: (value) {
+            if (value == 'edit') {
+              _showEditOrderDialog(order);
+            } else {
+              _changeOrderStatus(order, value);
+            }
+          },
           itemBuilder: (_) => [
+            const PopupMenuItem(
+              value: 'edit',
+              child: Row(
+                children: [
+                  Icon(Icons.edit,
+                      color: Colors.blue, size: 18),
+                  SizedBox(width: 8),
+                  Text('تعديل الطلب'),
+                ],
+              ),
+            ),
+            const PopupMenuDivider(),
             const PopupMenuItem(
               value: 'confirmed',
               child: Row(

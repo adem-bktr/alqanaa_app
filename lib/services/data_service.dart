@@ -617,6 +617,14 @@ class DataService {
     debugPrint('🔄 حالة الطلب $orderId → $status');
   }
 
+  static Future<void> updateFullOrder(app_models.Order order) async {
+    await _db.collection('orders').doc(order.id).set(
+      {...order.toJson(), 'updatedAt': FieldValue.serverTimestamp()},
+      SetOptions(merge: true),
+    );
+    debugPrint('📝 تم تحديث بيانات الطلب بالكامل: ${order.id}');
+  }
+
   static Future<void> updateOrderLocation(
       String orderId,
       double lat,

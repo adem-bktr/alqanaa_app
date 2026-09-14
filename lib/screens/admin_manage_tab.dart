@@ -922,6 +922,23 @@ extension AdminManageTabX on _AdminScreenState {
               ),
               const SizedBox(width: 4),
               GestureDetector(
+                onTap: () => _showEditOrderDialogFromManage(order),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Text('تعديل',
+                      style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.blue,
+                          fontWeight: FontWeight.bold)),
+                ),
+              ),
+              const SizedBox(width: 4),
+              GestureDetector(
                 onTap: () => _showPrintDialog(order),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
@@ -1136,6 +1153,122 @@ extension AdminManageTabX on _AdminScreenState {
         return 'ملغى';
       default:
         return status;
+    }
+  }
+
+  // ══════════════════════════════════
+  //  ✅ تعديل الطلبية من تبويب الإدارة
+  // ══════════════════════════════════
+  Future<void> _showEditOrderDialogFromManage(Order order) async {
+    List<Map<String, dynamic>> editedItems = List.from(
+        order.items.map((it) => Map<String, dynamic>.from(it)));
+    
+    double calculateNewTotal() {
+      return editedItems.fold(0.0, (sum, it) {
+        final price = _d(it['price']);
+        final qty = _i(it['quantity']);
+        return sum + (price * qty);
+      });
+    }
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setSt) => AlertDialog(
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16)),
+          title: Text('تعديل طلب ${order.customerName}'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Divider(),
+                Expanded(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: editedItems.length,
+                    separatorBuilder: (_, __) => const Divider(),
+                    itemBuilder: (context, i) {
+                      final item = editedItems[i];
+                      final name = item['productName'] ?? 'منتج';
+                      final qty = _i(item['quantity']);
+                      final price = _d(item['price']);
+                      final type = item['typeLabel'] ?? 'كرتون';
+
+                      return ListTile(
+                        title: Text(name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                        subtitle: Text('السعر: ${price.toStringAsFixed(0)} DA'),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
+                              onPressed: () {
+                                setSt(() {
+                                  if (qty > 1) {
+                                    item['quantity'] = qty - 1;
+                                  } else {
+                                    editedItems.removeAt(i);
+                                  }
+                                });
+                              },
+                            ),
+                            Text('$qty $type'),
+                            IconButton(
+                              icon: const Icon(Icons.add_circle_outline, color: Colors.green),
+                              onPressed: () {
+                                setSt(() {
+                                  item['quantity'] = qty + 1;
+                                });
+                              },
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const Divider(),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('الإجمالي الجديد:', style: TextStyle(fontWeight: FontWeight.bold)),
+                      Text('${calculateNewTotal().toStringAsFixed(0)} DA',
+                          style: const TextStyle(color: Color(0xFF2E7D32), fontWeight: FontWeight.bold, fontSize: 16)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('إلغاء')),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2E7D32)),
+              child: const Text('حفظ', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (result == true) {
+      try {
+        final newTotal = calculateNewTotal();
+        final updatedOrder = order.copyWith(
+          items: editedItems,
+          total: newTotal,
+        );
+        await DataService.updateFullOrder(updatedOrder);
+        await loadOrders();
+        _showSnackBar('✅ تم تحديث الطلب', Colors.green);
+      } catch (e) {
+        _showSnackBar('❌ خطأ: $e', Colors.red);
+      }
     }
   }
 
