@@ -751,6 +751,12 @@ class _MainScreenState extends State<MainScreen>
     final isDark    = widget.isDarkMode;
     final cartCount = cart.fold(0, (sum, item) => sum + item.quantity);
 
+    final pages = [
+      _buildDashboard(isDark),
+      _buildBrandsTab(isDark),
+      const AdminScreen(),
+    ];
+
     return KeyboardListener(
       focusNode: _keyboardFocus,
       onKeyEvent: _handleKeyEvent,
@@ -819,9 +825,9 @@ class _MainScreenState extends State<MainScreen>
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: Row(
                       children: [
-                        const Text(
-                          'الرئيسية',
-                          style: TextStyle(
+                        Text(
+                          ['الرئيسية','المتجر','الإدارة'][_currentNavIndex],
+                          style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
                               fontSize: 18),
@@ -858,13 +864,52 @@ class _MainScreenState extends State<MainScreen>
                       ],
                     ),
                   ),
-                  Expanded(child: _buildDashboard(isDark)),
+                  Expanded(child: IndexedStack(index: _currentNavIndex, children: pages)),
                 ],
               ),
             ),
           ],
         )
-            : _buildDashboard(isDark),
+            : IndexedStack(index: _currentNavIndex, children: pages),
+
+        bottomNavigationBar: isDesktop ? null : Container(
+          decoration: BoxDecoration(
+            boxShadow: [BoxShadow(
+                color: Colors.black.withOpacity(0.08),
+                blurRadius: 12,
+                offset: const Offset(0, -2))],
+          ),
+          child: NavigationBar(
+            selectedIndex: _currentNavIndex,
+            onDestinationSelected: (index) => setState(() => _currentNavIndex = index),
+            backgroundColor: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+            indicatorColor: const Color(0xFF2E7D32).withOpacity(0.15),
+            surfaceTintColor: Colors.transparent,
+            shadowColor: Colors.transparent,
+            elevation: 0, height: 65,
+            labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+            destinations: [
+              NavigationDestination(
+                icon: Icon(Icons.home_outlined,
+                    color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
+                selectedIcon: const Icon(Icons.home_rounded, color: Color(0xFF2E7D32)),
+                label: 'الرئيسية',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.store_outlined,
+                    color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
+                selectedIcon: const Icon(Icons.store_rounded, color: Color(0xFF2E7D32)),
+                label: 'المتجر',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.admin_panel_settings_outlined,
+                    color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
+                selectedIcon: const Icon(Icons.admin_panel_settings_rounded, color: Color(0xFF2E7D32)),
+                label: 'الإدارة',
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

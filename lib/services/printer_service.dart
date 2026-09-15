@@ -462,28 +462,28 @@ class PrinterService {
     List<int> b = [];
     
     // الأولوية للقيم المحفوظة في الطلبية
-    final paid = order.paidAmount > 0 ? order.paidAmount : (amountPaid ?? orderTotal);
-    final totalBalance = order.remainingBalance > 0 ? order.remainingBalance : (newBalance ?? 0);
-    
+    final paid = order.paidAmount;
     final remaining = orderTotal - paid;
 
     b += _t(g, _line2, styles: const PosStyles(align: PosAlign.center));
-    b += _t(g, 'Paye ce jour : ${_money(paid)} DA');
+    
+    // 1. الإجمالي الكبير
+    b += _t(g, 'Total Facture : ${_money(orderTotal)} DA', styles: const PosStyles(bold: true));
+    
+    // 2. المسدد
+    b += _t(g, 'Montant Verse : ${_money(paid)} DA');
+    
+    // 3. الباقي (الدين المترتب عن هذه الفاتورة)
     if (remaining > 0) {
       b += _t(
         g,
-        'Reste (facture) : ${_money(remaining)} DA',
-        styles: const PosStyles(bold: true),
+        'Reste a Payer : ${_money(remaining)} DA',
+        styles: const PosStyles(bold: true, underline: true),
       );
+    } else {
+      b += _t(g, 'Facture Payee (Solder)');
     }
     
-    if (totalBalance > 0) {
-      b += _t(
-        g,
-        'Solde dette client : ${_money(totalBalance)} DA',
-        styles: const PosStyles(bold: true),
-      );
-    }
     return b;
   }
 

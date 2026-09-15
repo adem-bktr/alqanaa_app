@@ -1709,6 +1709,8 @@ class _AdminScreenState extends State<AdminScreen>
                     children: [
                       _buildAddTab(isDark),
                       _buildManageTab(isDark),
+                      _buildOrdersCard(isDark), // ✅ سجل الطلبات كتاب
+                      const StatsScreen(),      // ✅ الإحصائيات كتاب
                       _buildUsersTab(isDark),
                     ],
                   ),
@@ -1755,6 +1757,8 @@ class _AdminScreenState extends State<AdminScreen>
           children: [
             _buildAddTab(isDark),
             _buildManageTab(isDark),
+            _buildOrdersCard(isDark), // ✅
+            const StatsScreen(),      // ✅
             _buildUsersTab(isDark),
           ],
         ),
@@ -1777,9 +1781,19 @@ class _AdminScreenState extends State<AdminScreen>
             label: 'إدارة',
           ),
           BottomNavigationBarItem(
+            icon: Icon(Icons.receipt_long_outlined),
+            activeIcon: Icon(Icons.receipt_long),
+            label: 'الطلبات',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.bar_chart_outlined),
+            activeIcon: Icon(Icons.bar_chart),
+            label: 'إحصائيات',
+          ),
+          BottomNavigationBarItem(
             icon: Icon(Icons.people_outline),
             activeIcon: Icon(Icons.people),
-            label: 'المستخدمون',
+            label: 'مستخدمون',
           ),
         ],
       ),
@@ -1794,16 +1808,10 @@ class _AdminScreenState extends State<AdminScreen>
     final textColor = isDark ? Colors.white : Colors.black87;
     final items = [
       {'icon': Icons.add_circle_rounded, 'label': 'إضافة', 'index': 0},
-      {
-        'icon': Icons.manage_search_rounded,
-        'label': 'إدارة',
-        'index': 1
-      },
-      {
-        'icon': Icons.people_rounded,
-        'label': 'المستخدمون',
-        'index': 2
-      },
+      {'icon': Icons.manage_search_rounded, 'label': 'إدارة المحتوى', 'index': 1},
+      {'icon': Icons.receipt_long_rounded, 'label': 'سجل الطلبات', 'index': 2},
+      {'icon': Icons.bar_chart_rounded, 'label': 'تقارير المبيعات', 'index': 3},
+      {'icon': Icons.people_rounded, 'label': 'المستخدمون', 'index': 4},
     ];
     return Container(
       width: 220,
@@ -2001,6 +2009,8 @@ class _AdminScreenState extends State<AdminScreen>
     final titles = [
       'إضافة محتوى',
       'إدارة المحتوى',
+      'سجل الطلبات',
+      'تقارير المبيعات',
       'إدارة المستخدمين'
     ];
     return Container(

@@ -69,87 +69,10 @@ extension AdminManageTabX on _AdminScreenState {
   Widget _buildManageTab(bool isDark) {
     final fillColor =
     isDark ? const Color(0xFF2A2A3E) : const Color(0xFFF5F5F5);
-    if (isDesktop) {
-      return SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              flex: 5,
-              child: Column(
-                children: [
-                  _SectionAnimator(
-                      delay: 0, child: _buildStatsEntryCard(isDark)),
-                  const SizedBox(height: 16),
-                  _SectionAnimator(
-                      delay: 20, child: _buildOrdersCard(isDark)),
-                  const SizedBox(height: 16),
-                  _SectionAnimator(
-                    delay: 100,
-                    child: _buildCard(
-                        isDark: isDark,
-                        child: _buildAnnouncementsSection(
-                            isDark, fillColor)),
-                  ),
-                  const SizedBox(height: 16),
-                  _SectionAnimator(
-                    delay: 150,
-                    child: _buildCard(
-                        isDark: isDark,
-                        child: _buildPriceToggle()),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 20),
-            Expanded(
-              flex: 5,
-              child: Column(
-                children: [
-                  _SectionAnimator(
-                    delay: 50,
-                    child: _buildCard(
-                        isDark: isDark,
-                        child: _buildCategoriesSection(isDark)),
-                  ),
-                  const SizedBox(height: 16),
-                  _SectionAnimator(
-                    delay: 100,
-                    child: _buildCard(
-                        isDark: isDark,
-                        child: _buildBannersSection(isDark)),
-                  ),
-                  const SizedBox(height: 16),
-                  _SectionAnimator(
-                    delay: 150,
-                    child: _buildCard(
-                        isDark: isDark,
-                        child: _buildBrandsSection(isDark, fillColor)),
-                  ),
-                  const SizedBox(height: 16),
-                  _SectionAnimator(
-                    delay: 200,
-                    child: _buildCard(
-                        isDark: isDark,
-                        child:
-                        _buildProductsSection(isDark, fillColor)),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
-    }
     return SingleChildScrollView(
       padding: const EdgeInsets.all(12),
       child: Column(
         children: [
-          _SectionAnimator(delay: 0, child: _buildStatsEntryCard(isDark)),
-          const SizedBox(height: 12),
-          _SectionAnimator(delay: 20, child: _buildOrdersCard(isDark)),
-          const SizedBox(height: 12),
           _SectionAnimator(
             delay: 100,
             child: _buildCard(
