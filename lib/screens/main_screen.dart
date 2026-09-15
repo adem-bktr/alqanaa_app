@@ -487,13 +487,6 @@ class _MainScreenState extends State<MainScreen>
     final name = _adminUser?.name ?? 'الأدمن';
     final email = _adminUser?.email ?? '';
 
-    final navItems = [
-      {'icon': Icons.home_rounded, 'label': 'الرئيسية', 'index': 0},
-      {'icon': Icons.receipt_long_rounded, 'label': 'الطلبات', 'index': 1},
-      {'icon': Icons.store_rounded, 'label': 'المتجر', 'index': 2},
-      {'icon': Icons.settings_rounded, 'label': 'الإعدادات', 'index': 3},
-    ];
-
     return Drawer(
       backgroundColor: cardColor,
       child: SafeArea(
@@ -553,40 +546,64 @@ class _MainScreenState extends State<MainScreen>
             child: ListView(
               padding: const EdgeInsets.symmetric(vertical: 8),
               children: [
-                ...navItems.map((item) {
-                  final idx = item['index'] as int;
-                  final isSelected = _currentNavIndex == idx;
-                  return _drawerItem(
-                    icon: item['icon'] as IconData,
-                    label: item['label'] as String,
-                    isDark: isDark,
-                    textColor: textColor,
-                    isSelected: isSelected,
-                    onTap: () {
-                      Navigator.pop(context);
-                      setState(() => _currentNavIndex = idx);
-                    },
-                  );
-                }),
-                Divider(color: isDark ? Colors.grey.shade800 : Colors.grey.shade200, height: 24),
                 _drawerItem(
-                  icon: Icons.shopping_cart_rounded,
-                  label: cart.isEmpty
-                      ? 'السلة'
-                      : 'السلة (${cart.fold(0, (sum, item) => sum + item.quantity)})',
+                  icon: Icons.home_rounded,
+                  label: 'الرئيسية',
+                  isDark: isDark,
+                  textColor: textColor,
+                  isSelected: _currentNavIndex == 0,
+                  onTap: () {
+                    Navigator.pop(context);
+                    setState(() => _currentNavIndex = 0);
+                  },
+                ),
+                _drawerItem(
+                  icon: Icons.store_rounded,
+                  label: 'المتجر',
+                  isDark: isDark,
+                  textColor: textColor,
+                  isSelected: _currentNavIndex == 1,
+                  onTap: () {
+                    Navigator.pop(context);
+                    setState(() => _currentNavIndex = 1);
+                  },
+                ),
+                _drawerItem(
+                  icon: Icons.admin_panel_settings_rounded,
+                  label: 'لوحة الإدارة',
+                  isDark: isDark,
+                  textColor: textColor,
+                  isSelected: _currentNavIndex == 2,
+                  onTap: () {
+                    Navigator.pop(context);
+                    setState(() => _currentNavIndex = 2);
+                  },
+                ),
+                Divider(color: isDark ? Colors.grey.shade800 : Colors.grey.shade200, height: 24),
+                // ✅ روابط مباشرة لتبويبات الإدارة
+                _drawerItem(
+                  icon: Icons.receipt_long_rounded,
+                  label: 'سجل الطلبات',
                   isDark: isDark,
                   textColor: textColor,
                   onTap: () {
                     Navigator.pop(context);
-                    Navigator.push(context, SlidePageRoute(
-                      page: CartScreen(cart: cart, isAdmin: true),
-                      direction: SlideDirection.fromBottom,
-                    )).then((_) => setState(() {}));
+                    Navigator.push(context, SlidePageRoute(page: const AdminScreen(initialTab: 2)));
+                  },
+                ),
+                _drawerItem(
+                  icon: Icons.bar_chart_rounded,
+                  label: 'تقارير المبيعات',
+                  isDark: isDark,
+                  textColor: textColor,
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(context, SlidePageRoute(page: const AdminScreen(initialTab: 3)));
                   },
                 ),
                 _drawerItem(
                   icon: Icons.people_alt_rounded,
-                  label: 'الزبائن',
+                  label: 'الزبائن والديون',
                   isDark: isDark,
                   textColor: textColor,
                   onTap: () {
@@ -594,9 +611,10 @@ class _MainScreenState extends State<MainScreen>
                     Navigator.push(context, SlidePageRoute(page: const DebtsScreen()));
                   },
                 ),
+                Divider(color: isDark ? Colors.grey.shade800 : Colors.grey.shade200, height: 24),
                 _drawerItem(
                   icon: Icons.print_rounded,
-                  label: 'الطابعة',
+                  label: 'إعدادات الطابعة',
                   isDark: isDark,
                   textColor: textColor,
                   onTap: () {
@@ -1205,16 +1223,7 @@ class _MainScreenState extends State<MainScreen>
         'label': 'سجل الطلبات',
         'subtitle': 'إدارة الطلبيات الحالية والسابقة',
         'colors': const [Color(0xFF2E7D32), Color(0xFF388E3C), Color(0xFF43A047)],
-        'onTap': () => Navigator.push(
-            context, SlidePageRoute(page: const OrdersScreen())),
-      },
-      {
-        'icon': Icons.bar_chart_rounded,
-        'label': 'تقارير المبيعات',
-        'subtitle': 'الأرباح وجرد الكميات المباعة',
-        'colors': const [Color(0xFFE64A19), Color(0xFFF4511E), Color(0xFFFF5722)],
-        'onTap': () => Navigator.push(
-            context, SlidePageRoute(page: StatsScreen())),
+        'onTap': () => setState(() => _currentNavIndex = 2), // ينتقل لتبويب الإدارة
       },
       {
         'icon': Icons.print_rounded,

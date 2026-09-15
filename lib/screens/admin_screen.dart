@@ -14,7 +14,8 @@ part 'admin_manage_tab.dart';
 part 'admin_users_tab.dart';
 
 class AdminScreen extends StatefulWidget {
-  const AdminScreen({super.key});
+  final int initialTab;
+  const AdminScreen({super.key, this.initialTab = 0});
 
   @override
   State<AdminScreen> createState() => _AdminScreenState();
@@ -74,7 +75,7 @@ class _AdminScreenState extends State<AdminScreen>
   bool isSpecialPrice = false;
   bool isLoadingOrders = false;
 
-  int _currentTab = 0;
+  late int _currentTab; // ✅ تغيير من const إلى late
   String _selectedAnnType = 'general';
 
   Color _selectedBannerColor = const Color(0xFF2E7D32);
@@ -100,6 +101,7 @@ class _AdminScreenState extends State<AdminScreen>
   @override
   void initState() {
     super.initState();
+    _currentTab = widget.initialTab; // ✅
     WidgetsBinding.instance.addObserver(this);
     _fadeController = AnimationController(
       vsync: this,
@@ -1709,8 +1711,11 @@ class _AdminScreenState extends State<AdminScreen>
                     children: [
                       _buildAddTab(isDark),
                       _buildManageTab(isDark),
-                      _buildOrdersCard(isDark), // ✅ سجل الطلبات كتاب
-                      const StatsScreen(),      // ✅ الإحصائيات كتاب
+                      SingleChildScrollView(
+                        padding: const EdgeInsets.all(12),
+                        child: _buildOrdersCard(isDark),
+                      ),
+                      const StatsScreen(),
                       _buildUsersTab(isDark),
                     ],
                   ),
@@ -1757,8 +1762,11 @@ class _AdminScreenState extends State<AdminScreen>
           children: [
             _buildAddTab(isDark),
             _buildManageTab(isDark),
-            _buildOrdersCard(isDark), // ✅
-            const StatsScreen(),      // ✅
+            SingleChildScrollView(
+              padding: const EdgeInsets.all(12),
+              child: _buildOrdersCard(isDark),
+            ),
+            const StatsScreen(),
             _buildUsersTab(isDark),
           ],
         ),
