@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart'; // ✅ أضفنا هذا الاستيراد
 import '../models/models.dart';
 import '../services/auth_service.dart';
 import '../services/data_service.dart';
