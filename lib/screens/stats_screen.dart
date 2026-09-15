@@ -492,6 +492,34 @@ class _StatsScreenState extends State<StatsScreen> {
     }).toList();
   }
 
+  Widget _tableHeader(String label, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontWeight: FontWeight.bold,
+          color: isDark ? Colors.grey.shade400 : Colors.grey.shade700,
+          fontSize: 14,
+        ),
+      ),
+    );
+  }
+
+  Widget _tableCell(String value, Color color, {bool bold = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+      child: Text(
+        value,
+        style: TextStyle(
+          color: color,
+          fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+          fontSize: 13,
+        ),
+      ),
+    );
+  }
+
   // ══════════════════════════════════
   //  بطاقة إحصائية
   // ══════════════════════════════════

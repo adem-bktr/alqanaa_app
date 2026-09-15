@@ -14,6 +14,7 @@ import 'login_screen.dart';
 import 'user_main_screen.dart';
 import 'printer_screen.dart';
 import 'debts_screen.dart';
+import 'stats_screen.dart';
 
 class MainScreen extends StatefulWidget {
   final VoidCallback onToggleDarkMode;
