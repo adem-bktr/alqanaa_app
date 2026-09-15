@@ -1171,6 +1171,8 @@ extension AdminManageTabX on _AdminScreenState {
     List<Map<String, dynamic>> editedItems = List.from(
         order.items.map((it) => Map<String, dynamic>.from(it)));
     
+    final paidCtrl = TextEditingController(text: order.paidAmount.toStringAsFixed(0));
+
     double calculateNewTotal() {
       return editedItems.fold(0.0, (sum, it) {
         final price = _d(it['price']);
@@ -1273,6 +1275,19 @@ extension AdminManageTabX on _AdminScreenState {
                   ),
                 ),
                 const Divider(),
+                // ✅ تعديل المبلغ المسدد
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: TextField(
+                    controller: paidCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'المبلغ المسدد الآن',
+                      suffixText: 'DA',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   child: Row(
@@ -1302,9 +1317,11 @@ extension AdminManageTabX on _AdminScreenState {
     if (result == true) {
       try {
         final newTotal = calculateNewTotal();
+        final newPaid = double.tryParse(paidCtrl.text) ?? order.paidAmount;
         final updatedOrder = order.copyWith(
           items: editedItems,
           total: newTotal,
+          paidAmount: newPaid,
         );
         await DataService.updateFullOrder(updatedOrder);
         await loadOrders();

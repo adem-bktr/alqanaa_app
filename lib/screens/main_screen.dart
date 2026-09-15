@@ -1168,7 +1168,7 @@ class _MainScreenState extends State<MainScreen>
         'subtitle': 'الأرباح وجرد الكميات المباعة',
         'colors': const [Color(0xFFE64A19), Color(0xFFF4511E), Color(0xFFFF5722)],
         'onTap': () => Navigator.push(
-            context, SlidePageRoute(page: const StatsScreen())),
+            context, SlidePageRoute(page: StatsScreen())),
       },
       {
         'icon': Icons.print_rounded,

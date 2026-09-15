@@ -1421,7 +1421,6 @@ class _AdminScreenState extends State<AdminScreen>
       ),
     );
   }
-  }
 
   Future<void> _showChangeRoleDialog(UserModel user) async {
     String selectedRole = user.role;

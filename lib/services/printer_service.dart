@@ -345,27 +345,49 @@ class PrinterService {
     return b;
   }
 
-  // ── ✅ المنتجات — كل منتج في سطرين ──
+  // ── ✅ المنتجات — مجمعة حسب الاسم ──
   static List<int> _buildItems(Generator g, List items) {
     List<int> b = [];
-    for (int i = 0; i < items.length; i++) {
+    
+    // ✅ تجميع المنتجات حسب الاسم
+    final Map<String, Map<String, dynamic>> grouped = {};
+    for (final it in items) {
+      final name = it['productName']?.toString() ?? 'منتج غير معروف';
+      if (grouped.containsKey(name)) {
+        grouped[name]!['quantity'] = (grouped[name]!['quantity'] as num) + (it['quantity'] as num);
+        grouped[name]!['total'] = (grouped[name]!['total'] as num) + ((it['price'] as num) * (it['quantity'] as num));
+        
+        final flavor = it['flavor']?.toString() ?? '';
+        if (flavor.isNotEmpty) {
+          final flavors = grouped[name]!['flavors'] as List<String>;
+          flavors.add('$flavor (${it['quantity']})');
+        }
+      } else {
+        final flavor = it['flavor']?.toString() ?? '';
+        grouped[name] = {
+          'productName': name,
+          'quantity': it['quantity'] as num,
+          'total': (it['price'] as num) * (it['quantity'] as num),
+          'isCarton': it['isCarton'],
+          'flavors': flavor.isNotEmpty 
+              ? ['$flavor (${it['quantity']})'] 
+              : <String>[],
+        };
+      }
+    }
+
+    int idx = 1;
+    grouped.forEach((name, data) {
       try {
-        final it = items[i];
-        String name = _clean(it['productName']);
-        if (name.isEmpty) name = 'Produit ${i + 1}';
+        final qty = (data['quantity'] as num).toDouble();
+        final total = (data['total'] as num).toDouble();
+        final type = data['isCarton'] == true ? 'Crt' : 'Unt';
+        final flavorsList = data['flavors'] as List<String>;
 
-        final qty = (it['quantity'] as num?)?.toDouble() ?? 0;
-        final price = (it['price'] as num?)?.toDouble() ?? 0;
-        final total = qty * price;
-        final type = it['isCarton'] == true ? 'Crt' : 'Unt';
-        final flavor = _clean(it['flavor']);
-
-        debugPrint('   ${i + 1}) $name x${qty.toInt()} = ${_money(total)}');
-
-        // ✅ السطر الأول: رقم + اسم المنتج كاملاً + النوع
+        // ✅ السطر الأول: رقم + الاسم + النوع
         b += _t(
           g,
-          '${i + 1}. $name ($type)',
+          '$idx. $name ($type)',
           styles: const PosStyles(bold: true),
         );
 
@@ -377,18 +399,22 @@ class PrinterService {
               const PosStyles(align: PosAlign.right, bold: true)),
         ]);
 
-        // ✅ الطعم إن وُجد
-        if (flavor.isNotEmpty) {
-          b += _t(g, '   Gout: $flavor');
+        // ✅ عرض الأذواق بشكل مجمع في سطر واحد تحت المنتج
+        if (flavorsList.isNotEmpty) {
+          b += _t(
+            g,
+            '   Aromes: ${flavorsList.join(", ")}',
+            styles: const PosStyles(fontType: PosFontType.fontB),
+          );
         }
 
-        // ✅ فاصل خفيف بين كل منتج
         b += _t(g, _dotLine);
+        idx++;
       } catch (e) {
-        debugPrint('⚠️ تخطي المنتج ${i + 1}: $e');
-        b += _t(g, '  [Erreur produit ${i + 1}]');
+        debugPrint('⚠️ خطأ في طباعة منتج مجمع: $e');
       }
-    }
+    });
+    
     return b;
   }
 

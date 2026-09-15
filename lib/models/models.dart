@@ -254,6 +254,8 @@ class Product {
   final int maxQtySpecial;
   final List<FlavorModel> flavors;
   final bool isFeatured;
+  final double purchasePrice; // ✅ سعر الشراء
+  final int stockQuantity;    // ✅ الكمية في المخزن
 
   Product({
     required this.id,
@@ -272,6 +274,8 @@ class Product {
     this.maxQtySpecial = 0,
     this.flavors = const [],
     this.isFeatured = false,
+    this.purchasePrice = 0,
+    this.stockQuantity = 0,
   });
 
   bool get hasFlavors => flavors.isNotEmpty;
@@ -307,6 +311,8 @@ class Product {
     'maxQtySpecial': maxQtySpecial,
     'flavors': flavors.map((f) => f.toJson()).toList(),
     'isFeatured': isFeatured,
+    'purchasePrice': purchasePrice,
+    'stockQuantity': stockQuantity,
   };
 
   factory Product.fromJson(Map<String, dynamic> json) {
@@ -342,6 +348,8 @@ class Product {
       maxQtySpecial: _i(json['maxQtySpecial']),
       flavors: list,
       isFeatured: _b(json['isFeatured']),
+      purchasePrice: _d(json['purchasePrice']),
+      stockQuantity: _i(json['stockQuantity']),
     );
   }
 
