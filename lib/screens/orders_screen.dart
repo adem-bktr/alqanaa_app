@@ -14,7 +14,8 @@ import '../services/printer_service.dart';
 import '../utils/converters.dart';
 
 class OrdersScreen extends StatefulWidget {
-  const OrdersScreen({super.key});
+  final bool showTodayOnly;
+  const OrdersScreen({super.key, this.showTodayOnly = false});
 
   @override
   State<OrdersScreen> createState() => _OrdersScreenState();
@@ -23,7 +24,7 @@ class OrdersScreen extends StatefulWidget {
 class _OrdersScreenState extends State<OrdersScreen> {
   final searchController = TextEditingController();
   final NumberFormat formatter = NumberFormat('#,##0', 'en_US');
-  String selectedFilter = 'all';
+  late String selectedFilter;
 
   bool _isDisposed = false;
   bool _isActive = true;
@@ -39,6 +40,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
   @override
   void initState() {
     super.initState();
+    selectedFilter = widget.showTodayOnly ? 'today' : 'all';
     WidgetsBinding.instance.addObserver(_AppLifecycleObserver(
       onPause: () => _isActive = false,
       onResume: () => _isActive = true,
@@ -853,8 +855,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
           ? null
           : AppBar(
         backgroundColor: const Color(0xFF2E7D32),
-        title: const Text('سجل الطلبات',
-            style: TextStyle(color: Colors.white)),
+        title: Text(widget.showTodayOnly ? 'طلبات اليوم' : 'سجل الطلبات',
+            style: const TextStyle(color: Colors.white)),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back,
               color: Colors.white),
@@ -904,6 +906,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
             final totalAmount = filteredOrders.fold(
                 0.0, (sum, o) => sum + o.total);
 
+            if (widget.showTodayOnly) {
+              return _buildTodayOnlyBody(isDark, cardColor, textColor, filteredOrders);
+            }
+
             if (isDesktop) {
               return _buildDesktopBody(
                   isDark, cardColor, textColor,
@@ -915,6 +921,64 @@ class _OrdersScreenState extends State<OrdersScreen> {
           },
         ),
       ),
+    );
+  }
+
+  Widget _buildTodayOnlyBody(bool isDark, Color cardColor, Color textColor, List<Order> orders) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(12),
+          child: TextField(
+            controller: searchController,
+            onChanged: (_) => _safeSetState(() {}),
+            decoration: InputDecoration(
+              hintText: 'بحث في طلبات اليوم...',
+              prefixIcon: const Icon(Icons.search, color: Color(0xFF2E7D32)),
+              filled: true,
+              fillColor: cardColor,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+            ),
+          ),
+        ),
+        Expanded(
+          child: orders.isEmpty
+              ? const Center(child: Text('لا توجد طلبيات اليوم بعد'))
+              : ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            itemCount: orders.length,
+            itemBuilder: (context, index) {
+              final order = orders[index];
+              return Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                decoration: BoxDecoration(
+                  color: cardColor,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 5)],
+                ),
+                child: ExpansionTile(
+                  leading: const CircleAvatar(backgroundColor: Colors.blue, child: Icon(Icons.inventory, color: Colors.white, size: 20)),
+                  title: Text(order.customerName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text(order.customerPhone),
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          ...order.items.map((i) => _buildOrderItem(i, textColor)),
+                          const Divider(),
+                          _buildActionButtons(order),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 

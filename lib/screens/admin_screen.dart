@@ -44,8 +44,9 @@ class _AdminScreenState extends State<AdminScreen>
   final bannerTitleController = TextEditingController();
   final bannerSubtitleController = TextEditingController();
   final bannerOrderController = TextEditingController();
-  final purchasePriceController = TextEditingController(); // ✅
-  final stockQuantityController = TextEditingController(); // ✅
+  final purchasePriceController = TextEditingController();
+  final stockQuantityController = TextEditingController();
+  final unitsPerCartonController = TextEditingController(text: '1'); // ✅ جديد
 
   List<Brand> brands = [];
   List<Product> products = [];
@@ -76,6 +77,7 @@ class _AdminScreenState extends State<AdminScreen>
   bool isLoadingOrders = false;
 
   late int _currentTab; // ✅ تغيير من const إلى late
+  DateTime? _selectedFilterDate; // ✅
   String _selectedAnnType = 'general';
 
   Color _selectedBannerColor = const Color(0xFF2E7D32);
@@ -199,6 +201,7 @@ class _AdminScreenState extends State<AdminScreen>
     bannerOrderController.dispose();
     purchasePriceController.dispose();
     stockQuantityController.dispose();
+    unitsPerCartonController.dispose();
     _adminPasswordController.dispose();
     _adminPasswordConfirmController.dispose();
     _fadeController.dispose();
@@ -768,6 +771,7 @@ class _AdminScreenState extends State<AdminScreen>
         flavors: newProductFlavors,
         purchasePrice: double.tryParse(purchasePriceController.text) ?? 0,
         stockQuantity: int.tryParse(stockQuantityController.text) ?? 0,
+        unitsPerCarton: int.tryParse(unitsPerCartonController.text) ?? 1,
       );
       
       debugPrint('📸 رفع الصورة للمنتج...');
@@ -1088,6 +1092,7 @@ class _AdminScreenState extends State<AdminScreen>
     final maxSCtrl =
     TextEditingController(text: product.maxQtySpecial.toString());
     final buyPriceCtrl = TextEditingController(text: product.purchasePrice.toString());
+    final upcCtrl = TextEditingController(text: product.unitsPerCarton.toString()); // ✅
     final stockCtrl = TextEditingController(text: product.stockQuantity.toString());
     final editFlavorController = TextEditingController();
     String? newImagePath;
@@ -1175,12 +1180,17 @@ class _AdminScreenState extends State<AdminScreen>
                       Row(children: [
                         Expanded(
                             child: _dialogField(
-                                buyPriceCtrl, 'سعر الشراء',
+                                buyPriceCtrl, 'سعر شراء (حبة)',
                                 type: TextInputType.number)),
                         const SizedBox(width: 8),
                         Expanded(
                             child: _dialogField(
-                                stockCtrl, 'الكمية الحالية',
+                                upcCtrl, 'حبة/كرتون',
+                                type: TextInputType.number)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                            child: _dialogField(
+                                stockCtrl, 'الكمية (حبة)',
                                 type: TextInputType.number)),
                       ]),
                     ],
@@ -1400,6 +1410,7 @@ class _AdminScreenState extends State<AdminScreen>
                   flavors: editFlavors,
                   isFeatured: editIsFeatured,
                   purchasePrice: double.tryParse(buyPriceCtrl.text) ?? 0,
+                  unitsPerCarton: int.tryParse(upcCtrl.text) ?? 1,
                   stockQuantity: int.tryParse(stockCtrl.text) ?? 0,
                 );
                 await DataService.updateProduct(updated,
@@ -2585,7 +2596,23 @@ class _AdminScreenState extends State<AdminScreen>
                     controller: purchasePriceController,
                     keyboardType: TextInputType.number,
                     decoration: InputDecoration(
-                      hintText: 'سعر الشراء',
+                      hintText: 'سعر الشراء (حبة)',
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: unitsPerCartonController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      hintText: 'حبة في الكرتون',
                       filled: true,
                       fillColor: Colors.white,
                       border: OutlineInputBorder(
@@ -2601,7 +2628,7 @@ class _AdminScreenState extends State<AdminScreen>
                     controller: stockQuantityController,
                     keyboardType: TextInputType.number,
                     decoration: InputDecoration(
-                      hintText: 'الكمية في المخزن',
+                      hintText: 'الكمية (حبات)',
                       filled: true,
                       fillColor: Colors.white,
                       border: OutlineInputBorder(

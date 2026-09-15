@@ -254,8 +254,9 @@ class Product {
   final int maxQtySpecial;
   final List<FlavorModel> flavors;
   final bool isFeatured;
-  final double purchasePrice; // ✅ سعر الشراء
-  final int stockQuantity;    // ✅ الكمية في المخزن
+  final double purchasePrice;
+  final int stockQuantity; // إجمالي عدد القطع (الحبات) في المخزن
+  final int unitsPerCarton; // كم حبة داخل الكرتون الواحد
 
   Product({
     required this.id,
@@ -276,6 +277,7 @@ class Product {
     this.isFeatured = false,
     this.purchasePrice = 0,
     this.stockQuantity = 0,
+    this.unitsPerCarton = 1, // افتراضياً الكرتون فيه قطعة واحدة إذا لم يحدد
   });
 
   bool get hasFlavors => flavors.isNotEmpty;
@@ -313,6 +315,7 @@ class Product {
     'isFeatured': isFeatured,
     'purchasePrice': purchasePrice,
     'stockQuantity': stockQuantity,
+    'unitsPerCarton': unitsPerCarton,
   };
 
   factory Product.fromJson(Map<String, dynamic> json) {
@@ -350,6 +353,7 @@ class Product {
       isFeatured: _b(json['isFeatured']),
       purchasePrice: _d(json['purchasePrice']),
       stockQuantity: _i(json['stockQuantity']),
+      unitsPerCarton: _i(json['unitsPerCarton']) > 0 ? _i(json['unitsPerCarton']) : 1,
     );
   }
 

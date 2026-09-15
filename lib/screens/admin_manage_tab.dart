@@ -548,6 +548,17 @@ extension AdminManageTabX on _AdminScreenState {
                   : Colors.grey.shade200),
           itemBuilder: (context, index) {
             final product = products[index];
+            
+            // ✅ حساب المخزن المفهوم (كرتون + حبة)
+            String stockLabel = 'المخزن: ';
+            if (product.unitsPerCarton > 1) {
+              int crt = product.stockQuantity ~/ product.unitsPerCarton;
+              int pcs = product.stockQuantity % product.unitsPerCarton;
+              stockLabel += '$crt كرتون و $pcs حبة';
+            } else {
+              stockLabel += '${product.stockQuantity} قطعة';
+            }
+
             return TweenAnimationBuilder<double>(
               tween: Tween(begin: 0.0, end: 1.0),
               duration: Duration(
@@ -592,6 +603,13 @@ extension AdminManageTabX on _AdminScreenState {
                       style: const TextStyle(
                           color: Color(0xFF2E7D32),
                           fontSize: 12),
+                    ),
+                    Text(
+                      stockLabel,
+                      style: const TextStyle(
+                          color: Colors.blue,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold),
                     ),
                     Wrap(
                       spacing: 4,
@@ -663,6 +681,17 @@ extension AdminManageTabX on _AdminScreenState {
   }
 
   Widget _buildOrdersCard(bool isDark) {
+    List<Order> displayOrders = orders;
+    if (_selectedFilterDate != null) {
+      displayOrders = orders.where((o) {
+        final d = o.createdAt ?? o.dateTime;
+        if (d == null) return false;
+        return d.year == _selectedFilterDate!.year &&
+            d.month == _selectedFilterDate!.month &&
+            d.day == _selectedFilterDate!.day;
+      }).toList();
+    }
+
     return _buildCard(
       isDark: isDark,
       child: Column(
@@ -672,8 +701,28 @@ extension AdminManageTabX on _AdminScreenState {
             children: [
               Expanded(
                 child: _buildSectionHeader(Icons.receipt_long,
-                    'سجل الطلبات (${orders.length})'),
+                    'سجل الطلبات (${displayOrders.length})'),
               ),
+              // ✅ زر التقويم
+              IconButton(
+                icon: Icon(Icons.calendar_month,
+                    color: _selectedFilterDate != null ? Colors.red : const Color(0xFF2E7D32)),
+                onPressed: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: _selectedFilterDate ?? DateTime.now(),
+                    firstDate: DateTime(2022),
+                    lastDate: DateTime.now(),
+                  );
+                  setState(() => _selectedFilterDate = picked);
+                },
+                tooltip: 'تصفية بالتاريخ',
+              ),
+              if (_selectedFilterDate != null)
+                IconButton(
+                  icon: const Icon(Icons.clear, color: Colors.grey),
+                  onPressed: () => setState(() => _selectedFilterDate = null),
+                ),
               IconButton(
                 icon: const Icon(Icons.refresh,
                     color: Color(0xFF2E7D32)),
@@ -681,6 +730,14 @@ extension AdminManageTabX on _AdminScreenState {
               ),
             ],
           ),
+          if (_selectedFilterDate != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Text(
+                'عرض طلبات تاريخ: ${DateFormat('yyyy/MM/dd').format(_selectedFilterDate!)}',
+                style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 12),
+              ),
+            ),
           const SizedBox(height: 12),
           if (PrinterService.isConnected)
             Container(
@@ -741,7 +798,7 @@ extension AdminManageTabX on _AdminScreenState {
                   child: CircularProgressIndicator(
                       color: Color(0xFF2E7D32)),
                 ))
-          else if (orders.isEmpty)
+          else if (displayOrders.isEmpty)
             const Center(
                 child: Padding(
                   padding: EdgeInsets.all(20),
@@ -753,13 +810,13 @@ extension AdminManageTabX on _AdminScreenState {
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount:
-              orders.length > 20 ? 20 : orders.length,
+              displayOrders.length > 50 ? 50 : displayOrders.length,
               separatorBuilder: (_, __) => Divider(
                   color: isDark
                       ? Colors.grey.shade800
                       : Colors.grey.shade200),
               itemBuilder: (context, index) {
-                final order = orders[index];
+                final order = displayOrders[index];
                 return TweenAnimationBuilder<double>(
                   tween: Tween(begin: 0.0, end: 1.0),
                   duration: Duration(
@@ -776,13 +833,12 @@ extension AdminManageTabX on _AdminScreenState {
                 );
               },
             ),
-          if (orders.length > 20)
-            Center(
-              child: TextButton(
-                onPressed: () => _showSnackBar(
-                    'عرض ${orders.length - 20} طلب آخر قريباً',
-                    Colors.grey),
-                child: Text('+ ${orders.length - 20} طلب آخر'),
+          if (displayOrders.length > 50)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(12),
+                child: Text('يتم عرض آخر 50 طلباً فقط، استخدم البحث أو التاريخ للوصول للبقية',
+                    style: TextStyle(color: Colors.grey, fontSize: 10)),
               ),
             ),
         ],

@@ -619,10 +619,19 @@ class DataService {
     for (final it in order.items) {
       final pid = it['productId']?.toString() ?? '';
       if (pid.isNotEmpty) {
-        final qty = toInt(it['quantity']);
-        batch.update(_db.collection('products').doc(pid), {
-          'stockQuantity': FieldValue.increment(-qty),
-        });
+        final qtySold = toInt(it['quantity']);
+        final isCarton = it['isCarton'] == true;
+        
+        // جلب بيانات المنتج لمعرفة عدد الحبات في الكرتون
+        final pDoc = await _db.collection('products').doc(pid).get();
+        if (pDoc.exists) {
+          final upc = toInt(pDoc.data()?['unitsPerCarton'] ?? 1);
+          final piecesToSubtract = isCarton ? (qtySold * upc) : qtySold;
+
+          batch.update(_db.collection('products').doc(pid), {
+            'stockQuantity': FieldValue.increment(-piecesToSubtract),
+          });
+        }
       }
     }
 

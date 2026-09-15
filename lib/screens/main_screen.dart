@@ -973,8 +973,6 @@ class _MainScreenState extends State<MainScreen>
                       child: Column(children: [
                         if (pendingOrders.isNotEmpty)
                           _buildAlertBanner(pendingOrders.length, isDark),
-                        if (pendingOrders.isNotEmpty) const SizedBox(height: 12),
-                        _buildSalesCard(todaySales, todayOrders, isDark),
                         const SizedBox(height: 16),
                         _buildSectionTitle('📊 نظرة سريعة', isDark),
                         const SizedBox(height: 8),
@@ -1008,8 +1006,6 @@ class _MainScreenState extends State<MainScreen>
               children: [
                 if (pendingOrders.isNotEmpty)
                   _buildAlertBanner(pendingOrders.length, isDark),
-                const SizedBox(height: 12),
-                _buildSalesCard(todaySales, todayOrders, isDark),
                 const SizedBox(height: 16),
                 _buildSectionTitle('📊 نظرة سريعة', isDark),
                 const SizedBox(height: 8),
@@ -1220,10 +1216,11 @@ class _MainScreenState extends State<MainScreen>
       },
       {
         'icon': Icons.receipt_long_rounded,
-        'label': 'سجل الطلبات',
-        'subtitle': 'إدارة الطلبيات الحالية والسابقة',
+        'label': 'طلبات اليوم',
+        'subtitle': 'عرض وتحضير طلبيات نهار اليوم',
         'colors': const [Color(0xFF2E7D32), Color(0xFF388E3C), Color(0xFF43A047)],
-        'onTap': () => setState(() => _currentNavIndex = 2), // ينتقل لتبويب الإدارة
+        'onTap': () => Navigator.push(
+            context, SlidePageRoute(page: const OrdersScreen(showTodayOnly: true))),
       },
       {
         'icon': Icons.print_rounded,
