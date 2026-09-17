@@ -246,7 +246,8 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
         priceCartonSpecial: p.priceCartonSpecial, priceUnitSpecial: p.priceUnitSpecial,
         imagePath: p.imagePath, isAvailable: p.isAvailable, discount: p.discount, sellType: p.sellType,
         maxQtyNormal: p.maxQtyNormal, maxQtySpecial: p.maxQtySpecial, flavors: p.flavors, isFeatured: p.isFeatured,
-        purchasePrice: unitBuy > 0 ? unitBuy : p.purchasePrice,
+        purchasePriceCarton: item.price > 0 ? item.price : p.purchasePriceCarton,
+        purchasePriceUnit: unitBuy > 0 ? unitBuy : p.purchasePriceUnit,
         stockQuantity: p.stockQuantity + (item.quantity * p.unitsPerCarton),
         unitsPerCarton: p.unitsPerCarton,
       );
@@ -365,7 +366,17 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('أدخل اسم المنتج')));
           return;
         }
-        final p = Product(id: DateTime.now().millisecondsSinceEpoch.toString(), brandId: selBrand!.id, categoryId: selCat?.id ?? '', name: nCtrl.text.trim(), priceCartonNormal: 0, priceUnitNormal: 0, priceCartonSpecial: 0, priceUnitSpecial: 0, purchasePrice: item.price, stockQuantity: 0);
+        final p = Product(
+          id: DateTime.now().millisecondsSinceEpoch.toString(), 
+          brandId: selBrand!.id, 
+          categoryId: selCat?.id ?? '', 
+          name: nCtrl.text.trim(), 
+          priceCartonNormal: 0, priceUnitNormal: 0, 
+          priceCartonSpecial: 0, priceUnitSpecial: 0, 
+          purchasePriceCarton: item.price,
+          purchasePriceUnit: item.price / 1,
+          stockQuantity: 0
+        );
         await DataService.saveProduct(p);
         await DataService.saveSupplierMapping(item.rawText, p.id);
         Navigator.pop(context, p);

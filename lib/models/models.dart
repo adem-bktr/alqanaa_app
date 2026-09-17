@@ -254,9 +254,10 @@ class Product {
   final int maxQtySpecial;
   final List<FlavorModel> flavors;
   final bool isFeatured;
-  final double purchasePrice;
-  final int stockQuantity; // إجمالي عدد القطع (الحبات) في المخزن
-  final int unitsPerCarton; // كم حبة داخل الكرتون الواحد
+  final double purchasePriceCarton; // ✅ سعر شراء الكرتون
+  final double purchasePriceUnit;   // ✅ سعر شراء الحبة
+  final int stockQuantity;
+  final int unitsPerCarton; // ✅ تأكيد وجود الحقل
 
   Product({
     required this.id,
@@ -275,9 +276,10 @@ class Product {
     this.maxQtySpecial = 0,
     this.flavors = const [],
     this.isFeatured = false,
-    this.purchasePrice = 0,
+    this.purchasePriceCarton = 0,
+    this.purchasePriceUnit = 0,
     this.stockQuantity = 0,
-    this.unitsPerCarton = 1, // افتراضياً الكرتون فيه قطعة واحدة إذا لم يحدد
+    this.unitsPerCarton = 1,
   });
 
   bool get hasFlavors => flavors.isNotEmpty;
@@ -313,7 +315,8 @@ class Product {
     'maxQtySpecial': maxQtySpecial,
     'flavors': flavors.map((f) => f.toJson()).toList(),
     'isFeatured': isFeatured,
-    'purchasePrice': purchasePrice,
+    'purchasePriceCarton': purchasePriceCarton,
+    'purchasePriceUnit': purchasePriceUnit,
     'stockQuantity': stockQuantity,
     'unitsPerCarton': unitsPerCarton,
   };
@@ -324,7 +327,6 @@ class Product {
     if (s == 'unitOnly' || s == 'unit') type = SellType.unitOnly;
     if (s == 'both') type = SellType.both;
 
-    // ✅ قراءة آمنة للأذواق
     final list = <FlavorModel>[];
     final raw = json['flavors'];
     if (raw is List) {
@@ -351,7 +353,8 @@ class Product {
       maxQtySpecial: _i(json['maxQtySpecial']),
       flavors: list,
       isFeatured: _b(json['isFeatured']),
-      purchasePrice: _d(json['purchasePrice']),
+      purchasePriceCarton: _d(json['purchasePriceCarton']),
+      purchasePriceUnit: _d(json['purchasePriceUnit']),
       stockQuantity: _i(json['stockQuantity']),
       unitsPerCarton: _i(json['unitsPerCarton']) > 0 ? _i(json['unitsPerCarton']) : 1,
     );

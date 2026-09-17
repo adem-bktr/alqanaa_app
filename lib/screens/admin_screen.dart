@@ -47,7 +47,9 @@ class _AdminScreenState extends State<AdminScreen>
   final bannerOrderController = TextEditingController();
   final purchasePriceController = TextEditingController();
   final stockQuantityController = TextEditingController();
-  final unitsPerCartonController = TextEditingController(text: '1'); // ✅ جديد
+  final unitsPerCartonController = TextEditingController(text: '1');
+  final purchasePriceCartonController = TextEditingController(); // ✅ جديد
+  final purchasePriceUnitController = TextEditingController();   // ✅ جديد
 
   List<Brand> brands = [];
   List<Product> products = [];
@@ -774,7 +776,8 @@ class _AdminScreenState extends State<AdminScreen>
         maxQtySpecial:
         int.tryParse(maxQtySpecialController.text) ?? 0,
         flavors: newProductFlavors,
-        purchasePrice: double.tryParse(purchasePriceController.text) ?? 0,
+        purchasePriceCarton: double.tryParse(purchasePriceCartonController.text) ?? 0, // ✅
+        purchasePriceUnit: double.tryParse(purchasePriceUnitController.text) ?? 0,     // ✅
         stockQuantity: int.tryParse(stockQuantityController.text) ?? 0,
         unitsPerCarton: int.tryParse(unitsPerCartonController.text) ?? 1,
       );
@@ -1096,8 +1099,9 @@ class _AdminScreenState extends State<AdminScreen>
     TextEditingController(text: product.maxQtyNormal.toString());
     final maxSCtrl =
     TextEditingController(text: product.maxQtySpecial.toString());
-    final buyPriceCtrl = TextEditingController(text: product.purchasePrice.toString());
-    final upcCtrl = TextEditingController(text: product.unitsPerCarton.toString()); // ✅
+    final buyCartonCtrl = TextEditingController(text: product.purchasePriceCarton.toString()); // ✅
+    final buyUnitCtrl = TextEditingController(text: product.purchasePriceUnit.toString());     // ✅
+    final upcCtrl = TextEditingController(text: product.unitsPerCarton.toString());
     final stockCtrl = TextEditingController(text: product.stockQuantity.toString());
     final editFlavorController = TextEditingController();
     String? newImagePath;
@@ -1185,9 +1189,16 @@ class _AdminScreenState extends State<AdminScreen>
                       Row(children: [
                         Expanded(
                             child: _dialogField(
-                                buyPriceCtrl, 'سعر شراء (حبة)',
+                                buyCartonCtrl, 'شراء (كرتون)',
                                 type: TextInputType.number)),
                         const SizedBox(width: 8),
+                        Expanded(
+                            child: _dialogField(
+                                buyUnitCtrl, 'شراء (حبة)',
+                                type: TextInputType.number)),
+                      ]),
+                      const SizedBox(height: 8),
+                      Row(children: [
                         Expanded(
                             child: _dialogField(
                                 upcCtrl, 'حبة/كرتون',
@@ -1414,7 +1425,8 @@ class _AdminScreenState extends State<AdminScreen>
                   int.tryParse(maxSCtrl.text) ?? 0,
                   flavors: editFlavors,
                   isFeatured: editIsFeatured,
-                  purchasePrice: double.tryParse(buyPriceCtrl.text) ?? 0,
+                  purchasePriceCarton: double.tryParse(buyCartonCtrl.text) ?? 0, // ✅
+                  purchasePriceUnit: double.tryParse(buyUnitCtrl.text) ?? 0,     // ✅
                   unitsPerCarton: int.tryParse(upcCtrl.text) ?? 1,
                   stockQuantity: int.tryParse(stockCtrl.text) ?? 0,
                 );
@@ -2598,10 +2610,33 @@ class _AdminScreenState extends State<AdminScreen>
               Row(children: [
                 Expanded(
                   child: TextField(
-                    controller: purchasePriceController,
+                    controller: purchasePriceCartonController,
                     keyboardType: TextInputType.number,
                     decoration: InputDecoration(
-                      hintText: 'سعر الشراء (حبة)',
+                      hintText: 'شراء (كرتون)',
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                    onChanged: (v) {
+                      final upc = int.tryParse(unitsPerCartonController.text) ?? 1;
+                      final buyC = double.tryParse(v) ?? 0;
+                      if (upc > 0) {
+                        purchasePriceUnitController.text = (buyC / upc).toStringAsFixed(2);
+                      }
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: purchasePriceUnitController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      hintText: 'شراء (حبة)',
                       filled: true,
                       fillColor: Colors.white,
                       border: OutlineInputBorder(
@@ -2611,7 +2646,9 @@ class _AdminScreenState extends State<AdminScreen>
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+              ]),
+              const SizedBox(height: 8),
+              Row(children: [
                 Expanded(
                   child: TextField(
                     controller: unitsPerCartonController,

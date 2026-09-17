@@ -395,12 +395,12 @@ class _MainScreenState extends State<MainScreen>
     final pending   = recentOrders.where((o) => o.status == 'pending').length;
     return GridView.count(
       shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: isDesktop ? 4 : 2, crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: 1.8,
+      crossAxisCount: isDesktop ? 3 : 3, // ✅ جعلناهم 3 فقط في السطر
+      crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: 1.5,
       children: [
         _buildStatCard('📦', '$pending', 'طلبات تنتظر', Colors.red, isDark, cardBg),
         _buildStatCard('🏪', '${brands.length}', 'علامة تجارية', Colors.blue, isDark, cardBg),
         _buildStatCard('📋', '${stats['totalOrders'] ?? 0}', 'إجمالي الطلبات', Colors.purple, isDark, cardBg),
-        _buildStatCard('💰', '${(stats['totalSales'] ?? 0).toStringAsFixed(0)}', 'إجمالي مبيعات', Colors.green, isDark, cardBg),
       ],
     );
   }

@@ -412,8 +412,10 @@ class DataService {
     'maxQtySpecial': p.maxQtySpecial,
     'flavors': p.flavors.map((f) => f.toJson()).toList(),
     'isFeatured': p.isFeatured,
-    'purchasePrice': p.purchasePrice,
+    'purchasePriceCarton': p.purchasePriceCarton,
+    'purchasePriceUnit': p.purchasePriceUnit,
     'stockQuantity': p.stockQuantity,
+    'unitsPerCarton': p.unitsPerCarton,
   };
 
   static Future<void> saveProduct(app_models.Product product,
@@ -796,7 +798,7 @@ class DataService {
       
       // خريطة أسعار الشراء لتسهيل الحساب
       final Map<String, double> buyPrices = {
-        for (var p in productsList) p.id: p.purchasePrice
+        for (var p in productsList) p.id: p.purchasePriceUnit
       };
 
       final now = DateTime.now();
@@ -832,12 +834,15 @@ class DataService {
           final name = it['productName']?.toString() ?? 'منتج';
           final sellPrice = toDouble(it['price']);
           final qty = toInt(it['quantity']);
+          final isCrt = it['isCarton'] == true;
           
           targetDayItemsQty[name] = (targetDayItemsQty[name] ?? 0) + qty;
           targetDayItemsRevenue[name] = (targetDayItemsRevenue[name] ?? 0) + (sellPrice * qty);
 
           if (pid.isNotEmpty && buyPrices.containsKey(pid)) {
-            final buyPrice = buyPrices[pid]!;
+            // جلب المنتج لحساب ربح الكرتون أو الحبة بدقة
+            final p = productsList.firstWhere((p) => p.id == pid);
+            final buyPrice = isCrt ? p.purchasePriceCarton : p.purchasePriceUnit;
             if (buyPrice > 0) {
               targetDayProfit += (sellPrice - buyPrice) * qty;
             }
