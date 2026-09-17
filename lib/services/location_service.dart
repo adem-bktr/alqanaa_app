@@ -29,7 +29,7 @@ class LocationService {
 
   static Future<String> getAddressFromLatLng(double lat, double lng) async {
     try {
-      // ✅ استخدام الاسم المستعار للوصول للدالة بشكل صريح
+      // ✅ الاستدعاء الأكثر استقراراً والموصى به في النسخ الجديدة
       final List<geo.Placemark> placemarks = await geo.placemarkFromCoordinates(lat, lng);
       if (placemarks.isEmpty) return '';
       final p = placemarks.first;
