@@ -469,36 +469,82 @@ class _MainScreenState extends State<MainScreen>
   @override
   Widget build(BuildContext context) {
     final isDark = widget.isDarkMode;
+    // ✅ التأكد من استدعاء AdminScreen بدون بارامترات زائدة لتجنب أخطاء الـ Constructor
     final pages = [_buildDashboard(isDark), _buildAdminStoreTab(isDark), const AdminScreen()];
+    
     return Scaffold(
       key: _scaffoldKey,
       drawer: isDesktop ? null : _buildAdminDrawer(isDark),
+      // ✅ تحسين شكل الـ AppBar لضمان ظهور ثلاث الشلطات بشكل فخم
       appBar: isDesktop ? null : AppBar(
         backgroundColor: const Color(0xFF2E7D32),
-        elevation: 0,
-        leading: IconButton(icon: const Icon(Icons.menu_rounded, color: Colors.white), onPressed: () => _scaffoldKey.currentState?.openDrawer()),
-        title: Row(children: [
-          Container(width: 32, height: 32, decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(8)), child: ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.asset('assets/logo.png', fit: BoxFit.cover, errorBuilder: (_,__,___) => const Icon(Icons.store, color: Colors.white, size: 20)))),
-          const SizedBox(width: 10),
-          const Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-            Text('القناعة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-            Text('لوحة التحكم', style: TextStyle(color: Colors.white70, fontSize: 10)),
-          ]),
-        ])),
+        elevation: 2,
+        shadowColor: Colors.black26,
+        leading: IconButton(
+          icon: const Icon(Icons.menu_rounded, color: Colors.white, size: 28),
+          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+        ),
+        title: Row(
+          children: [
+            Hero(
+              tag: 'logo',
+              child: Container(
+                width: 34, height: 34,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.asset('assets/logo.png', fit: BoxFit.cover,
+                    errorBuilder: (_,__,___) => const Icon(Icons.store_rounded, color: Colors.white, size: 22)),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('القناعة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                Text('لوحة التحكم', style: TextStyle(color: Colors.white70, fontSize: 10)),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          // زر سريع للسلة في الـ AppBar
+          if (cart.isNotEmpty)
+            badges.Badge(
+              position: badges.BadgePosition.topEnd(top: 2, end: 2),
+              badgeContent: Text('${cart.length}', style: const TextStyle(color: Colors.white, fontSize: 10)),
+              child: IconButton(
+                icon: const Icon(Icons.shopping_cart_outlined, color: Colors.white),
+                onPressed: () => Navigator.push(context, SlidePageRoute(page: CartScreen(cart: cart, isAdmin: true))).then((_) => setState((){})),
+              ),
+            ),
+          const SizedBox(width: 8),
+        ],
+      ),
       body: IndexedStack(index: _currentNavIndex, children: pages),
       bottomNavigationBar: isDesktop ? null : Container(
-        decoration: BoxDecoration(boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, -2))]),
+        decoration: BoxDecoration(
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 15, offset: const Offset(0, -3))],
+        ),
         child: NavigationBar(
           selectedIndex: _currentNavIndex,
           onDestinationSelected: (idx) => setState(() => _currentNavIndex = idx),
           backgroundColor: isDark ? const Color(0xFF1E1E2E) : Colors.white,
           indicatorColor: const Color(0xFF2E7D32).withOpacity(0.15),
-          height: 65,
+          height: 70,
+          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
           destinations: const [
             NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded, color: Color(0xFF2E7D32)), label: 'الرئيسية'),
             NavigationDestination(icon: Icon(Icons.store_outlined), selectedIcon: Icon(Icons.store_rounded, color: Color(0xFF2E7D32)), label: 'المتجر'),
-            NavigationDestination(icon: Icon(Icons.admin_panel_settings_outlined), selectedIcon: Icon(Icons.admin_panel_settings_rounded, color: Color(0xFF2E7D32)), label: 'الإدارة'),
-          ])),
+            NavigationDestination(icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings_rounded, color: Color(0xFF2E7D32)), label: 'الإدارة'),
+          ],
+        ),
+      ),
     );
   }
 
