@@ -1,5 +1,5 @@
 import 'package:geolocator/geolocator.dart';
-import 'package:geocoding/geocoding.dart' as geo;
+import 'package:geocoding/geocoding.dart';
 
 class LocationService {
   static Future<Position?> getCurrentLocation() async {
@@ -29,8 +29,8 @@ class LocationService {
 
   static Future<String> getAddressFromLatLng(double lat, double lng) async {
     try {
-      // ✅ الاستدعاء الأكثر استقراراً والموصى به في النسخ الجديدة
-      final List<geo.Placemark> placemarks = await geo.placemarkFromCoordinates(lat, lng);
+      // ✅ الاستدعاء المباشر بدون أي prefix لضمان أعلى توافق
+      final List<Placemark> placemarks = await placemarkFromCoordinates(lat, lng);
       if (placemarks.isEmpty) return '';
       final p = placemarks.first;
       
