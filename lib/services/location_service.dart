@@ -1,5 +1,5 @@
 import 'package:geolocator/geolocator.dart';
-import 'package:geocoding/geocoding.dart';
+import 'geo_helper.dart';
 
 class LocationService {
   static Future<Position?> getCurrentLocation() async {
@@ -29,17 +29,10 @@ class LocationService {
 
   static Future<String> getAddressFromLatLng(double lat, double lng) async {
     try {
-      // ✅ الاستدعاء المباشر بدون أي prefix لضمان أعلى توافق
-      final List<Placemark> placemarks = await placemarkFromCoordinates(lat, lng);
-      if (placemarks.isEmpty) return '';
-      final p = placemarks.first;
+      // ✅ نستخدم الوسيط (Proxy) الذي يفصل كود الهاتف عن كود الويب
+      final List<String> addressParts = await getAddressFromCoordinates(lat, lng);
       
-      final List<String> addressParts = [];
-      if (p.street != null && p.street!.isNotEmpty) addressParts.add(p.street!);
-      if (p.locality != null && p.locality!.isNotEmpty) addressParts.add(p.locality!);
-      if (p.administrativeArea != null && p.administrativeArea!.isNotEmpty) addressParts.add(p.administrativeArea!);
-      if (p.country != null && p.country!.isNotEmpty) addressParts.add(p.country!);
-
+      if (addressParts.isEmpty) return '';
       return addressParts.join(', ');
     } catch (_) {
       return '';

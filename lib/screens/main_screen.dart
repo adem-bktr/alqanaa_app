@@ -20,43 +20,30 @@ import 'scan_invoice_screen.dart';
 class MainScreen extends StatefulWidget {
   final VoidCallback onToggleDarkMode;
   final bool isDarkMode;
-
-  const MainScreen({
-    super.key,
-    required this.onToggleDarkMode,
-    required this.isDarkMode,
-  });
-
+  const MainScreen({super.key, required this.onToggleDarkMode, required this.isDarkMode});
   @override
   State<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen>
-    with TickerProviderStateMixin {
-
-  List<Brand>   brands         = [];
-  List<Brand>   filteredBrands = [];
-  List<CartItem> cart          = [];
-  List<Order>   recentOrders   = [];
-  Map<String, dynamic> stats   = {};
-
+class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
+  List<Brand> brands = [];
+  List<Brand> filteredBrands = [];
+  List<CartItem> cart = [];
+  List<Order> recentOrders = [];
+  Map<String, dynamic> stats = {};
   final searchController = TextEditingController();
-
-  bool isLoading      = true;
+  bool isLoading = true;
   bool isStatsLoading = true;
-  int  _currentNavIndex = 0;
+  int _currentNavIndex = 0;
   bool isSpecialPrice = false;
-
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   UserModel? _adminUser;
-
   late AnimationController _shimmerController;
   late AnimationController _fadeController;
-  late Animation<double>   _fadeAnimation;
-
+  late Animation<double> _fadeAnimation;
   final ScrollController _dashboardScroll = ScrollController();
-  final ScrollController _brandsScroll    = ScrollController();
-  final FocusNode _keyboardFocus          = FocusNode();
+  final ScrollController _brandsScroll = ScrollController();
+  final FocusNode _keyboardFocus = FocusNode();
 
   bool get isDesktop => MediaQuery.of(context).size.width >= 900;
 
@@ -105,13 +92,7 @@ class _MainScreenState extends State<MainScreen>
     try {
       final data = await DataService.getStats();
       final special = await DataService.getIsSpecialPrice();
-      if (mounted) {
-        setState(() {
-          stats = data;
-          isSpecialPrice = special;
-          isStatsLoading = false;
-        });
-      }
+      if (mounted) setState(() { stats = data; isSpecialPrice = special; isStatsLoading = false; });
     } catch (_) { if (mounted) setState(() => isStatsLoading = false); }
   }
 
@@ -296,19 +277,20 @@ class _MainScreenState extends State<MainScreen>
   // ══════════════════════════════════
   Widget _buildDashboard(bool isDark) {
     final cardBg = isDark ? const Color(0xFF1E1E2E) : Colors.white;
+    final pendingCount = recentOrders.where((o) => o.status == 'pending').length;
+
     return RefreshIndicator(onRefresh: _loadAll, child: SingleChildScrollView(padding: const EdgeInsets.all(12), child: Column(children: [
-      _buildStatsGrid(isDark, cardBg),
+      _buildStatsGrid(isDark, cardBg, pendingCount),
       const SizedBox(height: 20),
-      _buildQuickAction(Icons.camera_alt, 'سكان فاتورة مورد', 'تحديث المخزن', [Color(0xFF006064), Color(0xFF00ACC1)], () => Navigator.push(context, SlidePageRoute(page: const ScanInvoiceScreen()))),
+      _buildQuickAction(Icons.camera_alt, 'سكان فاتورة مورد', 'تحديث المخزن', [const Color(0xFF006064), const Color(0xFF00ACC1)], () => Navigator.push(context, SlidePageRoute(page: const ScanInvoiceScreen()))),
       const SizedBox(height: 10),
-      _buildQuickAction(Icons.receipt, 'طلبات اليوم', 'تحضير الطلبيات', [Color(0xFF2E7D32), Color(0xFF43A047)], () => Navigator.push(context, SlidePageRoute(page: const OrdersScreen(showTodayOnly: true)))),
+      _buildQuickAction(Icons.receipt, 'طلبات اليوم', 'تحضير الطلبيات', [const Color(0xFF2E7D32), const Color(0xFF43A047)], () => Navigator.push(context, SlidePageRoute(page: const OrdersScreen(showTodayOnly: true)))),
       const SizedBox(height: 10),
-      _buildQuickAction(Icons.people, 'الزبائن والديون', 'إدارة الديون', [Color(0xFFAD1457), Color(0xFFEC407A)], () => Navigator.push(context, SlidePageRoute(page: const DebtsScreen()))),
+      _buildQuickAction(Icons.people, 'الزبائن والديون', 'إدارة الديون', [const Color(0xFFAD1457), const Color(0xFFEC407A)], () => Navigator.push(context, SlidePageRoute(page: const DebtsScreen()))),
     ])));
   }
 
-  Widget _buildStatsGrid(bool isDark, Color cardBg) {
-    final pending = recentOrders.where((o) => o.status == 'pending').length;
+  Widget _buildStatsGrid(bool isDark, Color cardBg, int pending) {
     return GridView.count(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), crossAxisCount: isDesktop ? 4 : 2, crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: 2.0, children: [
       _statCard('📦', '$pending', 'طلبات تنتظر', Colors.red, isDark, cardBg),
       _statCard('🏪', '${brands.length}', 'علامة تجارية', Colors.blue, isDark, cardBg),
