@@ -101,6 +101,10 @@ class _AdminScreenState extends State<AdminScreen>
 
   bool get isDesktop => MediaQuery.of(context).size.width >= 900;
 
+  void refresh() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void initState() {
     super.initState();

@@ -1255,4 +1255,21 @@ class DataService {
       return 0;
     }
   }
+
+  // 🧠 الربط الذكي للموردين (OCR)
+  static Future<String?> getMappedProductId(String supplierText) async {
+    try {
+      final snap = await _db.collection('supplier_mappings').doc(supplierText).get();
+      return snap.data()?['productId'];
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Future<void> saveSupplierMapping(String supplierText, String productId) async {
+    await _db.collection('supplier_mappings').doc(supplierText).set({
+      'productId': productId,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
 }
