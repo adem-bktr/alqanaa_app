@@ -20,45 +20,81 @@ import 'scan_invoice_screen.dart';
 class MainScreen extends StatefulWidget {
   final VoidCallback onToggleDarkMode;
   final bool isDarkMode;
-  const MainScreen({super.key, required this.onToggleDarkMode, required this.isDarkMode});
+
+  const MainScreen({
+    super.key,
+    required this.onToggleDarkMode,
+    required this.isDarkMode,
+  });
+
   @override
   State<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
-  List<Brand> brands = [];
-  List<Brand> filteredBrands = [];
-  List<CartItem> cart = [];
-  List<Order> recentOrders = [];
-  Map<String, dynamic> stats = {};
+class _MainScreenState extends State<MainScreen>
+    with TickerProviderStateMixin {
+
+  // ══════════════════════════════════
+  //  State
+  // ══════════════════════════════════
+  List<Brand>   brands         = [];
+  List<Brand>   filteredBrands = [];
+  List<CartItem> cart          = [];
+  List<Order>   recentOrders   = [];
+  Map<String, dynamic> stats   = {};
+
   final searchController = TextEditingController();
-  bool isLoading = true;
+
+  bool isLoading      = true;
   bool isStatsLoading = true;
-  int _currentNavIndex = 0;
+  int  _currentNavIndex = 0;
   bool isSpecialPrice = false;
+
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   UserModel? _adminUser;
+
   late AnimationController _shimmerController;
   late AnimationController _fadeController;
-  late Animation<double> _fadeAnimation;
+  late Animation<double>   _fadeAnimation;
+
   final ScrollController _dashboardScroll = ScrollController();
-  final ScrollController _brandsScroll = ScrollController();
-  final FocusNode _keyboardFocus = FocusNode();
+  final ScrollController _brandsScroll    = ScrollController();
+  final FocusNode _keyboardFocus          = FocusNode();
 
+  // ══════════════════════════════════
+  //  Responsive
+  // ══════════════════════════════════
   bool get isDesktop => MediaQuery.of(context).size.width >= 900;
+  bool get isTablet  => MediaQuery.of(context).size.width >= 600;
 
+  int _getCrossAxisCount() {
+    final w = MediaQuery.of(context).size.width;
+    if (w >= 1400) return 8;
+    if (w >= 1100) return 6;
+    if (w >= 800)  return 5;
+    if (w >= 600)  return 4;
+    return 3;
+  }
+
+  // ══════════════════════════════════
+  //  Lifecycle
+  // ══════════════════════════════════
   @override
   void initState() {
     super.initState();
-    _shimmerController = AnimationController(vsync: this, duration: const Duration(milliseconds: 1500))..repeat();
-    _fadeController = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));
-    _fadeAnimation = CurvedAnimation(parent: _fadeController, curve: Curves.easeOutCubic);
+    _shimmerController = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1500))..repeat();
+    _fadeController = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 600));
+    _fadeAnimation = CurvedAnimation(
+        parent: _fadeController, curve: Curves.easeOutCubic);
     _loadAll();
   }
 
   @override
   void dispose() {
     searchController.dispose();
+    _storeSearchCtrl.dispose();
     _shimmerController.dispose();
     _fadeController.dispose();
     _dashboardScroll.dispose();
@@ -67,10 +103,14 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     super.dispose();
   }
 
+  // ══════════════════════════════════
+  //  Data Loading
+  // ══════════════════════════════════
   Future<void> _loadAll() async {
     if (!mounted) return;
     setState(() { isLoading = true; isStatsLoading = true; });
-    await Future.wait([_loadBrands(), _loadStats(), _loadRecentOrders(), _loadAdminUser()]);
+    await Future.wait(
+        [_loadBrands(), _loadStats(), _loadRecentOrders(), _loadAdminUser()]);
     if (mounted) _fadeController.forward(from: 0);
   }
 
@@ -92,7 +132,13 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     try {
       final data = await DataService.getStats();
       final special = await DataService.getIsSpecialPrice();
-      if (mounted) setState(() { stats = data; isSpecialPrice = special; isStatsLoading = false; });
+      if (mounted) {
+        setState(() {
+          stats = data;
+          isSpecialPrice = special;
+          isStatsLoading = false;
+        });
+      }
     } catch (_) { if (mounted) setState(() => isStatsLoading = false); }
   }
 
@@ -103,11 +149,9 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     } catch (_) {}
   }
 
-  String _formatDate(DateTime? date) {
-    if (date == null) return '';
-    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
-  }
-
+  // ══════════════════════════════════
+  //  Actions
+  // ══════════════════════════════════
   Future<void> _logout() async {
     cart.clear(); await AuthService.logout();
     if (!mounted) return;
@@ -118,6 +162,21 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     final user = await AuthService.getCurrentUser();
     if (!mounted || user == null) return;
     Navigator.push(context, SlidePageRoute(page: UserMainScreen(user: user, onToggleDarkMode: widget.onToggleDarkMode, isDarkMode: widget.isDarkMode, isPreviewMode: true)));
+  }
+
+  Future<void> _printOrder(Order order) async {
+    if (!PrinterService.isConnected) {
+      final connected = await Navigator.push<bool>(context, SlidePageRoute(page: const PrinterScreen()));
+      if (connected != true || !mounted) return;
+    }
+    final success = await PrinterService.printReceipt(order: order, customerName: order.customerName, customerPhone: order.customerPhone);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(success ? '✅ تم الطباعة بنجاح' : '❌ فشلت الطباعة'),
+      backgroundColor: success ? const Color(0xFF2E7D32) : Colors.red,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    ));
   }
 
   // ══════════════════════════════════
@@ -273,53 +332,135 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
   }
 
   // ══════════════════════════════════
-  //  Dashboard
+  //  Rich Dashboard Tab
   // ══════════════════════════════════
   Widget _buildDashboard(bool isDark) {
-    final cardBg = isDark ? const Color(0xFF1E1E2E) : Colors.white;
-    final pendingCount = recentOrders.where((o) => o.status == 'pending').length;
+    final cardBg    = isDark ? const Color(0xFF1E1E2E) : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final subColor  = isDark ? Colors.grey.shade400 : Colors.grey.shade600;
 
-    return RefreshIndicator(onRefresh: _loadAll, child: SingleChildScrollView(padding: const EdgeInsets.all(12), child: Column(children: [
-      _buildStatsGrid(isDark, cardBg, pendingCount),
-      const SizedBox(height: 20),
-      _buildQuickAction(Icons.camera_alt, 'سكان فاتورة مورد', 'تحديث المخزن', [const Color(0xFF006064), const Color(0xFF00ACC1)], () => Navigator.push(context, SlidePageRoute(page: const ScanInvoiceScreen()))),
-      const SizedBox(height: 10),
-      _buildQuickAction(Icons.receipt, 'طلبات اليوم', 'تحضير الطلبيات', [const Color(0xFF2E7D32), const Color(0xFF43A047)], () => Navigator.push(context, SlidePageRoute(page: const OrdersScreen(showTodayOnly: true)))),
-      const SizedBox(height: 10),
-      _buildQuickAction(Icons.people, 'الزبائن والديون', 'إدارة الديون', [const Color(0xFFAD1457), const Color(0xFFEC407A)], () => Navigator.push(context, SlidePageRoute(page: const DebtsScreen()))),
-    ])));
+    final pendingOrders = recentOrders.where((o) => o.status == 'pending').toList();
+
+    return RefreshIndicator(
+      color: const Color(0xFF2E7D32),
+      onRefresh: _loadAll,
+      child: Scrollbar(
+        controller: _dashboardScroll,
+        thumbVisibility: isDesktop,
+        child: SingleChildScrollView(
+          controller: _dashboardScroll,
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(12),
+          child: FadeTransition(
+            opacity: _fadeAnimation,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (pendingOrders.isNotEmpty) _buildAlertBanner(pendingOrders.length, isDark),
+                const SizedBox(height: 16),
+                _buildSectionTitle('📊 نظرة سريعة', isDark),
+                const SizedBox(height: 8),
+                _buildStatsGrid(isDark, cardBg),
+                const SizedBox(height: 16),
+                _buildSectionTitle('🚀 إجراءات سريعة', isDark),
+                const SizedBox(height: 8),
+                _buildQuickActionsList(isDark, cardBg),
+                if (pendingOrders.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  _buildSectionTitle('🔴 طلبات تنتظر المراجعة', isDark),
+                  const SizedBox(height: 8),
+                  ...pendingOrders.take(5).map((order) => _buildOrderCard(order, isDark, cardBg, textColor, subColor)),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
-  Widget _buildStatsGrid(bool isDark, Color cardBg, int pending) {
-    return GridView.count(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), crossAxisCount: isDesktop ? 4 : 2, crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: 2.0, children: [
-      _statCard('📦', '$pending', 'طلبات تنتظر', Colors.red, isDark, cardBg),
-      _statCard('🏪', '${brands.length}', 'علامة تجارية', Colors.blue, isDark, cardBg),
-      _statCard('📋', '${stats['totalOrders'] ?? 0}', 'إجمالي الطلبات', Colors.purple, isDark, cardBg),
-      _statCard('💰', '${(stats['totalSales'] ?? 0).toStringAsFixed(0)}', 'إجمالي مبيعات', Colors.green, isDark, cardBg),
-    ]);
-  }
-
-  Widget _statCard(String icon, String val, String label, Color color, bool isDark, Color cardBg) {
-    return Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: cardBg, borderRadius: BorderRadius.circular(15)),
+  Widget _buildAlertBanner(int count, bool isDark) {
+    return Container(
+      width: double.infinity, padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(color: isDark ? Colors.orange.withOpacity(0.15) : const Color(0xFFFFF3E0), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.orange, width: 1.5)),
       child: Row(children: [
-        Text(icon, style: const TextStyle(fontSize: 20)), const SizedBox(width: 8),
+        const Text('🔔', style: TextStyle(fontSize: 22)), const SizedBox(width: 10),
+        Expanded(child: Text('$count طلبات جديدة تنتظر المراجعة', style: TextStyle(color: isDark ? Colors.orange.shade300 : Colors.orange.shade800, fontWeight: FontWeight.bold, fontSize: 14))),
+        GestureDetector(onTap: () => setState(() => _currentNavIndex = 1), child: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), decoration: BoxDecoration(color: Colors.orange.withOpacity(0.2), borderRadius: BorderRadius.circular(8)), child: Text('عرض', style: TextStyle(color: isDark ? Colors.orange.shade300 : Colors.orange.shade800, fontWeight: FontWeight.bold, fontSize: 12)))),
+      ]),
+    );
+  }
+
+  Widget _buildStatsGrid(bool isDark, Color cardBg) {
+    final pending   = recentOrders.where((o) => o.status == 'pending').length;
+    return GridView.count(
+      shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: isDesktop ? 4 : 2, crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: 1.8,
+      children: [
+        _buildStatCard('📦', '$pending', 'طلبات تنتظر', Colors.red, isDark, cardBg),
+        _buildStatCard('🏪', '${brands.length}', 'علامة تجارية', Colors.blue, isDark, cardBg),
+        _buildStatCard('📋', '${stats['totalOrders'] ?? 0}', 'إجمالي الطلبات', Colors.purple, isDark, cardBg),
+        _buildStatCard('💰', '${(stats['totalSales'] ?? 0).toStringAsFixed(0)}', 'إجمالي مبيعات', Colors.green, isDark, cardBg),
+      ],
+    );
+  }
+
+  Widget _buildStatCard(String icon, String value, String label, Color color, bool isDark, Color cardBg) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: cardBg, borderRadius: BorderRadius.circular(14), boxShadow: [BoxShadow(color: Colors.black.withOpacity(isDark ? 0.3 : 0.06), blurRadius: 8, offset: const Offset(0, 3))]),
+      child: Row(children: [
+        Container(width: 36, height: 36, decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(10)), child: Center(child: Text(icon, style: const TextStyle(fontSize: 18)))),
+        const SizedBox(width: 8),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
-          Text(val, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color)),
-          Text(label, style: TextStyle(fontSize: 9, color: Colors.grey.shade500), maxLines: 1, overflow: TextOverflow.ellipsis),
+          Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: color, height: 1.0)),
+          Text(label, style: TextStyle(fontSize: 9, color: isDark ? Colors.grey.shade400 : Colors.grey.shade600), maxLines: 1, overflow: TextOverflow.ellipsis),
         ])),
-      ]));
+      ]),
+    );
   }
 
-  Widget _buildQuickAction(IconData icon, String title, String sub, List<Color> colors, VoidCallback onTap) {
-    return GestureDetector(onTap: onTap, child: Container(width: double.infinity, padding: const EdgeInsets.all(16), decoration: BoxDecoration(gradient: LinearGradient(colors: colors), borderRadius: BorderRadius.circular(16)),
-      child: Row(children: [
-        Icon(icon, color: Colors.white, size: 30), const SizedBox(width: 15),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-          Text(sub, style: const TextStyle(color: Colors.white70, fontSize: 12)),
-        ])),
-        const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 16),
-      ])));
+  Widget _buildQuickActionsList(bool isDark, Color cardBg) {
+    final actions = [
+      {'icon': Icons.camera_enhance_rounded, 'label': 'سكان فاتورة مورد', 'subtitle': 'تحديث المخزن', 'colors': [const Color(0xFF006064), const Color(0xFF00ACC1)], 'onTap': () => Navigator.push(context, SlidePageRoute(page: const ScanInvoiceScreen()))},
+      {'icon': Icons.receipt_long_rounded, 'label': 'طلبات اليوم', 'subtitle': 'عرض طلبات نهار اليوم', 'colors': [const Color(0xFF2E7D32), const Color(0xFF43A047)], 'onTap': () => Navigator.push(context, SlidePageRoute(page: const OrdersScreen(showTodayOnly: true)))},
+      {'icon': Icons.people_alt_rounded, 'label': 'الزبائن والديون', 'subtitle': 'سجل الديون والزبائن', 'colors': [const Color(0xFFAD1457), const Color(0xFFEC407A)], 'onTap': () => Navigator.push(context, SlidePageRoute(page: const DebtsScreen()))},
+      {'icon': Icons.admin_panel_settings_rounded, 'label': 'لوحة الإدارة', 'subtitle': 'المنتجات والبانرات', 'colors': [const Color(0xFF283593), const Color(0xFF5C6BC0)], 'onTap': () => Navigator.push(context, SlidePageRoute(page: const AdminScreen()))},
+    ];
+    return Column(children: actions.map((a) => Padding(padding: const EdgeInsets.only(bottom: 10), child: GestureDetector(onTap: a['onTap'] as VoidCallback, child: Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(gradient: LinearGradient(colors: a['colors'] as List<Color>), borderRadius: BorderRadius.circular(16)), child: Row(children: [
+      Container(width: 44, height: 44, decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(12)), child: Icon(a['icon'] as IconData, color: Colors.white, size: 24)), const SizedBox(width: 14),
+      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(a['label'] as String, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)), Text(a['subtitle'] as String, style: const TextStyle(color: Colors.white70, fontSize: 11))])),
+      const Icon(Icons.arrow_forward_ios, color: Colors.white70, size: 16),
+    ]))))).toList());
+  }
+
+  Widget _buildOrderCard(Order order, bool isDark, Color cardBg, Color textColor, Color subColor) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: cardBg, borderRadius: BorderRadius.circular(14), border: const Border(right: BorderSide(color: Colors.orange, width: 4))),
+      child: Column(children: [
+        Row(children: [
+          Container(width: 44, height: 44, decoration: BoxDecoration(color: Colors.orange.withOpacity(0.15), borderRadius: BorderRadius.circular(12)), child: Center(child: Text(order.customerName.isNotEmpty ? order.customerName[0] : '?', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.orange)))),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(order.customerName, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textColor)), Text('${order.items.length} منتج • ${order.customerPhone}', style: TextStyle(fontSize: 11, color: subColor))])),
+          Text('${order.total.toStringAsFixed(0)} DA', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFF2E7D32))),
+        ]),
+        const SizedBox(height: 10),
+        Row(children: [
+          Expanded(child: _actionButton('✅ تأكيد', const Color(0xFFE8F5E9), const Color(0xFF2E7D32), () async { await DataService.updateOrderStatus(order.id, 'confirmed'); _loadRecentOrders(); })),
+          const SizedBox(width: 6),
+          Expanded(child: _actionButton('🖨️ طباعة', const Color(0xFFE3F2FD), Colors.blue, () => _printOrder(order))),
+        ]),
+      ]),
+    );
+  }
+
+  Widget _actionButton(String label, Color bg, Color color, VoidCallback onTap) {
+    return GestureDetector(onTap: onTap, child: Container(padding: const EdgeInsets.symmetric(vertical: 8), decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)), child: Center(child: Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color)))));
+  }
+
+  Widget _buildSectionTitle(String title, bool isDark) {
+    return Row(children: [Text(title, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: isDark ? Colors.grey.shade400 : Colors.grey.shade600)), const SizedBox(width: 8), Expanded(child: Container(height: 1, color: isDark ? Colors.grey.shade800 : Colors.grey.shade200))]);
   }
 
   // ══════════════════════════════════
@@ -332,25 +473,58 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     return Scaffold(
       key: _scaffoldKey,
       drawer: isDesktop ? null : _buildAdminDrawer(isDark),
-      appBar: isDesktop ? null : AppBar(backgroundColor: const Color(0xFF2E7D32), title: const Text('القناعة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+      appBar: isDesktop ? null : AppBar(
+        backgroundColor: const Color(0xFF2E7D32),
+        elevation: 0,
+        leading: IconButton(icon: const Icon(Icons.menu_rounded, color: Colors.white), onPressed: () => _scaffoldKey.currentState?.openDrawer()),
+        title: Row(children: [
+          Container(width: 32, height: 32, decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(8)), child: ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.asset('assets/logo.png', fit: BoxFit.cover, errorBuilder: (_,__,___) => const Icon(Icons.store, color: Colors.white, size: 20)))),
+          const SizedBox(width: 10),
+          const Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+            Text('القناعة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+            Text('لوحة التحكم', style: TextStyle(color: Colors.white70, fontSize: 10)),
+          ]),
+        ])),
       body: IndexedStack(index: _currentNavIndex, children: pages),
-      bottomNavigationBar: isDesktop ? null : NavigationBar(
-        selectedIndex: _currentNavIndex,
-        onDestinationSelected: (idx) => setState(() => _currentNavIndex = idx),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.home), label: 'الرئيسية'),
-          NavigationDestination(icon: Icon(Icons.store), label: 'المتجر'),
-          NavigationDestination(icon: Icon(Icons.settings), label: 'الإدارة'),
-        ]),
+      bottomNavigationBar: isDesktop ? null : Container(
+        decoration: BoxDecoration(boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, -2))]),
+        child: NavigationBar(
+          selectedIndex: _currentNavIndex,
+          onDestinationSelected: (idx) => setState(() => _currentNavIndex = idx),
+          backgroundColor: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+          indicatorColor: const Color(0xFF2E7D32).withOpacity(0.15),
+          height: 65,
+          destinations: const [
+            NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded, color: Color(0xFF2E7D32)), label: 'الرئيسية'),
+            NavigationDestination(icon: Icon(Icons.store_outlined), selectedIcon: Icon(Icons.store_rounded, color: Color(0xFF2E7D32)), label: 'المتجر'),
+            NavigationDestination(icon: Icon(Icons.admin_panel_settings_outlined), selectedIcon: Icon(Icons.admin_panel_settings_rounded, color: Color(0xFF2E7D32)), label: 'الإدارة'),
+          ])),
     );
   }
 
   Widget _buildAdminDrawer(bool isDark) {
+    final name = _adminUser?.name ?? 'الأدمن';
     return Drawer(child: ListView(children: [
-      const DrawerHeader(decoration: BoxDecoration(color: Color(0xFF2E7D32)), child: Center(child: Text('لوحة الإدارة', style: TextStyle(color: Colors.white, fontSize: 20)))),
+      UserAccountsDrawerHeader(
+        decoration: const BoxDecoration(color: Color(0xFF2E7D32)),
+        currentAccountPicture: CircleAvatar(backgroundColor: Colors.white.withOpacity(0.2), child: Text(name[0].toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold))),
+        accountName: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
+        accountEmail: Text(_adminUser?.email ?? ''),
+      ),
       ListTile(leading: const Icon(Icons.visibility), title: const Text('معاينة كزبون'), onTap: () { Navigator.pop(context); _previewAsUser(); }),
       ListTile(leading: Icon(isDark ? Icons.light_mode : Icons.dark_mode), title: Text(isDark ? 'الوضع النهاري' : 'الوضع الليلي'), onTap: () { Navigator.pop(context); widget.onToggleDarkMode(); }),
+      const Divider(),
       ListTile(leading: const Icon(Icons.logout, color: Colors.red), title: const Text('تسجيل الخروج'), onTap: () { Navigator.pop(context); _logout(); }),
     ]));
   }
+}
+
+// ══════════════════════════════════
+//  AdminAppBarBtn (for compatibility if needed)
+// ══════════════════════════════════
+class _AdminAppBarBtn extends StatelessWidget {
+  final IconData icon; final VoidCallback onTap; final String? tooltip;
+  const _AdminAppBarBtn({required this.icon, required this.onTap, this.tooltip});
+  @override
+  Widget build(BuildContext context) { return IconButton(icon: Icon(icon, color: Colors.white), onPressed: onTap, tooltip: tooltip); }
 }

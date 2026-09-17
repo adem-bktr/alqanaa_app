@@ -20,6 +20,14 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
   bool _isDisposed = false;
   final _textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
 
+  // Sanity bounds — reject numbers that are almost certainly not
+  // quantity/price/total (phone numbers, dates, random codes on the invoice).
+  static const double _maxPlausiblePrice = 100000;
+  static const double _maxPlausibleQty = 5000;
+  // How close qty * price must be to total (relative error) to be
+  // trusted automatically.
+  static const double _mathTolerance = 0.05;
+
   @override
   void dispose() {
     _isDisposed = true;
@@ -46,7 +54,12 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
         });
       }
     } catch (e) {
-      if (mounted) setState(() => _isProcessing = false);
+      if (mounted) {
+        setState(() => _isProcessing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('تعذر اختيار الصورة: $e')),
+        );
+      }
     }
   }
 
@@ -62,76 +75,193 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
       }
       allLines.sort((a, b) => a.boundingBox.top.compareTo(b.boundingBox.top));
 
-      List<List<TextLine>> rows = [];
-      if (allLines.isNotEmpty) {
-        List<TextLine> currentRow = [allLines[0]];
-        for (int i = 1; i < allLines.length; i++) {
-          if ((allLines[i].boundingBox.top - currentRow.last.boundingBox.top).abs() < 15) {
-            currentRow.add(allLines[i]);
-          } else {
-            rows.add(List.from(currentRow));
-            currentRow = [allLines[i]];
-          }
-        }
-        rows.add(currentRow);
-      }
+      // Group lines into rows using a threshold that adapts to the actual
+      // text size in this image, instead of a fixed pixel value. A fixed
+      // threshold breaks across different phones/zoom levels/photo angles.
+      final rows = _groupIntoRows(allLines);
 
       List<DetectedInvoiceItem> items = [];
       for (var row in rows) {
         row.sort((a, b) => a.boundingBox.left.compareTo(b.boundingBox.left));
         String text = row.map((l) => l.text).join(' ');
-        final nums = RegExp(r'\d+([.,]\d+)?').allMatches(text).map((m) => toDouble(m.group(0))).toList();
-        
-        if (nums.isNotEmpty) {
-          String name = text.replaceAll(RegExp(r'\d+([.,]\d+)?'), '').replaceAll(RegExp(r'[^\w\s\u0600-\u06FF]'), ' ').trim();
-          if (name.length > 2 || nums.length >= 2) {
-            final mappedId = await DataService.getMappedProductId(name);
-            Product? matched = mappedId != null ? await DataService.getProductById(mappedId) : null;
+        final nums = RegExp(r'\d+([.,]\d+)?')
+            .allMatches(text)
+            .map((m) => toDouble(m.group(0)))
+            .whereType<double>()
+            .toList();
 
-            double q = 0, p = 0, t = 0;
-            bool math = false;
-            if (nums.length >= 3) {
-              for(int i=0; i<nums.length; i++) for(int j=0; j<nums.length; j++) if(i!=j) for(int k=0; k<nums.length; k++) if(k!=i && k!=j) {
-                if ((nums[i]! * nums[j]! - nums[k]!).abs() < 2.0) {
-                  q = nums[i]! < nums[j]! ? nums[i]! : nums[j]!;
-                  p = nums[i]! < nums[j]! ? nums[j]! : nums[i]!;
-                  t = nums[k]!; math = true; break;
-                }
-              }
-            } else if (nums.length == 2) { q = nums[0]! < nums[1]! ? nums[0]! : nums[1]!; p = nums[0]! < nums[1]! ? nums[1]! : nums[0]!; }
-            else { p = nums[0]!; }
+        if (nums.isEmpty) continue;
 
-            if (p > 100000 || q > 5000) continue;
-            items.add(DetectedInvoiceItem(rawText: name.isEmpty ? "صنف مجهول" : name, quantity: q.toInt(), price: p, total: t, isMathValid: math, matchedProduct: matched));
-          }
-        }
+        String name = text
+            .replaceAll(RegExp(r'\d+([.,]\d+)?'), '')
+            .replaceAll(RegExp(r'[^\w\s\u0600-\u06FF]'), ' ')
+            .trim();
+        if (name.length <= 2 && nums.length < 2) continue;
+
+        final mappedId = await DataService.getMappedProductId(name);
+        Product? matched =
+        mappedId != null ? await DataService.getProductById(mappedId) : null;
+
+        final parsed = _resolveQuantityPriceTotal(nums);
+        if (parsed == null) continue; // every number failed sanity bounds
+
+        items.add(DetectedInvoiceItem(
+          rawText: name.isEmpty ? "صنف مجهول" : name,
+          quantity: parsed.quantity,
+          price: parsed.price,
+          total: parsed.total,
+          isMathValid: parsed.isMathValid,
+          matchedProduct: matched,
+          // Only pre-select rows we're reasonably confident about. A row
+          // with quantity <= 0, or a single ambiguous number, needs a human
+          // to look at it before it touches stock — it should never be
+          // silently applied.
+          isSelected: parsed.quantity > 0 && (parsed.isMathValid || nums.length >= 2),
+          needsReview: !(parsed.isMathValid || nums.length >= 2) || parsed.quantity <= 0,
+        ));
       }
       if (!_isDisposed) setState(() { _detectedItems = items; _isProcessing = false; });
     } catch (e) {
-      if (!_isDisposed) setState(() => _isProcessing = false);
+      if (!_isDisposed) {
+        setState(() => _isProcessing = false);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('تعذر قراءة الفاتورة: $e')),
+          );
+        }
+      }
+    }
+  }
+
+  /// Groups OCR lines into visual rows. Threshold scales with the median
+  /// line height detected in the image rather than a fixed pixel count.
+  List<List<TextLine>> _groupIntoRows(List<TextLine> allLines) {
+    if (allLines.isEmpty) return [];
+
+    final heights = allLines.map((l) => l.boundingBox.height).toList()..sort();
+    final medianHeight = heights[heights.length ~/ 2];
+    // Rows are grouped if their vertical centers are within ~60% of a
+    // typical line's height — tight enough to separate real rows, loose
+    // enough to tolerate slight photo skew.
+    final threshold = (medianHeight > 0 ? medianHeight : 20) * 0.6;
+
+    List<List<TextLine>> rows = [];
+    List<TextLine> currentRow = [allLines[0]];
+    for (int i = 1; i < allLines.length; i++) {
+      final sameRow =
+          (allLines[i].boundingBox.top - currentRow.last.boundingBox.top).abs() < threshold;
+      if (sameRow) {
+        currentRow.add(allLines[i]);
+      } else {
+        rows.add(List.from(currentRow));
+        currentRow = [allLines[i]];
+      }
+    }
+    rows.add(currentRow);
+    return rows;
+  }
+
+  /// Picks the best interpretation of the numbers found on a row.
+  /// Returns null if nothing on the row passes basic sanity checks.
+  _ParsedNumbers? _resolveQuantityPriceTotal(List<double> nums) {
+    final plausible = nums
+        .where((n) => n <= _maxPlausiblePrice && n >= 0)
+        .toList();
+    if (plausible.isEmpty) return null;
+
+    if (plausible.length >= 3) {
+      // Try every ordered triple (qty, price, total) and keep the one with
+      // the smallest relative error — instead of the first coincidental
+      // match, which was the old (buggy) behavior.
+      double bestError = double.infinity;
+      double bestQty = 0, bestPrice = 0, bestTotal = 0;
+      bool foundValid = false;
+
+      for (int i = 0; i < plausible.length; i++) {
+        for (int j = 0; j < plausible.length; j++) {
+          if (i == j) continue;
+          final a = plausible[i], b = plausible[j];
+          final qty = a < b ? a : b;
+          final price = a < b ? b : a;
+          if (qty > _maxPlausibleQty) continue;
+          for (int k = 0; k < plausible.length; k++) {
+            if (k == i || k == j) continue;
+            final total = plausible[k];
+            final expected = qty * price;
+            final denom = total.abs() > 1 ? total.abs() : 1;
+            final relError = (expected - total).abs() / denom;
+            if (relError < bestError) {
+              bestError = relError;
+              bestQty = qty;
+              bestPrice = price;
+              bestTotal = total;
+            }
+          }
+        }
+      }
+      foundValid = bestError < _mathTolerance;
+      if (foundValid) {
+        return _ParsedNumbers(
+            quantity: bestQty.toInt(), price: bestPrice, total: bestTotal, isMathValid: true);
+      }
+      // No triple lined up — fall back to treating the two largest as
+      // qty/price like the 2-number case, flagged as unconfirmed.
+      final sorted = List<double>.from(plausible)..sort();
+      final price = sorted.last;
+      final qty = sorted[sorted.length - 2];
+      if (qty <= _maxPlausibleQty) {
+        return _ParsedNumbers(quantity: qty.toInt(), price: price, total: 0, isMathValid: false);
+      }
+      return _ParsedNumbers(quantity: 0, price: price, total: 0, isMathValid: false);
+    } else if (plausible.length == 2) {
+      final a = plausible[0], b = plausible[1];
+      final qty = a < b ? a : b;
+      final price = a < b ? b : a;
+      if (qty > _maxPlausibleQty) {
+        return _ParsedNumbers(quantity: 0, price: price, total: 0, isMathValid: false);
+      }
+      return _ParsedNumbers(quantity: qty.toInt(), price: price, total: 0, isMathValid: false);
+    } else {
+      // Single number on the row — we genuinely don't know if it's a
+      // quantity or a price. Surface it for manual review rather than
+      // guessing quantity = 0 (which used to silently update purchase
+      // price without ever touching stock).
+      return _ParsedNumbers(quantity: 0, price: plausible.first, total: 0, isMathValid: false);
     }
   }
 
   Future<void> _applyUpdates() async {
-    int count = 0;
+    int updated = 0;
+    int skipped = 0;
     for (var item in _detectedItems) {
-      if (item.matchedProduct != null && item.isSelected) {
-        final p = item.matchedProduct!;
-        double unitBuy = item.price / (p.unitsPerCarton > 0 ? p.unitsPerCarton : 1);
-        final updated = Product(
-          id: p.id, brandId: p.brandId, categoryId: p.categoryId, name: p.name,
-          priceCartonNormal: p.priceCartonNormal, priceUnitNormal: p.priceUnitNormal,
-          priceCartonSpecial: p.priceCartonSpecial, priceUnitSpecial: p.priceUnitSpecial,
-          imagePath: p.imagePath, isAvailable: p.isAvailable, discount: p.discount, sellType: p.sellType,
-          maxQtyNormal: p.maxQtyNormal, maxQtySpecial: p.maxQtySpecial, flavors: p.flavors, isFeatured: p.isFeatured,
-          purchasePrice: unitBuy > 0 ? unitBuy : p.purchasePrice, stockQuantity: p.stockQuantity + (item.quantity * p.unitsPerCarton),
-          unitsPerCarton: p.unitsPerCarton,
-        );
-        await DataService.updateProduct(updated);
-        count++;
-      }
+      if (!item.isSelected) continue;
+      if (item.matchedProduct == null) { skipped++; continue; }
+      if (item.quantity <= 0) { skipped++; continue; }
+
+      final p = item.matchedProduct!;
+      double unitBuy = item.price / (p.unitsPerCarton > 0 ? p.unitsPerCarton : 1);
+      final updatedProduct = Product(
+        id: p.id, brandId: p.brandId, categoryId: p.categoryId, name: p.name,
+        priceCartonNormal: p.priceCartonNormal, priceUnitNormal: p.priceUnitNormal,
+        priceCartonSpecial: p.priceCartonSpecial, priceUnitSpecial: p.priceUnitSpecial,
+        imagePath: p.imagePath, isAvailable: p.isAvailable, discount: p.discount, sellType: p.sellType,
+        maxQtyNormal: p.maxQtyNormal, maxQtySpecial: p.maxQtySpecial, flavors: p.flavors, isFeatured: p.isFeatured,
+        purchasePrice: unitBuy > 0 ? unitBuy : p.purchasePrice,
+        stockQuantity: p.stockQuantity + (item.quantity * p.unitsPerCarton),
+        unitsPerCarton: p.unitsPerCarton,
+      );
+      await DataService.updateProduct(updatedProduct);
+      updated++;
     }
-    if (mounted) { ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('✅ تم تحديث $count منتج'), backgroundColor: Colors.green)); Navigator.pop(context); }
+    if (mounted) {
+      final message = skipped > 0
+          ? '✅ تم تحديث $updated منتج — تم تجاوز $skipped صنف يحتاج مراجعة يدوية'
+          : '✅ تم تحديث $updated منتج';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), backgroundColor: skipped > 0 ? Colors.orange : Colors.green),
+      );
+      Navigator.pop(context);
+    }
   }
 
   @override
@@ -152,7 +282,21 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
         ]))) else ...[
           Container(height: 150, width: double.infinity, margin: const EdgeInsets.all(10), decoration: BoxDecoration(borderRadius: BorderRadius.circular(15), image: DecorationImage(image: FileImage(_image!), fit: BoxFit.cover))),
           if (_isProcessing) const Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator(color: Color(0xFF2E7D32)))
-          else Expanded(child: ListView.builder(itemCount: _detectedItems.length, itemBuilder: (context, i) => _buildRow(_detectedItems[i], i))),
+          else if (_detectedItems.isEmpty) const Expanded(child: Center(child: Text('لم يتم التعرف على أي أصناف — حاول صورة أوضح')))
+          else ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
+                child: Row(children: [
+                  const Icon(Icons.info_outline, size: 16, color: Colors.orange),
+                  const SizedBox(width: 5),
+                  Expanded(child: Text(
+                    'الأصناف المميزة بـ ⚠️ تحتاج مراجعتك قبل التحديث',
+                    style: TextStyle(fontSize: 11, color: Colors.grey[700]),
+                  )),
+                ]),
+              ),
+              Expanded(child: ListView.builder(itemCount: _detectedItems.length, itemBuilder: (context, i) => _buildRow(_detectedItems[i], i))),
+            ],
           if (_detectedItems.isNotEmpty) Padding(padding: const EdgeInsets.all(15), child: ElevatedButton(onPressed: _applyUpdates, child: const Text('تحديث المخزن', style: TextStyle(color: Colors.white)))),
         ]
       ]),
@@ -161,16 +305,29 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
 
   Widget _btn(IconData icon, String label, VoidCallback onTap) => InkWell(onTap: onTap, child: Column(children: [Container(padding: const EdgeInsets.all(15), decoration: BoxDecoration(color: Colors.green.withOpacity(0.1), shape: BoxShape.circle), child: Icon(icon, color: const Color(0xFF2E7D32))), const SizedBox(height: 5), Text(label)]));
 
-  Widget _buildRow(DetectedInvoiceItem item, int i) => Card(margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5), child: ListTile(
-    leading: Checkbox(value: item.isSelected, onChanged: (v) => setState(() => item.isSelected = v!)),
-    title: Text(item.rawText, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-    subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text('الكمية: ${item.quantity} كرتون | السعر: ${item.price} DA', style: const TextStyle(fontSize: 11)),
-      if (item.matchedProduct != null) Text('✅ مرتبط بـ: ${item.matchedProduct!.name}', style: const TextStyle(color: Colors.green, fontSize: 11))
-      else TextButton(onPressed: () => _showMatchDialog(item), child: const Text('ربط بمنتج من المخزن', style: TextStyle(color: Colors.red, fontSize: 11))),
-    ]),
-    trailing: IconButton(icon: const Icon(Icons.edit, size: 18), onPressed: () => _showEditDialog(item)),
-  ));
+  Widget _buildRow(DetectedInvoiceItem item, int i) => Card(
+    margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+    color: item.needsReview ? Colors.orange.withOpacity(0.06) : null,
+    child: ListTile(
+      leading: Checkbox(value: item.isSelected, onChanged: (v) => setState(() => item.isSelected = v!)),
+      title: Row(children: [
+        if (item.needsReview) const Padding(padding: EdgeInsets.only(right: 4), child: Text('⚠️')),
+        Expanded(child: Text(item.rawText, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
+      ]),
+      subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(
+          'الكمية: ${item.quantity} كرتون | السعر: ${item.price} DA'
+              '${item.isMathValid ? ' ✓' : ''}',
+          style: const TextStyle(fontSize: 11),
+        ),
+        if (item.needsReview)
+          const Text('تحتاج مراجعة يدوية قبل التحديث', style: TextStyle(color: Colors.orange, fontSize: 11)),
+        if (item.matchedProduct != null) Text('✅ مرتبط بـ: ${item.matchedProduct!.name}', style: const TextStyle(color: Colors.green, fontSize: 11))
+        else TextButton(onPressed: () => _showMatchDialog(item), child: const Text('ربط بمنتج من المخزن', style: TextStyle(color: Colors.red, fontSize: 11))),
+      ]),
+      trailing: IconButton(icon: const Icon(Icons.edit, size: 18), onPressed: () => _showEditDialog(item)),
+    ),
+  );
 
   Future<void> _showMatchDialog(DetectedInvoiceItem item) async {
     final products = await DataService.getAllProducts();
@@ -183,7 +340,7 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
         TextField(decoration: const InputDecoration(hintText: 'بحث...'), onChanged: (v) => setSt(() => query = v.toLowerCase())),
         Expanded(child: ListView.builder(itemCount: products.length, itemBuilder: (context, i) {
           if (query.isNotEmpty && !products[i].name.toLowerCase().contains(query)) return const SizedBox.shrink();
-          return ListTile(title: Text(products[i].name), onTap: () async { await DataService.saveSupplierMapping(item.rawText, products[i].id); setState(() => item.matchedProduct = products[i]); Navigator.pop(context); });
+          return ListTile(title: Text(products[i].name), onTap: () async { await DataService.saveSupplierMapping(item.rawText, products[i].id); setState(() { item.matchedProduct = products[i]; }); Navigator.pop(context); });
         }))
       ])),
     )));
@@ -199,7 +356,20 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
         DropdownButtonFormField<Brand>(items: brs.map((b) => DropdownMenuItem(value: b, child: Text(b.name))).toList(), onChanged: (v) => setSt(() => selBrand = v)),
         DropdownButtonFormField<Category>(items: cats.map((c) => DropdownMenuItem(value: c, child: Text(c.name))).toList(), onChanged: (v) => setSt(() => selCat = v)),
       ]),
-      actions: [ElevatedButton(onPressed: () async { if(selBrand==null) return; final p = Product(id: DateTime.now().millisecondsSinceEpoch.toString(), brandId: selBrand!.id, categoryId: selCat?.id ?? '', name: nCtrl.text, priceCartonNormal: 0, priceUnitNormal: 0, priceCartonSpecial: 0, priceUnitSpecial: 0, purchasePrice: item.price, stockQuantity: 0); await DataService.saveProduct(p); await DataService.saveSupplierMapping(item.rawText, p.id); Navigator.pop(context, p); }, child: const Text('حفظ'))],
+      actions: [ElevatedButton(onPressed: () async {
+        if (selBrand == null) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('اختر العلامة التجارية أولاً')));
+          return;
+        }
+        if (nCtrl.text.trim().isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('أدخل اسم المنتج')));
+          return;
+        }
+        final p = Product(id: DateTime.now().millisecondsSinceEpoch.toString(), brandId: selBrand!.id, categoryId: selCat?.id ?? '', name: nCtrl.text.trim(), priceCartonNormal: 0, priceUnitNormal: 0, priceCartonSpecial: 0, priceUnitSpecial: 0, purchasePrice: item.price, stockQuantity: 0);
+        await DataService.saveProduct(p);
+        await DataService.saveSupplierMapping(item.rawText, p.id);
+        Navigator.pop(context, p);
+      }, child: const Text('حفظ'))],
     )));
     if (res != null) { setState(() => item.matchedProduct = res); Navigator.pop(context); }
   }
@@ -213,12 +383,46 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
         TextField(controller: q, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'الكمية')),
         TextField(controller: p, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'السعر')),
       ]),
-      actions: [ElevatedButton(onPressed: () { setState(() { item.quantity = int.tryParse(q.text) ?? item.quantity; item.price = double.tryParse(p.text) ?? item.price; }); Navigator.pop(context); }, child: const Text('حفظ'))],
+      actions: [ElevatedButton(onPressed: () {
+        setState(() {
+          item.quantity = int.tryParse(q.text) ?? item.quantity;
+          item.price = double.tryParse(p.text) ?? item.price;
+          // Once the user manually confirms the numbers, it's no longer
+          // an unreviewed guess — safe to auto-select if a quantity exists.
+          item.needsReview = false;
+          item.isSelected = item.quantity > 0;
+        });
+        Navigator.pop(context);
+      }, child: const Text('حفظ'))],
     ));
   }
 }
 
+class _ParsedNumbers {
+  final int quantity;
+  final double price;
+  final double total;
+  final bool isMathValid;
+  _ParsedNumbers({required this.quantity, required this.price, required this.total, required this.isMathValid});
+}
+
 class DetectedInvoiceItem {
-  String rawText; int quantity; double price; double total; bool isMathValid; Product? matchedProduct; bool isSelected;
-  DetectedInvoiceItem({required this.rawText, required this.quantity, required this.price, this.total = 0, this.isMathValid = false, this.matchedProduct, this.isSelected = true});
+  String rawText;
+  int quantity;
+  double price;
+  double total;
+  bool isMathValid;
+  Product? matchedProduct;
+  bool isSelected;
+  bool needsReview;
+  DetectedInvoiceItem({
+    required this.rawText,
+    required this.quantity,
+    required this.price,
+    this.total = 0,
+    this.isMathValid = false,
+    this.matchedProduct,
+    this.isSelected = true,
+    this.needsReview = false,
+  });
 }
