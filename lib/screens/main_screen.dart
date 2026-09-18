@@ -15,7 +15,7 @@ import 'user_main_screen.dart';
 import 'printer_screen.dart';
 import 'debts_screen.dart';
 import 'stats_screen.dart';
-import 'scan_invoice_screen.dart';
+// import 'scan_invoice_screen.dart';
 
 class MainScreen extends StatefulWidget {
   final VoidCallback onToggleDarkMode;
@@ -38,6 +38,9 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
   List<CartItem> cart = [];
   List<Order> recentOrders = [];
   Map<String, dynamic> stats = {};
+
+  List<Product> _allProducts = [];
+  List<Product> _storeFilteredProducts = [];
 
   final searchController = TextEditingController();
   final _storeSearchCtrl = TextEditingController();
@@ -269,7 +272,11 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
 
   Widget _buildQuickActionsList(bool isDark, Color cardBg) {
     return Column(children: [
-      _quickActionTile('سكان فاتورة مورد', Icons.qr_code_scanner, Colors.teal, () => Navigator.push(context, SlidePageRoute(page: const ScanInvoiceScreen())), cardBg),
+      _quickActionTile('سكان فاتورة مورد', Icons.qr_code_scanner, Colors.teal, () {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('هذه الميزة ستتوفر قريباً!')),
+        );
+      }, cardBg),
       _quickActionTile('إدارة الديون', Icons.money_off, Colors.redAccent, () => Navigator.push(context, SlidePageRoute(page: const DebtsScreen())), cardBg),
       _quickActionTile('لوحة الإدارة', Icons.admin_panel_settings, Colors.blueGrey, () => Navigator.push(context, SlidePageRoute(page: const AdminScreen())), cardBg),
     ]);

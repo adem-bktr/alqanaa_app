@@ -21,8 +21,16 @@ class AdminScreen extends StatefulWidget {
 
 class _AdminScreenState extends State<AdminScreen>
     with TickerProviderStateMixin, WidgetsBindingObserver {
-  double _d(dynamic v) => toDouble(v);
-  int _i(dynamic v) => toInt(v);
+  double _d(dynamic v) {
+    if (v == null) return 0.0;
+    if (v is num) return v.toDouble();
+    return double.tryParse(v.toString()) ?? 0.0;
+  }
+  int _i(dynamic v) {
+    if (v == null) return 0;
+    if (v is num) return v.toInt();
+    return int.tryParse(v.toString()) ?? 0;
+  }
 
   final brandNameController = TextEditingController();
   final productNameController = TextEditingController();

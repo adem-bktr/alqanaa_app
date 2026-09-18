@@ -20,8 +20,16 @@ class OrdersScreen extends StatefulWidget {
 }
 
 class _OrdersScreenState extends State<OrdersScreen> {
-  double _d(dynamic v) => toDouble(v);
-  int _i(dynamic v) => toInt(v);
+  double _d(dynamic v) {
+    if (v == null) return 0.0;
+    if (v is num) return v.toDouble();
+    return double.tryParse(v.toString()) ?? 0.0;
+  }
+  int _i(dynamic v) {
+    if (v == null) return 0;
+    if (v is num) return v.toInt();
+    return int.tryParse(v.toString()) ?? 0;
+  }
 
   final searchController = TextEditingController();
   final NumberFormat formatter = NumberFormat('#,##0', 'en_US');
