@@ -1494,10 +1494,22 @@ class _MainScreenState extends State<MainScreen>
     ]);
   }
 
+  void _handleKeyEvent(KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) return;
+    final key = event.logicalKey;
+    final ctrl = _currentNavIndex == 1 ? _brandsScroll : _dashboardScroll;
+    if (!ctrl.hasClients) return;
+
+    if (key == LogicalKeyboardKey.arrowDown) {
+      ctrl.animateTo((ctrl.offset + 80).clamp(0.0, ctrl.position.maxScrollExtent), duration: const Duration(milliseconds: 200), curve: Curves.easeOut);
+    } else if (key == LogicalKeyboardKey.arrowUp) {
+      ctrl.animateTo((ctrl.offset - 80).clamp(0.0, ctrl.position.maxScrollExtent), duration: const Duration(milliseconds: 200), curve: Curves.easeOut);
+    }
+  }
+
   String _formatDate(DateTime? date) {
     if (date == null) return '';
-    return '${date.day.toString().padLeft(2, '0')}/'
-        '${date.month.toString().padLeft(2, '0')}/${date.year}';
+    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
   }
 
   // ══════════════════════════════════

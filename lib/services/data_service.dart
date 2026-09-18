@@ -411,6 +411,10 @@ class DataService {
     'maxQtySpecial': p.maxQtySpecial,
     'flavors': p.flavors.map((f) => f.toJson()).toList(),
     'isFeatured': p.isFeatured,
+    'purchasePriceCarton': p.purchasePriceCarton,
+    'purchasePriceUnit': p.purchasePriceUnit,
+    'stockQuantity': p.stockQuantity,
+    'unitsPerCarton': p.unitsPerCarton,
   };
 
   static Future<void> saveProduct(app_models.Product product,

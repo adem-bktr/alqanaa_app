@@ -21,6 +21,9 @@ class AdminScreen extends StatefulWidget {
 
 class _AdminScreenState extends State<AdminScreen>
     with TickerProviderStateMixin, WidgetsBindingObserver {
+  double _d(dynamic v) => toDouble(v);
+  int _i(dynamic v) => toInt(v);
+
   final brandNameController = TextEditingController();
   final productNameController = TextEditingController();
   final cartonNormalController = TextEditingController();

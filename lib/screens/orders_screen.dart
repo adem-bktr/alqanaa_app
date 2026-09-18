@@ -20,6 +20,9 @@ class OrdersScreen extends StatefulWidget {
 }
 
 class _OrdersScreenState extends State<OrdersScreen> {
+  double _d(dynamic v) => toDouble(v);
+  int _i(dynamic v) => toInt(v);
+
   final searchController = TextEditingController();
   final NumberFormat formatter = NumberFormat('#,##0', 'en_US');
   String selectedFilter = 'all';
