@@ -47,9 +47,8 @@ class NotificationService {
     }
 
     await _localNotifications.initialize(
-      settings: const InitializationSettings(
-        android: AndroidInitializationSettings(
-            '@mipmap/ic_launcher'),
+      const InitializationSettings(
+        android: AndroidInitializationSettings('@mipmap/ic_launcher'),
         iOS: DarwinInitializationSettings(
           requestAlertPermission: true,
           requestBadgePermission: true,
@@ -122,10 +121,10 @@ class NotificationService {
     String? payload,
   }) async {
     await _localNotifications.show(
-      id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
-      title: title,
-      body: body,
-      notificationDetails: const NotificationDetails(
+      DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      title,
+      body,
+      const NotificationDetails(
         android: AndroidNotificationDetails(
           'alqanaa_channel',
           'القناعة',
