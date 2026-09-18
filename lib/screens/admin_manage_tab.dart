@@ -74,6 +74,11 @@ extension AdminManageTabX on _AdminScreenState {
       child: Column(
         children: [
           _SectionAnimator(
+            delay: 50,
+            child: _buildStatsEntryCard(isDark),
+          ),
+          const SizedBox(height: 12),
+          _SectionAnimator(
             delay: 100,
             child: _buildCard(
                 isDark: isDark,
