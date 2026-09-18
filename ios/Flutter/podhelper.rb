@@ -1,8 +1,10 @@
 # This file is part of Flutter and is used to help integrate Flutter with CocoaPods.
-# Minimalist version for maximum compatibility with Ruby 3.4/CI.
+# Minimalist and robust version for 100% CI/CD compatibility.
 
 def flutter_root
+  # 1. Standard environment variable used by GitHub Actions/Codemagic
   ENV['FLUTTER_ROOT'] || (
+    # 2. Fallback for local builds
     config_path = File.expand_path(File.join('..', '..', 'Flutter', 'Generated.xcconfig'), __FILE__)
     if File.exist?(config_path)
       File.readlines(config_path).each do |line|
@@ -20,7 +22,7 @@ end
 
 def flutter_install_ios_engine_pod(ios_application_path = nil)
   engine_path = File.expand_path(File.join(flutter_root, 'bin', 'cache', 'artifacts', 'engine', 'ios'))
-  # ✅ Use absolute local path to bypass Ruby 3.4 URI validation
+  # ✅ Direct path reference avoids URI validation bugs in Ruby 3.4
   pod 'Flutter', :path => engine_path
 end
 
