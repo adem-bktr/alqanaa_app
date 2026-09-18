@@ -1,8 +1,9 @@
 # This file is part of Flutter and is used to help integrate Flutter with CocoaPods.
-# Optimized version for CI/CD compatibility.
+# Specialized version for Ruby 3.4+ and CocoaPods 1.17.0+ compatibility.
 
 def flutter_root
-  return ENV['FLUTTER_ROOT'] if ENV['FLUTTER_ROOT'] && !ENV['FLUTTER_ROOT'].empty?
+  root = ENV['FLUTTER_ROOT']
+  return root if root && !root.empty?
 
   config_path = File.expand_path(File.join('..', '..', 'Flutter', 'Generated.xcconfig'), __FILE__)
   if File.exist?(config_path)
@@ -20,9 +21,10 @@ def flutter_install_all_ios_pods(ios_application_path = nil)
 end
 
 def flutter_install_ios_engine_pod(ios_application_path = nil)
-  engine_dir = File.expand_path(File.join(flutter_root, 'bin', 'cache', 'artifacts', 'engine', 'ios'))
-  # ✅ Use :path instead of :podspec to avoid URI validation issues in Ruby 3.4
-  pod 'Flutter', :path => engine_dir
+  podspec_path = File.expand_path(File.join(flutter_root, 'bin', 'cache', 'artifacts', 'engine', 'ios', 'Flutter.podspec'))
+
+  # ✅ Fix for URI::BadURIError: Use explicit file:// scheme for Ruby 3.4 compatibility
+  pod 'Flutter', :podspec => "file://#{podspec_path}"
 end
 
 def flutter_install_ios_plugin_pods(ios_application_path = nil)
@@ -35,7 +37,13 @@ def flutter_install_ios_plugin_pods(ios_application_path = nil)
 
   if plugins_dependencies['plugins'] && plugins_dependencies['plugins']['ios']
     plugins_dependencies['plugins']['ios'].each do |plugin|
-      pod plugin['name'], :path => plugin['path']
+      # ✅ Use explicit file:// scheme for plugins too
+      plugin_podspec = File.expand_path(File.join(plugin['path'], 'ios', "#{plugin['name']}.podspec"))
+      if File.exist?(plugin_podspec)
+        pod plugin['name'], :podspec => "file://#{plugin_podspec}"
+      else
+        pod plugin['name'], :path => plugin['path']
+      end
     end
   end
 rescue => e
