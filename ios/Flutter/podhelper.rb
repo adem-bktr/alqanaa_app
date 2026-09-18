@@ -1,14 +1,15 @@
 # This file is part of Flutter and is used to help integrate Flutter with CocoaPods.
-# Optimized for high compatibility with Ruby 3.4 and CocoaPods 1.17.0+
+# Specialized version to fix URI::BadURIError on Ruby 3.4+ CI environments.
 
 def flutter_root
-  # First check environment variable (Standard for CI/CD like Codemagic/GitHub)
-  return ENV['FLUTTER_ROOT'] if ENV['FLUTTER_ROOT']
+  # 1. Try environment variable (Standard for CI/CD)
+  root = ENV['FLUTTER_ROOT']
+  return root if root && !root.empty?
 
-  # Fallback to Generated.xcconfig (Local builds)
-  generated_xcode_build_settings_path = File.expand_path(File.join('..', '..', 'Flutter', 'Generated.xcconfig'), __FILE__)
-  if File.exist?(generated_xcode_build_settings_path)
-    File.foreach(generated_xcode_build_settings_path) do |line|
+  # 2. Fallback to Generated.xcconfig (Local)
+  config_path = File.expand_path(File.join('..', '..', 'Flutter', 'Generated.xcconfig'), __FILE__)
+  if File.exist?(config_path)
+    File.foreach(config_path) do |line|
       matches = line.match(/\AFLUTTER_ROOT=(.*)\z/)
       return matches[1] if matches
     end
@@ -26,13 +27,14 @@ def flutter_install_ios_engine_pod(ios_application_path = nil)
   ios_application_path ||= File.dirname(File.expand_path('..', __FILE__))
   engine_dir = File.expand_path('engine', File.dirname(__FILE__))
 
-  # ✅ Fix for URI::BadURIError: Using :path (directory) instead of :podspec (file)
-  # This is much more stable on new Ruby/CocoaPods versions.
+  # Standard Flutter engine podspec location
+  podspec_path = File.join(flutter_root, 'bin', 'cache', 'artifacts', 'engine', 'ios', 'Flutter.podspec')
+
   if File.exist?(File.join(engine_dir, 'Flutter.podspec'))
     pod 'Flutter', :path => engine_dir
   else
-    # Direct directory path to the engine artifacts
-    pod 'Flutter', :path => File.join(flutter_root, 'bin', 'cache', 'artifacts', 'engine', 'ios')
+    # ✅ Fix: Ensure the path is absolute and correctly handled as a local file reference
+    pod 'Flutter', :podspec => File.expand_path(podspec_path)
   end
 end
 
@@ -43,8 +45,11 @@ def flutter_install_ios_plugin_pods(ios_application_path = nil)
 
   require 'json'
   plugins_dependencies = JSON.parse(File.read(plugins_file))
-  plugins_dependencies['plugins']['ios'].each do |plugin|
-    pod plugin['name'], :path => plugin['path']
+
+  if plugins_dependencies['plugins'] && plugins_dependencies['plugins']['ios']
+    plugins_dependencies['plugins']['ios'].each do |plugin|
+      pod plugin['name'], :path => File.expand_path(plugin['path'], ios_application_path)
+    end
   end
 rescue => e
   puts "⚠️ Warning: Failed to install plugin pods: #{e}"
