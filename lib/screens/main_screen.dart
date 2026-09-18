@@ -68,6 +68,28 @@ class _MainScreenState extends State<MainScreen>
   bool get isTablet  => MediaQuery.of(context).size.width >= 600;
 
   // ══════════════════════════════════
+  //  Keyboard Handler
+  // ══════════════════════════════════
+  void _handleKeyEvent(KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) return;
+    final key = event.logicalKey;
+    final ctrl = _dashboardScroll; // التمرير الافتراضي
+    if (!ctrl.hasClients) return;
+
+    if (key == LogicalKeyboardKey.arrowDown) {
+      ctrl.animateTo(
+        (ctrl.offset + 80).clamp(0.0, ctrl.position.maxScrollExtent),
+        duration: const Duration(milliseconds: 200), curve: Curves.easeOut,
+      );
+    } else if (key == LogicalKeyboardKey.arrowUp) {
+      ctrl.animateTo(
+        (ctrl.offset - 80).clamp(0.0, ctrl.position.maxScrollExtent),
+        duration: const Duration(milliseconds: 200), curve: Curves.easeOut,
+      );
+    }
+  }
+
+  // ══════════════════════════════════
   //  Lifecycle
   // ══════════════════════════════════
   @override
@@ -562,7 +584,11 @@ class _MainScreenState extends State<MainScreen>
   @override
   Widget build(BuildContext context) {
     final isDark = widget.isDarkMode;
-    final pages = [_buildDashboard(isDark), _buildAdminStoreTab(isDark)];
+    final pages = [
+      _buildDashboard(isDark), 
+      _buildAdminStoreTab(isDark), 
+      const AdminScreen()
+    ];
     
     return KeyboardListener(
       focusNode: _keyboardFocus,

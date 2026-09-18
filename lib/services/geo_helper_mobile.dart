@@ -2,18 +2,17 @@ import 'package:geocoding/geocoding.dart';
 
 Future<List<String>> getGeoImplementation(double lat, double lng) async {
   try {
-    // ✅ Bypass analyzer strict check to ensure build proceeds
-    // The function exists in the geocoding package but sometimes analyzer misses it in CI
-    final dynamic placemarks = await placemarkFromCoordinates(lat, lng);
+    // ✅ استدعاء مباشر لضمان التوافق مع كافة البيئات
+    final List<Placemark> placemarks = await GeocodingPlatform.instance!.placemarkFromCoordinates(lat, lng);
     
-    if (placemarks == null || placemarks.isEmpty) return [];
-    final dynamic p = placemarks.first;
+    if (placemarks.isEmpty) return [];
+    final p = placemarks.first;
     
     final List<String> addressParts = [];
-    if (p.street != null && p.street.toString().isNotEmpty) addressParts.add(p.street.toString());
-    if (p.locality != null && p.locality.toString().isNotEmpty) addressParts.add(p.locality.toString());
-    if (p.administrativeArea != null && p.administrativeArea.toString().isNotEmpty) addressParts.add(p.administrativeArea.toString());
-    if (p.country != null && p.country.toString().isNotEmpty) addressParts.add(p.country.toString());
+    if (p.street != null && p.street!.isNotEmpty) addressParts.add(p.street!);
+    if (p.locality != null && p.locality!.isNotEmpty) addressParts.add(p.locality!);
+    if (p.administrativeArea != null && p.administrativeArea!.isNotEmpty) addressParts.add(p.administrativeArea!);
+    if (p.country != null && p.country!.isNotEmpty) addressParts.add(p.country!);
     
     return addressParts;
   } catch (e) {
