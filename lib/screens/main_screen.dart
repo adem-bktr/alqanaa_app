@@ -67,31 +67,6 @@ class _MainScreenState extends State<MainScreen>
   bool get isDesktop => MediaQuery.of(context).size.width >= 900;
   bool get isTablet  => MediaQuery.of(context).size.width >= 600;
 
-  ScrollController get _activeScroll =>
-      _currentNavIndex == 2 ? _brandsScroll : _dashboardScroll;
-
-  // ══════════════════════════════════
-  //  Keyboard Handler
-  // ══════════════════════════════════
-  void _handleKeyEvent(KeyEvent event) {
-    if (event is! KeyDownEvent && event is! KeyRepeatEvent) return;
-    final key = event.logicalKey;
-    final ctrl = _activeScroll;
-    if (!ctrl.hasClients) return;
-
-    if (key == LogicalKeyboardKey.arrowDown) {
-      ctrl.animateTo(
-        (ctrl.offset + 80).clamp(0.0, ctrl.position.maxScrollExtent),
-        duration: const Duration(milliseconds: 200), curve: Curves.easeOut,
-      );
-    } else if (key == LogicalKeyboardKey.arrowUp) {
-      ctrl.animateTo(
-        (ctrl.offset - 80).clamp(0.0, ctrl.position.maxScrollExtent),
-        duration: const Duration(milliseconds: 200), curve: Curves.easeOut,
-      );
-    }
-  }
-
   // ══════════════════════════════════
   //  Lifecycle
   // ══════════════════════════════════
@@ -201,12 +176,6 @@ class _MainScreenState extends State<MainScreen>
     final bg        = isDark ? const Color(0xFF1E1E2E) : Colors.white;
     final textColor = isDark ? Colors.white : Colors.black87;
 
-    final items = [
-      {'icon': Icons.home_rounded,         'label': 'الرئيسية',     'index': 0},
-      {'icon': Icons.store_rounded,        'label': 'المتجر',       'index': 1},
-      {'icon': Icons.admin_panel_settings_rounded, 'label': 'الإدارة',      'index': 2},
-    ];
-
     return Container(
       width: 220,
       height: double.infinity,
@@ -249,16 +218,16 @@ class _MainScreenState extends State<MainScreen>
           Expanded(
             child: ListView(
               padding: const EdgeInsets.symmetric(vertical: 8),
-              children: items.map((item) {
-                final idx = item['index'] as int;
-                final isSelected = _currentNavIndex == idx;
-                return ListTile(
-                  leading: Icon(item['icon'] as IconData, color: isSelected ? const Color(0xFF2E7D32) : textColor.withOpacity(0.6)),
-                  title: Text(item['label'] as String, style: TextStyle(color: isSelected ? const Color(0xFF2E7D32) : textColor, fontWeight: isSelected ? FontWeight.bold : FontWeight.w500)),
-                  selected: isSelected,
-                  onTap: () => setState(() => _currentNavIndex = idx),
-                );
-              }).toList(),
+              children: [
+                _sidebarItem(Icons.home_rounded, 'الرئيسية', 0, textColor),
+                _sidebarItem(Icons.store_rounded, 'المتجر (POS)', 1, textColor),
+                const Divider(),
+                _sidebarAction(Icons.receipt_long_rounded, 'سجل الطلبات', () => Navigator.push(context, SlidePageRoute(page: const OrdersScreen())), isDark),
+                _sidebarAction(Icons.camera_enhance_rounded, 'سكان فاتورة مورد', () => Navigator.push(context, SlidePageRoute(page: const ScanInvoiceScreen())), isDark),
+                _sidebarAction(Icons.people_alt_rounded, 'الزبائن والديون', () => Navigator.push(context, SlidePageRoute(page: const DebtsScreen())), isDark),
+                _sidebarAction(Icons.bar_chart_rounded, 'الإحصائيات والربح', () => Navigator.push(context, SlidePageRoute(page: const StatsScreen())), isDark),
+                _sidebarAction(Icons.admin_panel_settings_rounded, 'لوحة الإدارة', () => Navigator.push(context, SlidePageRoute(page: const AdminScreen())), isDark),
+              ],
             ),
           ),
           Padding(
@@ -271,14 +240,24 @@ class _MainScreenState extends State<MainScreen>
               ListTile(
                 tileColor: Colors.red.withOpacity(0.1),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                leading: const Icon(Icons.logout, color: Colors.red),
-                title: const Text('خروج', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                leading: const Icon(Icons.logout, color: Colors.red, size: 20),
+                title: const Text('خروج', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 13)),
                 onTap: _logout,
               ),
             ]),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _sidebarItem(IconData icon, String label, int index, Color textColor) {
+    final isSelected = _currentNavIndex == index;
+    return ListTile(
+      leading: Icon(icon, color: isSelected ? const Color(0xFF2E7D32) : textColor.withOpacity(0.6)),
+      title: Text(label, style: TextStyle(color: isSelected ? const Color(0xFF2E7D32) : textColor, fontWeight: isSelected ? FontWeight.bold : FontWeight.w500)),
+      selected: isSelected,
+      onTap: () => setState(() => _currentNavIndex = index),
     );
   }
 
@@ -583,7 +562,7 @@ class _MainScreenState extends State<MainScreen>
   @override
   Widget build(BuildContext context) {
     final isDark = widget.isDarkMode;
-    final pages = [_buildDashboard(isDark), _buildAdminStoreTab(isDark), const AdminScreen()];
+    final pages = [_buildDashboard(isDark), _buildAdminStoreTab(isDark)];
     
     return KeyboardListener(
       focusNode: _keyboardFocus,
@@ -603,7 +582,16 @@ class _MainScreenState extends State<MainScreen>
               Text('القناعة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
               Text('لوحة التحكم', style: TextStyle(color: Colors.white70, fontSize: 10)),
             ]),
-          ])),
+          ]),
+          actions: [
+            if (cart.isNotEmpty)
+              badges.Badge(
+                badgeContent: Text('${cart.length}', style: const TextStyle(color: Colors.white, fontSize: 10)),
+                child: IconButton(icon: const Icon(Icons.shopping_cart_outlined, color: Colors.white), onPressed: () => Navigator.push(context, SlidePageRoute(page: CartScreen(cart: cart, isAdmin: true))).then((_) => setState((){}))),
+              ),
+            const SizedBox(width: 10),
+          ],
+        ),
         body: isDesktop 
           ? Row(children: [
               _buildDesktopSidebar(isDark),
@@ -621,7 +609,6 @@ class _MainScreenState extends State<MainScreen>
             destinations: const [
               NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded, color: Color(0xFF2E7D32)), label: 'الرئيسية'),
               NavigationDestination(icon: Icon(Icons.store_outlined), selectedIcon: Icon(Icons.store_rounded, color: Color(0xFF2E7D32)), label: 'المتجر'),
-              NavigationDestination(icon: Icon(Icons.admin_panel_settings_outlined), selectedIcon: Icon(Icons.admin_panel_settings_rounded, color: Color(0xFF2E7D32)), label: 'الإدارة'),
             ])),
       ),
     );
@@ -636,6 +623,12 @@ class _MainScreenState extends State<MainScreen>
         accountName: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
         accountEmail: Text(_adminUser?.email ?? ''),
       ),
+      ListTile(leading: const Icon(Icons.receipt_long, color: Color(0xFF2E7D32)), title: const Text('سجل الطلبات'), onTap: () { Navigator.pop(context); Navigator.push(context, SlidePageRoute(page: const OrdersScreen())); }),
+      ListTile(leading: const Icon(Icons.camera_enhance, color: Color(0xFF2E7D32)), title: const Text('سكان فاتورة مورد'), onTap: () { Navigator.pop(context); Navigator.push(context, SlidePageRoute(page: const ScanInvoiceScreen())); }),
+      ListTile(leading: const Icon(Icons.people_alt, color: Color(0xFF2E7D32)), title: const Text('الزبائن والديون'), onTap: () { Navigator.pop(context); Navigator.push(context, SlidePageRoute(page: const DebtsScreen())); }),
+      ListTile(leading: const Icon(Icons.bar_chart, color: Color(0xFF2E7D32)), title: const Text('الإحصائيات والربح'), onTap: () { Navigator.pop(context); Navigator.push(context, SlidePageRoute(page: const StatsScreen())); }),
+      ListTile(leading: const Icon(Icons.admin_panel_settings, color: Color(0xFF2E7D32)), title: const Text('لوحة الإدارة'), onTap: () { Navigator.pop(context); Navigator.push(context, SlidePageRoute(page: const AdminScreen())); }),
+      const Divider(),
       ListTile(leading: const Icon(Icons.visibility), title: const Text('معاينة كزبون'), onTap: () { Navigator.pop(context); _previewAsUser(); }),
       ListTile(leading: Icon(isDark ? Icons.light_mode : Icons.dark_mode), title: Text(isDark ? 'الوضع النهاري' : 'الوضع الليلي'), onTap: () { Navigator.pop(context); widget.onToggleDarkMode(); }),
       const Divider(),
