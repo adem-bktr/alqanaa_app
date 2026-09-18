@@ -1,11 +1,11 @@
 # This file is part of Flutter and is used to help integrate Flutter with CocoaPods.
-# Polished version for CI/CD environments.
+# Optimized for high compatibility with Ruby 3.4 and CocoaPods 1.17.0+
 
 def flutter_root
-  # ✅ أولاً: التحقق من وجود المتغير في بيئة السيرفر (Codemagic/GitHub)
+  # First check environment variable (Standard for CI/CD like Codemagic/GitHub)
   return ENV['FLUTTER_ROOT'] if ENV['FLUTTER_ROOT']
 
-  # ✅ ثانياً: محاولة القراءة من ملف الإعدادات المولد
+  # Fallback to Generated.xcconfig (Local builds)
   generated_xcode_build_settings_path = File.expand_path(File.join('..', '..', 'Flutter', 'Generated.xcconfig'), __FILE__)
   if File.exist?(generated_xcode_build_settings_path)
     File.foreach(generated_xcode_build_settings_path) do |line|
@@ -14,7 +14,6 @@ def flutter_root
     end
   end
 
-  # ✅ ثالثاً: إذا فشل كل شيء، نطلق الخطأ
   raise "FLUTTER_ROOT not found. [!] Build your project with 'flutter build ios' to generate it."
 end
 
@@ -26,10 +25,14 @@ end
 def flutter_install_ios_engine_pod(ios_application_path = nil)
   ios_application_path ||= File.dirname(File.expand_path('..', __FILE__))
   engine_dir = File.expand_path('engine', File.dirname(__FILE__))
+
+  # ✅ Fix for URI::BadURIError: Using :path (directory) instead of :podspec (file)
+  # This is much more stable on new Ruby/CocoaPods versions.
   if File.exist?(File.join(engine_dir, 'Flutter.podspec'))
     pod 'Flutter', :path => engine_dir
   else
-    pod 'Flutter', :podspec => File.join(flutter_root, 'bin', 'cache', 'artifacts', 'engine', 'ios', 'Flutter.podspec')
+    # Direct directory path to the engine artifacts
+    pod 'Flutter', :path => File.join(flutter_root, 'bin', 'cache', 'artifacts', 'engine', 'ios')
   end
 end
 
@@ -37,11 +40,6 @@ def flutter_install_ios_plugin_pods(ios_application_path = nil)
   ios_application_path ||= File.dirname(File.expand_path('..', __FILE__))
   plugins_file = File.join(ios_application_path, '..', '.flutter-plugins-dependencies')
   return unless File.exist?(plugins_file)
-
-  helper_dir = File.expand_path(File.join('..', '..', '.dart_tool', 'flutter_build', 'dart_plugin_registrant'), ios_application_path)
-  if File.exist?(helper_dir)
-    pod 'Flutter', :path => helper_dir
-  end
 
   require 'json'
   plugins_dependencies = JSON.parse(File.read(plugins_file))
@@ -56,5 +54,6 @@ def flutter_additional_ios_build_settings(target)
   return unless target.respond_to?(:build_configurations)
   target.build_configurations.each do |config|
     config.build_settings['ENABLE_BITCODE'] = 'NO'
+    config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
   end
 end
