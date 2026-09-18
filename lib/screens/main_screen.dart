@@ -67,13 +67,29 @@ class _MainScreenState extends State<MainScreen>
   bool get isDesktop => MediaQuery.of(context).size.width >= 900;
   bool get isTablet  => MediaQuery.of(context).size.width >= 600;
 
-  int _getCrossAxisCount() {
-    final w = MediaQuery.of(context).size.width;
-    if (w >= 1400) return 8;
-    if (w >= 1100) return 6;
-    if (w >= 800)  return 5;
-    if (w >= 600)  return 4;
-    return 3;
+  ScrollController get _activeScroll =>
+      _currentNavIndex == 2 ? _brandsScroll : _dashboardScroll;
+
+  // ══════════════════════════════════
+  //  Keyboard Handler
+  // ══════════════════════════════════
+  void _handleKeyEvent(KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) return;
+    final key = event.logicalKey;
+    final ctrl = _activeScroll;
+    if (!ctrl.hasClients) return;
+
+    if (key == LogicalKeyboardKey.arrowDown) {
+      ctrl.animateTo(
+        (ctrl.offset + 80).clamp(0.0, ctrl.position.maxScrollExtent),
+        duration: const Duration(milliseconds: 200), curve: Curves.easeOut,
+      );
+    } else if (key == LogicalKeyboardKey.arrowUp) {
+      ctrl.animateTo(
+        (ctrl.offset - 80).clamp(0.0, ctrl.position.maxScrollExtent),
+        duration: const Duration(milliseconds: 200), curve: Curves.easeOut,
+      );
+    }
   }
 
   // ══════════════════════════════════
@@ -103,9 +119,6 @@ class _MainScreenState extends State<MainScreen>
     super.dispose();
   }
 
-  // ══════════════════════════════════
-  //  Data Loading
-  // ══════════════════════════════════
   Future<void> _loadAll() async {
     if (!mounted) return;
     setState(() { isLoading = true; isStatsLoading = true; });
@@ -149,9 +162,11 @@ class _MainScreenState extends State<MainScreen>
     } catch (_) {}
   }
 
-  // ══════════════════════════════════
-  //  Actions
-  // ══════════════════════════════════
+  String _formatDate(DateTime? date) {
+    if (date == null) return '';
+    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+  }
+
   Future<void> _logout() async {
     cart.clear(); await AuthService.logout();
     if (!mounted) return;
@@ -177,6 +192,102 @@ class _MainScreenState extends State<MainScreen>
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
     ));
+  }
+
+  // ══════════════════════════════════
+  //  Desktop Sidebar
+  // ══════════════════════════════════
+  Widget _buildDesktopSidebar(bool isDark) {
+    final bg        = isDark ? const Color(0xFF1E1E2E) : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black87;
+
+    final items = [
+      {'icon': Icons.home_rounded,         'label': 'الرئيسية',     'index': 0},
+      {'icon': Icons.store_rounded,        'label': 'المتجر',       'index': 1},
+      {'icon': Icons.admin_panel_settings_rounded, 'label': 'الإدارة',      'index': 2},
+    ];
+
+    return Container(
+      width: 220,
+      height: double.infinity,
+      decoration: BoxDecoration(
+        color: bg,
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(2, 0))],
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(16, 24, 16, 20),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF1B5E20), Color(0xFF2E7D32), Color(0xFF43A047)],
+                begin: Alignment.topLeft, end: Alignment.bottomRight,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 52, height: 52,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: Image.asset('assets/logo.png', fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const Icon(Icons.store_rounded, color: Colors.white, size: 28)),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                const Text('القناعة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+                const Text('لوحة التحكم', style: TextStyle(color: Colors.white70, fontSize: 12)),
+              ],
+            ),
+          ),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              children: items.map((item) {
+                final idx = item['index'] as int;
+                final isSelected = _currentNavIndex == idx;
+                return ListTile(
+                  leading: Icon(item['icon'] as IconData, color: isSelected ? const Color(0xFF2E7D32) : textColor.withOpacity(0.6)),
+                  title: Text(item['label'] as String, style: TextStyle(color: isSelected ? const Color(0xFF2E7D32) : textColor, fontWeight: isSelected ? FontWeight.bold : FontWeight.w500)),
+                  selected: isSelected,
+                  onTap: () => setState(() => _currentNavIndex = idx),
+                );
+              }).toList(),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(children: [
+              _sidebarAction(Icons.visibility_rounded, 'معاينة كزبون', _previewAsUser, isDark),
+              const SizedBox(height: 6),
+              _sidebarAction(widget.isDarkMode ? Icons.light_mode : Icons.dark_mode, widget.isDarkMode ? 'الوضع النهاري' : 'الوضع الليلي', widget.onToggleDarkMode, isDark),
+              const SizedBox(height: 6),
+              ListTile(
+                tileColor: Colors.red.withOpacity(0.1),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                leading: const Icon(Icons.logout, color: Colors.red),
+                title: const Text('خروج', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                onTap: _logout,
+              ),
+            ]),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sidebarAction(IconData icon, String label, VoidCallback onTap, bool isDark) {
+    return ListTile(
+      leading: Icon(icon, color: const Color(0xFF2E7D32), size: 20),
+      title: Text(label, style: const TextStyle(fontSize: 13)),
+      onTap: onTap,
+    );
   }
 
   // ══════════════════════════════════
@@ -395,28 +506,31 @@ class _MainScreenState extends State<MainScreen>
     final pending   = recentOrders.where((o) => o.status == 'pending').length;
     return GridView.count(
       shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: isDesktop ? 3 : 3, // ✅ جعلناهم 3 فقط في السطر
-      crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: 1.5,
+      crossAxisCount: isDesktop ? 4 : 2, crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: 1.8,
       children: [
         _buildStatCard('📦', '$pending', 'طلبات تنتظر', Colors.red, isDark, cardBg),
         _buildStatCard('🏪', '${brands.length}', 'علامة تجارية', Colors.blue, isDark, cardBg),
         _buildStatCard('📋', '${stats['totalOrders'] ?? 0}', 'إجمالي الطلبات', Colors.purple, isDark, cardBg),
+        _buildStatCard('📈', 'الإحصائيات', 'عرض التقارير والربح', Colors.green, isDark, cardBg, onTap: () => Navigator.push(context, SlidePageRoute(page: const StatsScreen()))),
       ],
     );
   }
 
-  Widget _buildStatCard(String icon, String value, String label, Color color, bool isDark, Color cardBg) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: cardBg, borderRadius: BorderRadius.circular(14), boxShadow: [BoxShadow(color: Colors.black.withOpacity(isDark ? 0.3 : 0.06), blurRadius: 8, offset: const Offset(0, 3))]),
-      child: Row(children: [
-        Container(width: 36, height: 36, decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(10)), child: Center(child: Text(icon, style: const TextStyle(fontSize: 18)))),
-        const SizedBox(width: 8),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
-          Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: color, height: 1.0)),
-          Text(label, style: TextStyle(fontSize: 9, color: isDark ? Colors.grey.shade400 : Colors.grey.shade600), maxLines: 1, overflow: TextOverflow.ellipsis),
-        ])),
-      ]),
+  Widget _buildStatCard(String icon, String value, String label, Color color, bool isDark, Color cardBg, {VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: cardBg, borderRadius: BorderRadius.circular(14), boxShadow: [BoxShadow(color: Colors.black.withOpacity(isDark ? 0.3 : 0.06), blurRadius: 8, offset: const Offset(0, 3))]),
+        child: Row(children: [
+          Container(width: 36, height: 36, decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(10)), child: Center(child: Text(icon, style: const TextStyle(fontSize: 18)))),
+          const SizedBox(width: 8),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
+            Text(value, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: color, height: 1.0)),
+            Text(label, style: TextStyle(fontSize: 9, color: isDark ? Colors.grey.shade400 : Colors.grey.shade600), maxLines: 1, overflow: TextOverflow.ellipsis),
+          ])),
+        ]),
+      ),
     );
   }
 
@@ -469,81 +583,46 @@ class _MainScreenState extends State<MainScreen>
   @override
   Widget build(BuildContext context) {
     final isDark = widget.isDarkMode;
-    // ✅ التأكد من استدعاء AdminScreen بدون بارامترات زائدة لتجنب أخطاء الـ Constructor
     final pages = [_buildDashboard(isDark), _buildAdminStoreTab(isDark), const AdminScreen()];
     
-    return Scaffold(
-      key: _scaffoldKey,
-      drawer: isDesktop ? null : _buildAdminDrawer(isDark),
-      // ✅ تحسين شكل الـ AppBar لضمان ظهور ثلاث الشلطات بشكل فخم
-      appBar: isDesktop ? null : AppBar(
-        backgroundColor: const Color(0xFF2E7D32),
-        elevation: 2,
-        shadowColor: Colors.black26,
-        leading: IconButton(
-          icon: const Icon(Icons.menu_rounded, color: Colors.white, size: 28),
-          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-        ),
-        title: Row(
-          children: [
-            Hero(
-              tag: 'logo',
-              child: Container(
-                width: 34, height: 34,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: Image.asset('assets/logo.png', fit: BoxFit.cover,
-                    errorBuilder: (_,__,___) => const Icon(Icons.store_rounded, color: Colors.white, size: 22)),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('القناعة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-                Text('لوحة التحكم', style: TextStyle(color: Colors.white70, fontSize: 10)),
-              ],
-            ),
-          ],
-        ),
-        actions: [
-          // زر سريع للسلة في الـ AppBar
-          if (cart.isNotEmpty)
-            badges.Badge(
-              position: badges.BadgePosition.topEnd(top: 2, end: 2),
-              badgeContent: Text('${cart.length}', style: const TextStyle(color: Colors.white, fontSize: 10)),
-              child: IconButton(
-                icon: const Icon(Icons.shopping_cart_outlined, color: Colors.white),
-                onPressed: () => Navigator.push(context, SlidePageRoute(page: CartScreen(cart: cart, isAdmin: true))).then((_) => setState((){})),
-              ),
-            ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: IndexedStack(index: _currentNavIndex, children: pages),
-      bottomNavigationBar: isDesktop ? null : Container(
-        decoration: BoxDecoration(
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 15, offset: const Offset(0, -3))],
-        ),
-        child: NavigationBar(
-          selectedIndex: _currentNavIndex,
-          onDestinationSelected: (idx) => setState(() => _currentNavIndex = idx),
-          backgroundColor: isDark ? const Color(0xFF1E1E2E) : Colors.white,
-          indicatorColor: const Color(0xFF2E7D32).withOpacity(0.15),
-          height: 70,
-          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-          destinations: const [
-            NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded, color: Color(0xFF2E7D32)), label: 'الرئيسية'),
-            NavigationDestination(icon: Icon(Icons.store_outlined), selectedIcon: Icon(Icons.store_rounded, color: Color(0xFF2E7D32)), label: 'المتجر'),
-            NavigationDestination(icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings_rounded, color: Color(0xFF2E7D32)), label: 'الإدارة'),
-          ],
-        ),
+    return KeyboardListener(
+      focusNode: _keyboardFocus,
+      onKeyEvent: _handleKeyEvent,
+      autofocus: true,
+      child: Scaffold(
+        key: _scaffoldKey,
+        drawer: isDesktop ? null : _buildAdminDrawer(isDark),
+        appBar: isDesktop ? null : AppBar(
+          backgroundColor: const Color(0xFF2E7D32),
+          elevation: 2,
+          leading: IconButton(icon: const Icon(Icons.menu_rounded, color: Colors.white, size: 28), onPressed: () => _scaffoldKey.currentState?.openDrawer()),
+          title: Row(children: [
+            Container(width: 32, height: 32, decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(8)), child: ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.asset('assets/logo.png', fit: BoxFit.cover, errorBuilder: (_,__,___) => const Icon(Icons.store, color: Colors.white, size: 20)))),
+            const SizedBox(width: 10),
+            const Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+              Text('القناعة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+              Text('لوحة التحكم', style: TextStyle(color: Colors.white70, fontSize: 10)),
+            ]),
+          ])),
+        body: isDesktop 
+          ? Row(children: [
+              _buildDesktopSidebar(isDark),
+              Expanded(child: IndexedStack(index: _currentNavIndex, children: pages)),
+            ])
+          : IndexedStack(index: _currentNavIndex, children: pages),
+        bottomNavigationBar: isDesktop ? null : Container(
+          decoration: BoxDecoration(boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, -2))]),
+          child: NavigationBar(
+            selectedIndex: _currentNavIndex,
+            onDestinationSelected: (idx) => setState(() => _currentNavIndex = idx),
+            backgroundColor: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+            indicatorColor: const Color(0xFF2E7D32).withOpacity(0.15),
+            height: 65,
+            destinations: const [
+              NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded, color: Color(0xFF2E7D32)), label: 'الرئيسية'),
+              NavigationDestination(icon: Icon(Icons.store_outlined), selectedIcon: Icon(Icons.store_rounded, color: Color(0xFF2E7D32)), label: 'المتجر'),
+              NavigationDestination(icon: Icon(Icons.admin_panel_settings_outlined), selectedIcon: Icon(Icons.admin_panel_settings_rounded, color: Color(0xFF2E7D32)), label: 'الإدارة'),
+            ])),
       ),
     );
   }
@@ -563,14 +642,4 @@ class _MainScreenState extends State<MainScreen>
       ListTile(leading: const Icon(Icons.logout, color: Colors.red), title: const Text('تسجيل الخروج'), onTap: () { Navigator.pop(context); _logout(); }),
     ]));
   }
-}
-
-// ══════════════════════════════════
-//  AdminAppBarBtn (for compatibility if needed)
-// ══════════════════════════════════
-class _AdminAppBarBtn extends StatelessWidget {
-  final IconData icon; final VoidCallback onTap; final String? tooltip;
-  const _AdminAppBarBtn({required this.icon, required this.onTap, this.tooltip});
-  @override
-  Widget build(BuildContext context) { return IconButton(icon: Icon(icon, color: Colors.white), onPressed: onTap, tooltip: tooltip); }
 }
