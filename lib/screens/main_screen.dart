@@ -67,13 +67,16 @@ class _MainScreenState extends State<MainScreen>
   bool get isDesktop => MediaQuery.of(context).size.width >= 900;
   bool get isTablet  => MediaQuery.of(context).size.width >= 600;
 
+  ScrollController get _activeScroll =>
+      _currentNavIndex == 1 ? _brandsScroll : _dashboardScroll;
+
   // ══════════════════════════════════
   //  Keyboard Handler
   // ══════════════════════════════════
   void _handleKeyEvent(KeyEvent event) {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) return;
     final key = event.logicalKey;
-    final ctrl = _dashboardScroll; // التمرير الافتراضي
+    final ctrl = _activeScroll;
     if (!ctrl.hasClients) return;
 
     if (key == LogicalKeyboardKey.arrowDown) {
@@ -538,8 +541,8 @@ class _MainScreenState extends State<MainScreen>
   Widget _buildQuickActionsList(bool isDark, Color cardBg) {
     final actions = [
       {'icon': Icons.camera_enhance_rounded, 'label': 'سكان فاتورة مورد', 'subtitle': 'تحديث المخزن', 'colors': [const Color(0xFF006064), const Color(0xFF00ACC1)], 'onTap': () => Navigator.push(context, SlidePageRoute(page: const ScanInvoiceScreen()))},
-      {'icon': Icons.receipt_long_rounded, 'label': 'طلبات اليوم', 'subtitle': 'عرض طلبات نهار اليوم', 'colors': [const Color(0xFF2E7D32), const Color(0xFF43A047)], 'onTap': () => Navigator.push(context, SlidePageRoute(page: const OrdersScreen(showTodayOnly: true)))},
-      {'icon': Icons.people_alt_rounded, 'label': 'الزبائن والديون', 'subtitle': 'سجل الديون والزبائن', 'colors': [const Color(0xFFAD1457), const Color(0xFFEC407A)], 'onTap': () => Navigator.push(context, SlidePageRoute(page: const DebtsScreen()))},
+      {'icon': Icons.receipt_long_rounded, 'label': 'طلبات اليوم', 'subtitle': 'تحضير الطلبيات', 'colors': [const Color(0xFF2E7D32), const Color(0xFF43A047)], 'onTap': () => Navigator.push(context, SlidePageRoute(page: const OrdersScreen(showTodayOnly: true)))},
+      {'icon': Icons.people_alt_rounded, 'label': 'الزبائن والديون', 'subtitle': 'إدارة الديون', 'colors': [const Color(0xFFAD1457), const Color(0xFFEC407A)], 'onTap': () => Navigator.push(context, SlidePageRoute(page: const DebtsScreen()))},
       {'icon': Icons.admin_panel_settings_rounded, 'label': 'لوحة الإدارة', 'subtitle': 'المنتجات والبانرات', 'colors': [const Color(0xFF283593), const Color(0xFF5C6BC0)], 'onTap': () => Navigator.push(context, SlidePageRoute(page: const AdminScreen()))},
     ];
     return Column(children: actions.map((a) => Padding(padding: const EdgeInsets.only(bottom: 10), child: GestureDetector(onTap: a['onTap'] as VoidCallback, child: Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(gradient: LinearGradient(colors: a['colors'] as List<Color>), borderRadius: BorderRadius.circular(16)), child: Row(children: [
@@ -557,7 +560,7 @@ class _MainScreenState extends State<MainScreen>
         Row(children: [
           Container(width: 44, height: 44, decoration: BoxDecoration(color: Colors.orange.withOpacity(0.15), borderRadius: BorderRadius.circular(12)), child: Center(child: Text(order.customerName.isNotEmpty ? order.customerName[0] : '?', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.orange)))),
           const SizedBox(width: 12),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(order.customerName, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textColor)), Text('${order.items.length} منتج • ${order.customerPhone}', style: TextStyle(fontSize: 11, color: subColor))])),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(order.customerName, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textColor)), Text('${order.items.length} منتج • ${_formatDate(order.createdAt ?? order.dateTime)}', style: TextStyle(fontSize: 11, color: subColor))])),
           Text('${order.total.toStringAsFixed(0)} DA', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFF2E7D32))),
         ]),
         const SizedBox(height: 10),
@@ -584,11 +587,7 @@ class _MainScreenState extends State<MainScreen>
   @override
   Widget build(BuildContext context) {
     final isDark = widget.isDarkMode;
-    final pages = [
-      _buildDashboard(isDark), 
-      _buildAdminStoreTab(isDark), 
-      const AdminScreen()
-    ];
+    final pages = [_buildDashboard(isDark), _buildAdminStoreTab(isDark)];
     
     return KeyboardListener(
       focusNode: _keyboardFocus,
