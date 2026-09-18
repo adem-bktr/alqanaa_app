@@ -3,20 +3,17 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:intl/intl.dart'; // ✅ أضفنا هذا الاستيراد
 import '../models/models.dart';
 import '../services/auth_service.dart';
 import '../services/data_service.dart';
 import '../services/printer_service.dart';
-import '../utils/converters.dart';
 import 'stats_screen.dart';
 
 part 'admin_manage_tab.dart';
 part 'admin_users_tab.dart';
 
 class AdminScreen extends StatefulWidget {
-  final int initialTab;
-  const AdminScreen({super.key, this.initialTab = 0});
+  const AdminScreen({super.key});
 
   @override
   State<AdminScreen> createState() => _AdminScreenState();
@@ -24,10 +21,6 @@ class AdminScreen extends StatefulWidget {
 
 class _AdminScreenState extends State<AdminScreen>
     with TickerProviderStateMixin, WidgetsBindingObserver {
-  
-  double _d(dynamic v) => toDouble(v);
-  int _i(dynamic v) => toInt(v);
-
   final brandNameController = TextEditingController();
   final productNameController = TextEditingController();
   final cartonNormalController = TextEditingController();
@@ -45,11 +38,6 @@ class _AdminScreenState extends State<AdminScreen>
   final bannerTitleController = TextEditingController();
   final bannerSubtitleController = TextEditingController();
   final bannerOrderController = TextEditingController();
-  final purchasePriceController = TextEditingController();
-  final stockQuantityController = TextEditingController();
-  final unitsPerCartonController = TextEditingController(text: '1');
-  final purchasePriceCartonController = TextEditingController(); // ✅ جديد
-  final purchasePriceUnitController = TextEditingController();   // ✅ جديد
 
   List<Brand> brands = [];
   List<Product> products = [];
@@ -79,8 +67,7 @@ class _AdminScreenState extends State<AdminScreen>
   bool isSpecialPrice = false;
   bool isLoadingOrders = false;
 
-  late int _currentTab; // ✅ تغيير من const إلى late
-  DateTime? _selectedFilterDate; // ✅
+  int _currentTab = 0;
   String _selectedAnnType = 'general';
 
   Color _selectedBannerColor = const Color(0xFF2E7D32);
@@ -103,14 +90,9 @@ class _AdminScreenState extends State<AdminScreen>
 
   bool get isDesktop => MediaQuery.of(context).size.width >= 900;
 
-  void refresh() {
-    if (mounted) setState(() {});
-  }
-
   @override
   void initState() {
     super.initState();
-    _currentTab = widget.initialTab; // ✅
     WidgetsBinding.instance.addObserver(this);
     _fadeController = AnimationController(
       vsync: this,
@@ -206,9 +188,6 @@ class _AdminScreenState extends State<AdminScreen>
     bannerTitleController.dispose();
     bannerSubtitleController.dispose();
     bannerOrderController.dispose();
-    purchasePriceController.dispose();
-    stockQuantityController.dispose();
-    unitsPerCartonController.dispose();
     _adminPasswordController.dispose();
     _adminPasswordConfirmController.dispose();
     _fadeController.dispose();
@@ -417,81 +396,6 @@ class _AdminScreenState extends State<AdminScreen>
       default:
         return 'كرتون فقط';
     }
-  }
-
-  Future<double?> _showEditSinglePriceDialog(double currentPrice, String productName) async {
-    final ctrl = TextEditingController(text: currentPrice.toStringAsFixed(0));
-    return await showDialog<double>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('تعديل سعر $productName'),
-        content: TextField(
-          controller: ctrl,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: const InputDecoration(suffixText: 'DA'),
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, double.tryParse(ctrl.text)),
-            child: const Text('حفظ'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<Map<String, dynamic>?> _showSelectProductForOrder() async {
-    final products = await DataService.getAllProducts();
-    if (products.isEmpty) return null;
-
-    String query = '';
-    return await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setSt) => AlertDialog(
-          title: const Text('اختر منتجاً لإضافته'),
-          content: SizedBox(
-            width: double.maxFinite,
-            height: 400,
-            child: Column(
-              children: [
-                TextField(
-                  decoration: const InputDecoration(hintText: 'بحث...', prefixIcon: Icon(Icons.search)),
-                  onChanged: (v) => setSt(() => query = v.toLowerCase()),
-                ),
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: products.length,
-                    itemBuilder: (context, i) {
-                      final p = products[i];
-                      if (query.isNotEmpty && !p.name.toLowerCase().contains(query)) return const SizedBox.shrink();
-                      return ListTile(
-                        title: Text(p.name),
-                        subtitle: Text('${p.priceCartonNormal.toStringAsFixed(0)} DA'),
-                        onTap: () {
-                          Navigator.pop(context, {
-                            'productId': p.id,
-                            'productName': p.name,
-                            'quantity': 1,
-                            'price': p.priceCartonNormal,
-                            'unitPrice': p.priceCartonNormal,
-                            'isCarton': true,
-                            'typeLabel': 'كرتون',
-                            'flavor': '',
-                          });
-                        },
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
   }
 
   String _formatDate(DateTime? date) {
@@ -776,10 +680,6 @@ class _AdminScreenState extends State<AdminScreen>
         maxQtySpecial:
         int.tryParse(maxQtySpecialController.text) ?? 0,
         flavors: newProductFlavors,
-        purchasePriceCarton: double.tryParse(purchasePriceCartonController.text) ?? 0, // ✅
-        purchasePriceUnit: double.tryParse(purchasePriceUnitController.text) ?? 0,     // ✅
-        stockQuantity: int.tryParse(stockQuantityController.text) ?? 0,
-        unitsPerCarton: int.tryParse(unitsPerCartonController.text) ?? 1,
       );
       
       debugPrint('📸 رفع الصورة للمنتج...');
@@ -795,10 +695,6 @@ class _AdminScreenState extends State<AdminScreen>
       maxQtyNormalController.clear();
       maxQtySpecialController.clear();
       flavorController.clear();
-      purchasePriceController.clear();
-      purchasePriceCartonController.clear();
-      purchasePriceUnitController.clear();
-      stockQuantityController.clear();
       setState(() {
         productImagePath = null;
         selectedSellType = SellType.cartonOnly;
@@ -1101,10 +997,6 @@ class _AdminScreenState extends State<AdminScreen>
     TextEditingController(text: product.maxQtyNormal.toString());
     final maxSCtrl =
     TextEditingController(text: product.maxQtySpecial.toString());
-    final buyCartonCtrl = TextEditingController(text: product.purchasePriceCarton.toString()); // ✅
-    final buyUnitCtrl = TextEditingController(text: product.purchasePriceUnit.toString());     // ✅
-    final upcCtrl = TextEditingController(text: product.unitsPerCarton.toString());
-    final stockCtrl = TextEditingController(text: product.stockQuantity.toString());
     final editFlavorController = TextEditingController();
     String? newImagePath;
     SellType editSellType = product.sellType;
@@ -1174,44 +1066,6 @@ class _AdminScreenState extends State<AdminScreen>
                       borderRadius: BorderRadius.circular(10),
                       borderSide: BorderSide.none,
                     ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                _buildSection(
-                  color: Colors.blue.shade50,
-                  border: Border.all(color: Colors.blue.shade200),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('إدارة المخزن والشراء',
-                          style: TextStyle(
-                              color: Colors.blue,
-                              fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 8),
-                      Row(children: [
-                        Expanded(
-                            child: _dialogField(
-                                buyCartonCtrl, 'شراء (كرتون)',
-                                type: TextInputType.number)),
-                        const SizedBox(width: 8),
-                        Expanded(
-                            child: _dialogField(
-                                buyUnitCtrl, 'شراء (حبة)',
-                                type: TextInputType.number)),
-                      ]),
-                      const SizedBox(height: 8),
-                      Row(children: [
-                        Expanded(
-                            child: _dialogField(
-                                upcCtrl, 'حبة/كرتون',
-                                type: TextInputType.number)),
-                        const SizedBox(width: 8),
-                        Expanded(
-                            child: _dialogField(
-                                stockCtrl, 'الكمية (حبة)',
-                                type: TextInputType.number)),
-                      ]),
-                    ],
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -1427,10 +1281,6 @@ class _AdminScreenState extends State<AdminScreen>
                   int.tryParse(maxSCtrl.text) ?? 0,
                   flavors: editFlavors,
                   isFeatured: editIsFeatured,
-                  purchasePriceCarton: double.tryParse(buyCartonCtrl.text) ?? 0, // ✅
-                  purchasePriceUnit: double.tryParse(buyUnitCtrl.text) ?? 0,     // ✅
-                  unitsPerCarton: int.tryParse(upcCtrl.text) ?? 1,
-                  stockQuantity: int.tryParse(stockCtrl.text) ?? 0,
                 );
                 await DataService.updateProduct(updated,
                     imagePath: newImagePath);
@@ -1741,11 +1591,6 @@ class _AdminScreenState extends State<AdminScreen>
                     children: [
                       _buildAddTab(isDark),
                       _buildManageTab(isDark),
-                      SingleChildScrollView(
-                        padding: const EdgeInsets.all(12),
-                        child: _buildOrdersCard(isDark),
-                      ),
-                      const StatsScreen(),
                       _buildUsersTab(isDark),
                     ],
                   ),
@@ -1792,11 +1637,6 @@ class _AdminScreenState extends State<AdminScreen>
           children: [
             _buildAddTab(isDark),
             _buildManageTab(isDark),
-            SingleChildScrollView(
-              padding: const EdgeInsets.all(12),
-              child: _buildOrdersCard(isDark),
-            ),
-            const StatsScreen(),
             _buildUsersTab(isDark),
           ],
         ),
@@ -1819,19 +1659,9 @@ class _AdminScreenState extends State<AdminScreen>
             label: 'إدارة',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.receipt_long_outlined),
-            activeIcon: Icon(Icons.receipt_long),
-            label: 'الطلبات',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.bar_chart_outlined),
-            activeIcon: Icon(Icons.bar_chart),
-            label: 'إحصائيات',
-          ),
-          BottomNavigationBarItem(
             icon: Icon(Icons.people_outline),
             activeIcon: Icon(Icons.people),
-            label: 'مستخدمون',
+            label: 'المستخدمون',
           ),
         ],
       ),
@@ -1846,10 +1676,16 @@ class _AdminScreenState extends State<AdminScreen>
     final textColor = isDark ? Colors.white : Colors.black87;
     final items = [
       {'icon': Icons.add_circle_rounded, 'label': 'إضافة', 'index': 0},
-      {'icon': Icons.manage_search_rounded, 'label': 'إدارة المحتوى', 'index': 1},
-      {'icon': Icons.receipt_long_rounded, 'label': 'سجل الطلبات', 'index': 2},
-      {'icon': Icons.bar_chart_rounded, 'label': 'تقارير المبيعات', 'index': 3},
-      {'icon': Icons.people_rounded, 'label': 'المستخدمون', 'index': 4},
+      {
+        'icon': Icons.manage_search_rounded,
+        'label': 'إدارة',
+        'index': 1
+      },
+      {
+        'icon': Icons.people_rounded,
+        'label': 'المستخدمون',
+        'index': 2
+      },
     ];
     return Container(
       width: 220,
@@ -2047,8 +1883,6 @@ class _AdminScreenState extends State<AdminScreen>
     final titles = [
       'إضافة محتوى',
       'إدارة المحتوى',
-      'سجل الطلبات',
-      'تقارير المبيعات',
       'إدارة المستخدمين'
     ];
     return Container(
@@ -2598,95 +2432,6 @@ class _AdminScreenState extends State<AdminScreen>
           ),
         ),
         const SizedBox(height: 12),
-        _buildSection(
-          color: Colors.blue.shade50,
-          border: Border.all(color: Colors.blue.shade200),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('إدارة المخزن والشراء',
-                  style: TextStyle(
-                      color: Colors.blue,
-                      fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              Row(children: [
-                Expanded(
-                  child: TextField(
-                    controller: purchasePriceCartonController,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      hintText: 'شراء (كرتون)',
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                    onChanged: (v) {
-                      final upc = int.tryParse(unitsPerCartonController.text) ?? 1;
-                      final buyC = double.tryParse(v) ?? 0;
-                      if (upc > 0) {
-                        purchasePriceUnitController.text = (buyC / upc).toStringAsFixed(2);
-                      }
-                    },
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextField(
-                    controller: purchasePriceUnitController,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      hintText: 'شراء (حبة)',
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                  ),
-                ),
-              ]),
-              const SizedBox(height: 8),
-              Row(children: [
-                Expanded(
-                  child: TextField(
-                    controller: unitsPerCartonController,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      hintText: 'حبة في الكرتون',
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextField(
-                    controller: stockQuantityController,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      hintText: 'الكمية (حبات)',
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                  ),
-                ),
-              ]),
-            ],
-          ),
-        ),
-        const SizedBox(height: 10),
         _buildSection(
           color: const Color(0xFFE8F5E9),
           child: Column(

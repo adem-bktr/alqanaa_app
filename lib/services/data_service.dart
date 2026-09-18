@@ -10,7 +10,6 @@ import 'package:image_picker/image_picker.dart' show XFile;
 import 'package:http/http.dart' as http;
 
 import '../models/models.dart' as app_models;
-import '../utils/converters.dart';
 
 class DataService {
   static final _db = FirebaseFirestore.instance;
@@ -412,10 +411,6 @@ class DataService {
     'maxQtySpecial': p.maxQtySpecial,
     'flavors': p.flavors.map((f) => f.toJson()).toList(),
     'isFeatured': p.isFeatured,
-    'purchasePriceCarton': p.purchasePriceCarton,
-    'purchasePriceUnit': p.purchasePriceUnit,
-    'stockQuantity': p.stockQuantity,
-    'unitsPerCarton': p.unitsPerCarton,
   };
 
   static Future<void> saveProduct(app_models.Product product,
@@ -594,12 +589,9 @@ class DataService {
     }
   }
 
-  /// ✅ يحفظ كل الحقول + خصم المخزن
+  /// ✅ يحفظ كل الحقول (بما فيها الموقع والعنوان)
   static Future<void> saveOrder(app_models.Order order) async {
-    final batch = _db.batch();
-    
-    // 1) حفظ الطلب
-    batch.set(_db.collection('orders').doc(order.id), {
+    await _db.collection('orders').doc(order.id).set({
       'customerName': order.customerName,
       'customerPhone': order.customerPhone,
       'items': order.items,
@@ -608,37 +600,13 @@ class DataService {
       'date': order.date,
       'userId': order.userId,
       'status': order.status,
-      'paidAmount': order.paidAmount,
-      'remainingBalance': order.remainingBalance,
       if (order.latitude != null) 'latitude': order.latitude,
       if (order.longitude != null) 'longitude': order.longitude,
       if (order.address != null && order.address!.isNotEmpty)
         'address': order.address,
-      'createdAt': FieldValue.serverTimestamp(),
+      'createdAt': FieldValue.serverTimestamp(), // ✅ مهم للترتيب
     });
-
-    // 2) خصم المخزن لكل منتج في الطلبية
-    for (final it in order.items) {
-      final pid = it['productId']?.toString() ?? '';
-      if (pid.isNotEmpty) {
-        final qtySold = toInt(it['quantity']);
-        final isCarton = it['isCarton'] == true;
-        
-        // جلب بيانات المنتج لمعرفة عدد الحبات في الكرتون
-        final pDoc = await _db.collection('products').doc(pid).get();
-        if (pDoc.exists) {
-          final upc = toInt(pDoc.data()?['unitsPerCarton'] ?? 1);
-          final piecesToSubtract = isCarton ? (qtySold * upc) : qtySold;
-
-          batch.update(_db.collection('products').doc(pid), {
-            'stockQuantity': FieldValue.increment(-piecesToSubtract),
-          });
-        }
-      }
-    }
-
-    await batch.commit();
-    debugPrint('✅ الطلب محفوظ وتم تحديث المخزن: ${order.id}');
+    debugPrint('✅ الطلب محفوظ: ${order.id}');
   }
 
   static Future<void> updateOrderStatus(String orderId, String status) async {
@@ -789,116 +757,87 @@ class DataService {
   }
 
   // ══════════════════════════════════════════════════════
-  //   📊 الإحصائيات - مُحدَّثة للجرد وصافي الربح
+  //   📊 الإحصائيات
   // ══════════════════════════════════════════════════════
-  static Future<Map<String, dynamic>> getStats({DateTime? specificDate}) async {
+  static Future<Map<String, dynamic>> getStats() async {
     try {
       final orders = await getAllOrders();
-      final productsList = await getAllProducts();
-      
-      // خريطة أسعار الشراء لتسهيل الحساب
-      final Map<String, double> buyPrices = {
-        for (var p in productsList) p.id: p.purchasePriceUnit
-      };
-
       final now = DateTime.now();
-      final targetDate = specificDate ?? now;
 
       bool sameDay(DateTime a, DateTime b) =>
           a.year == b.year && a.month == b.month && a.day == b.day;
 
-      final todayOrdersList = <app_models.Order>[];
+      final today = <app_models.Order>[];
       final week = <app_models.Order>[];
       final month = <app_models.Order>[];
-      final targetDayOrders = <app_models.Order>[];
 
       for (final o in orders) {
         final d = o.createdAt ?? o.dateTime;
         if (d == null) continue;
-        
-        if (sameDay(d, now)) todayOrdersList.add(o);
-        if (sameDay(d, targetDate)) targetDayOrders.add(o);
-        
+        if (sameDay(d, now)) today.add(o);
         if (now.difference(d).inDays <= 7) week.add(o);
         if (d.year == now.year && d.month == now.month) month.add(o);
       }
 
-      // حساب صافي الربح لليوم المختار
-      double targetDayProfit = 0;
-      final Map<String, int> targetDayItemsQty = {};
-      final Map<String, double> targetDayItemsRevenue = {};
+      // أكثر المنتجات مبيعاً
+      final Map<String, int> sales = {};
+      final Map<String, double> revenue = {};
 
-      for (final o in targetDayOrders) {
-        for (final it in o.items) {
-          final pid = it['productId']?.toString() ?? '';
-          final name = it['productName']?.toString() ?? 'منتج';
-          final sellPrice = toDouble(it['price']);
-          final qty = toInt(it['quantity']);
-          final isCrt = it['isCarton'] == true;
-          
-          targetDayItemsQty[name] = (targetDayItemsQty[name] ?? 0) + qty;
-          targetDayItemsRevenue[name] = (targetDayItemsRevenue[name] ?? 0) + (sellPrice * qty);
-
-          if (pid.isNotEmpty && buyPrices.containsKey(pid)) {
-            // جلب المنتج لحساب ربح الكرتون أو الحبة بدقة
-            final p = productsList.firstWhere((p) => p.id == pid);
-            final buyPrice = isCrt ? p.purchasePriceCarton : p.purchasePriceUnit;
-            if (buyPrice > 0) {
-              targetDayProfit += (sellPrice - buyPrice) * qty;
-            }
-          }
-        }
-      }
-
-      final targetDayProducts = targetDayItemsQty.entries.map((e) => {
-        'name': e.key,
-        'quantity': e.value,
-        'revenue': targetDayItemsRevenue[e.key] ?? 0,
-      }).toList();
-
-      // أكثر المنتجات مبيعاً (تاريخي)
-      final Map<String, int> salesCount = {};
       for (final o in orders) {
         for (final it in o.items) {
           final name = (it['productName'] ?? '').toString();
           if (name.isEmpty) continue;
-          salesCount[name] = (salesCount[name] ?? 0) + toInt(it['quantity']);
+          final qty = _i(it['quantity']);
+          final price = _d(it['price']);
+          sales[name] = (sales[name] ?? 0) + qty;
+          revenue[name] = (revenue[name] ?? 0) + (qty * price);
         }
       }
 
-      final sorted = salesCount.entries.toList()
+      final sorted = sales.entries.toList()
         ..sort((a, b) => b.value.compareTo(a.value));
 
-      final topProducts = sorted.take(5).map((e) => {
+      final topProducts = sorted
+          .take(5)
+          .map((e) => {
         'name': e.key,
         'quantity': e.value,
-      }).toList();
+        'revenue': revenue[e.key] ?? 0,
+      })
+          .toList();
 
       double sum(List<app_models.Order> l) =>
           l.fold(0.0, (s, o) => s + o.total);
 
       return {
         'totalOrders': orders.length,
-        'todayOrders': todayOrdersList.length,
+        'todayOrders': today.length,
         'weekOrders': week.length,
         'monthOrders': month.length,
+        'pendingOrders': orders.where((o) => o.isPending).length,
+        'confirmedOrders': orders.where((o) => o.isConfirmed).length,
+        'rejectedOrders': orders.where((o) => o.isRejected).length,
         'totalSales': sum(orders),
-        'todaySales': sum(todayOrdersList),
+        'todaySales': sum(today),
         'weekSales': sum(week),
         'monthSales': sum(month),
         'topProducts': topProducts,
-        
-        // بيانات اليوم المختار (للبحث التاريخي)
-        'targetDaySales': sum(targetDayOrders),
-        'targetDayOrdersCount': targetDayOrders.length,
-        'targetDayProfit': targetDayProfit,
-        'targetDayProducts': targetDayProducts,
       };
     } catch (e) {
       debugPrint('❌ getStats: $e');
       return {
-        'totalOrders': 0, 'todayOrders': 0, 'totalSales': 0.0,
-        'targetDayProfit': 0.0, 'targetDayProducts': [],
+        'totalOrders': 0,
+        'todayOrders': 0,
+        'weekOrders': 0,
+        'monthOrders': 0,
+        'pendingOrders': 0,
+        'confirmedOrders': 0,
+        'rejectedOrders': 0,
+        'totalSales': 0.0,
+        'todaySales': 0.0,
+        'weekSales': 0.0,
+        'monthSales': 0.0,
+        'topProducts': <Map<String, dynamic>>[],
       };
     }
   }
@@ -1259,22 +1198,5 @@ class DataService {
       debugPrint('❌ getTotalDebt: $e');
       return 0;
     }
-  }
-
-  // 🧠 الربط الذكي للموردين (OCR)
-  static Future<String?> getMappedProductId(String supplierText) async {
-    try {
-      final snap = await _db.collection('supplier_mappings').doc(supplierText).get();
-      return snap.data()?['productId'];
-    } catch (_) {
-      return null;
-    }
-  }
-
-  static Future<void> saveSupplierMapping(String supplierText, String productId) async {
-    await _db.collection('supplier_mappings').doc(supplierText).set({
-      'productId': productId,
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
   }
 }

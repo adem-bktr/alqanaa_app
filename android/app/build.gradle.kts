@@ -16,7 +16,7 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "com.alqanaa.grossiste"
-    compileSdk = 36 // ✅ الترقية للإصدار 36 ليتوافق مع أحدث المكتبات
+    compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -47,7 +47,7 @@ android {
     defaultConfig {
         applicationId = "com.alqanaaapp.grossiste"
         minSdk = flutter.minSdkVersion
-        targetSdk = 36 // ✅ الترقية للإصدار 36
+        targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }

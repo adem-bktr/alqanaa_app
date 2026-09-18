@@ -69,14 +69,86 @@ extension AdminManageTabX on _AdminScreenState {
   Widget _buildManageTab(bool isDark) {
     final fillColor =
     isDark ? const Color(0xFF2A2A3E) : const Color(0xFFF5F5F5);
+    if (isDesktop) {
+      return SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              flex: 5,
+              child: Column(
+                children: [
+                  _SectionAnimator(
+                      delay: 0, child: _buildStatsEntryCard(isDark)),
+                  const SizedBox(height: 16),
+                  _SectionAnimator(
+                      delay: 20, child: _buildOrdersCard(isDark)),
+                  const SizedBox(height: 16),
+                  _SectionAnimator(
+                    delay: 100,
+                    child: _buildCard(
+                        isDark: isDark,
+                        child: _buildAnnouncementsSection(
+                            isDark, fillColor)),
+                  ),
+                  const SizedBox(height: 16),
+                  _SectionAnimator(
+                    delay: 150,
+                    child: _buildCard(
+                        isDark: isDark,
+                        child: _buildPriceToggle()),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 20),
+            Expanded(
+              flex: 5,
+              child: Column(
+                children: [
+                  _SectionAnimator(
+                    delay: 50,
+                    child: _buildCard(
+                        isDark: isDark,
+                        child: _buildCategoriesSection(isDark)),
+                  ),
+                  const SizedBox(height: 16),
+                  _SectionAnimator(
+                    delay: 100,
+                    child: _buildCard(
+                        isDark: isDark,
+                        child: _buildBannersSection(isDark)),
+                  ),
+                  const SizedBox(height: 16),
+                  _SectionAnimator(
+                    delay: 150,
+                    child: _buildCard(
+                        isDark: isDark,
+                        child: _buildBrandsSection(isDark, fillColor)),
+                  ),
+                  const SizedBox(height: 16),
+                  _SectionAnimator(
+                    delay: 200,
+                    child: _buildCard(
+                        isDark: isDark,
+                        child:
+                        _buildProductsSection(isDark, fillColor)),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     return SingleChildScrollView(
       padding: const EdgeInsets.all(12),
       child: Column(
         children: [
-          _SectionAnimator(
-            delay: 50,
-            child: _buildStatsEntryCard(isDark),
-          ),
+          _SectionAnimator(delay: 0, child: _buildStatsEntryCard(isDark)),
+          const SizedBox(height: 12),
+          _SectionAnimator(delay: 20, child: _buildOrdersCard(isDark)),
           const SizedBox(height: 12),
           _SectionAnimator(
             delay: 100,
@@ -553,17 +625,6 @@ extension AdminManageTabX on _AdminScreenState {
                   : Colors.grey.shade200),
           itemBuilder: (context, index) {
             final product = products[index];
-            
-            // ✅ حساب المخزن المفهوم (كرتون + حبة)
-            String stockLabel = 'المخزن: ';
-            if (product.unitsPerCarton > 1) {
-              int crt = product.stockQuantity ~/ product.unitsPerCarton;
-              int pcs = product.stockQuantity % product.unitsPerCarton;
-              stockLabel += '$crt كرتون و $pcs حبة';
-            } else {
-              stockLabel += '${product.stockQuantity} قطعة';
-            }
-
             return TweenAnimationBuilder<double>(
               tween: Tween(begin: 0.0, end: 1.0),
               duration: Duration(
@@ -608,13 +669,6 @@ extension AdminManageTabX on _AdminScreenState {
                       style: const TextStyle(
                           color: Color(0xFF2E7D32),
                           fontSize: 12),
-                    ),
-                    Text(
-                      stockLabel,
-                      style: const TextStyle(
-                          color: Colors.blue,
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold),
                     ),
                     Wrap(
                       spacing: 4,
@@ -686,17 +740,6 @@ extension AdminManageTabX on _AdminScreenState {
   }
 
   Widget _buildOrdersCard(bool isDark) {
-    List<Order> displayOrders = orders;
-    if (_selectedFilterDate != null) {
-      displayOrders = orders.where((o) {
-        final d = o.createdAt ?? o.dateTime;
-        if (d == null) return false;
-        return d.year == _selectedFilterDate!.year &&
-            d.month == _selectedFilterDate!.month &&
-            d.day == _selectedFilterDate!.day;
-      }).toList();
-    }
-
     return _buildCard(
       isDark: isDark,
       child: Column(
@@ -706,28 +749,8 @@ extension AdminManageTabX on _AdminScreenState {
             children: [
               Expanded(
                 child: _buildSectionHeader(Icons.receipt_long,
-                    'سجل الطلبات (${displayOrders.length})'),
+                    'سجل الطلبات (${orders.length})'),
               ),
-              // ✅ زر التقويم
-              IconButton(
-                icon: Icon(Icons.calendar_month,
-                    color: _selectedFilterDate != null ? Colors.red : const Color(0xFF2E7D32)),
-                onPressed: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: _selectedFilterDate ?? DateTime.now(),
-                    firstDate: DateTime(2022),
-                    lastDate: DateTime.now(),
-                  );
-                  setState(() => _selectedFilterDate = picked);
-                },
-                tooltip: 'تصفية بالتاريخ',
-              ),
-              if (_selectedFilterDate != null)
-                IconButton(
-                  icon: const Icon(Icons.clear, color: Colors.grey),
-                  onPressed: () => setState(() => _selectedFilterDate = null),
-                ),
               IconButton(
                 icon: const Icon(Icons.refresh,
                     color: Color(0xFF2E7D32)),
@@ -735,14 +758,6 @@ extension AdminManageTabX on _AdminScreenState {
               ),
             ],
           ),
-          if (_selectedFilterDate != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Text(
-                'عرض طلبات تاريخ: ${DateFormat('yyyy/MM/dd').format(_selectedFilterDate!)}',
-                style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 12),
-              ),
-            ),
           const SizedBox(height: 12),
           if (PrinterService.isConnected)
             Container(
@@ -803,7 +818,7 @@ extension AdminManageTabX on _AdminScreenState {
                   child: CircularProgressIndicator(
                       color: Color(0xFF2E7D32)),
                 ))
-          else if (displayOrders.isEmpty)
+          else if (orders.isEmpty)
             const Center(
                 child: Padding(
                   padding: EdgeInsets.all(20),
@@ -815,13 +830,13 @@ extension AdminManageTabX on _AdminScreenState {
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount:
-              displayOrders.length > 50 ? 50 : displayOrders.length,
+              orders.length > 20 ? 20 : orders.length,
               separatorBuilder: (_, __) => Divider(
                   color: isDark
                       ? Colors.grey.shade800
                       : Colors.grey.shade200),
               itemBuilder: (context, index) {
-                final order = displayOrders[index];
+                final order = orders[index];
                 return TweenAnimationBuilder<double>(
                   tween: Tween(begin: 0.0, end: 1.0),
                   duration: Duration(
@@ -838,12 +853,13 @@ extension AdminManageTabX on _AdminScreenState {
                 );
               },
             ),
-          if (displayOrders.length > 50)
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.all(12),
-                child: Text('يتم عرض آخر 50 طلباً فقط، استخدم البحث أو التاريخ للوصول للبقية',
-                    style: TextStyle(color: Colors.grey, fontSize: 10)),
+          if (orders.length > 20)
+            Center(
+              child: TextButton(
+                onPressed: () => _showSnackBar(
+                    'عرض ${orders.length - 20} طلب آخر قريباً',
+                    Colors.grey),
+                child: Text('+ ${orders.length - 20} طلب آخر'),
               ),
             ),
         ],
@@ -911,22 +927,14 @@ extension AdminManageTabX on _AdminScreenState {
                   padding: const EdgeInsets.symmetric(
                       horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: Colors.blue,
+                    color: Colors.blue.shade50,
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.edit,
-                          color: Colors.white, size: 11),
-                      SizedBox(width: 2),
-                      Text('تعديل',
-                          style: TextStyle(
-                              fontSize: 11,
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold)),
-                    ],
-                  ),
+                  child: const Text('تعديل',
+                      style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.blue,
+                          fontWeight: FontWeight.bold)),
                 ),
               ),
               const SizedBox(width: 4),
@@ -1155,8 +1163,6 @@ extension AdminManageTabX on _AdminScreenState {
     List<Map<String, dynamic>> editedItems = List.from(
         order.items.map((it) => Map<String, dynamic>.from(it)));
     
-    final paidCtrl = TextEditingController(text: order.paidAmount.toStringAsFixed(0));
-
     double calculateNewTotal() {
       return editedItems.fold(0.0, (sum, it) {
         final price = _d(it['price']);
@@ -1178,26 +1184,6 @@ extension AdminManageTabX on _AdminScreenState {
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Divider(),
-                // زر إضافة منتج جديد
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: ElevatedButton.icon(
-                    onPressed: () async {
-                      final newItem = await _showSelectProductForOrder();
-                      if (newItem != null) {
-                        setSt(() => editedItems.add(newItem));
-                      }
-                    },
-                    icon: const Icon(Icons.add_shopping_cart, size: 18),
-                    label: const Text('إضافة منتج جديد للطلبية'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue.shade700,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                  ),
-                ),
-                const Divider(),
                 Expanded(
                   child: ListView.separated(
                     shrinkWrap: true,
@@ -1212,22 +1198,7 @@ extension AdminManageTabX on _AdminScreenState {
 
                       return ListTile(
                         title: Text(name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                        subtitle: InkWell(
-                          onTap: () async {
-                            final newPrice = await _showEditSinglePriceDialog(price, name);
-                            if (newPrice != null) {
-                              setSt(() => item['price'] = newPrice);
-                            }
-                          },
-                          child: Row(
-                            children: [
-                              Text('السعر: ${price.toStringAsFixed(0)} DA', 
-                                style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
-                              const SizedBox(width: 4),
-                              const Icon(Icons.edit, size: 12, color: Colors.blue),
-                            ],
-                          ),
-                        ),
+                        subtitle: Text('السعر: ${price.toStringAsFixed(0)} DA'),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -1243,7 +1214,7 @@ extension AdminManageTabX on _AdminScreenState {
                                 });
                               },
                             ),
-                            Text('$qty', style: const TextStyle(fontWeight: FontWeight.bold)),
+                            Text('$qty $type'),
                             IconButton(
                               icon: const Icon(Icons.add_circle_outline, color: Colors.green),
                               onPressed: () {
@@ -1259,19 +1230,6 @@ extension AdminManageTabX on _AdminScreenState {
                   ),
                 ),
                 const Divider(),
-                // ✅ تعديل المبلغ المسدد
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: TextField(
-                    controller: paidCtrl,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'المبلغ المسدد الآن',
-                      suffixText: 'DA',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ),
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   child: Row(
@@ -1301,11 +1259,9 @@ extension AdminManageTabX on _AdminScreenState {
     if (result == true) {
       try {
         final newTotal = calculateNewTotal();
-        final newPaid = double.tryParse(paidCtrl.text) ?? order.paidAmount;
         final updatedOrder = order.copyWith(
           items: editedItems,
           total: newTotal,
-          paidAmount: newPaid,
         );
         await DataService.updateFullOrder(updatedOrder);
         await loadOrders();

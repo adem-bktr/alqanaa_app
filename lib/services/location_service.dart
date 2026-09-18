@@ -1,39 +1,42 @@
 import 'package:geolocator/geolocator.dart';
-import 'geo_helper.dart';
+import 'package:geocoding/geocoding.dart';
 
 class LocationService {
   static Future<Position?> getCurrentLocation() async {
-    try {
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) return null;
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) return null;
 
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
 
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        return null;
-      }
-
-      return await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-        ),
-      );
-    } catch (_) {
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
       return null;
     }
+
+    return await Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.high,
+    );
   }
 
-  static Future<String> getAddressFromLatLng(double lat, double lng) async {
+  static Future<String> getAddressFromLatLng(
+    double lat,
+    double lng,
+  ) async {
     try {
-      // ✅ نستخدم الوسيط (Proxy) الذي يفصل كود الهاتف عن كود الويب
-      final List<String> addressParts = await getAddressFromCoordinates(lat, lng);
-      
-      if (addressParts.isEmpty) return '';
-      return addressParts.join(', ');
+      final placemarks = await placemarkFromCoordinates(lat, lng);
+      if (placemarks.isEmpty) return '';
+      final p = placemarks.first;
+      return [
+        p.street,
+        p.locality,
+        p.administrativeArea,
+        p.country,
+      ].where((e) => e != null && e!.isNotEmpty)
+          .cast<String>()
+          .join(', ');
     } catch (_) {
       return '';
     }
