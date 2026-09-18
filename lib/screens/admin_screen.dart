@@ -796,6 +796,8 @@ class _AdminScreenState extends State<AdminScreen>
       maxQtySpecialController.clear();
       flavorController.clear();
       purchasePriceController.clear();
+      purchasePriceCartonController.clear();
+      purchasePriceUnitController.clear();
       stockQuantityController.clear();
       setState(() {
         productImagePath = null;
