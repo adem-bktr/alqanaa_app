@@ -1,18 +1,17 @@
-name: iOS Build
+name: Build iOS IPA
 
 on:
   push:
-    branches:
-      - main
-      - master
+    branches: [ master ]
   workflow_dispatch:
 
 jobs:
   build:
-    name: Build iOS IPA
+    name: Create IPA
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -20,25 +19,14 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Build iOS
-        run: |
-          flutter build ios --release --no-codesign --build-number=${{ github.run_number }} --build-name=1.0.${{ github.run_number }}
-        env:
-          CODE_SIGNING_ALLOWED: NO
-          CODE_SIGNING_REQUIRED: NO
-          CODE_SIGN_IDENTITY: "-"
-          PROVISIONING_PROFILE_SPECIFIER: ""
-          DEVELOPMENT_TEAM: "59W79759Y6"
-          COMPILER_INDEX_STORE_ENABLE: NO
+      - name: Install dependencies
+        run: flutter pub get
 
-      - name: Create IPA
-        run: |
-          mkdir -p Payload
-          mv build/ios/iphoneos/Runner.app Payload/
-          zip -r Runner.ipa Payload
+      - name: Build IPA
+        run: flutter build ios --release --no-codesign
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ios-ipa
-          path: Runner.ipa
+          name: alqanaa-ios-app
+          path: build/ios/iphoneos/*.app
