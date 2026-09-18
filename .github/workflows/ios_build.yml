@@ -22,12 +22,12 @@ jobs:
 
       - name: Build iOS
         run: |
-          flutter build ios --simulator --release --build-number=${{ github.run_number }} --build-name=1.0.${{ github.run_number }}
+          flutter build ios --release --no-codesign --build-number=${{ github.run_number }} --build-name=1.0.${{ github.run_number }}
 
       - name: Create IPA
         run: |
           mkdir -p Payload
-          mv build/ios/iphonesimulator/Runner.app Payload/
+          mv build/ios/iphoneos/Runner.app Payload/
           zip -r Runner.ipa Payload
 
       - name: Upload Artifact
