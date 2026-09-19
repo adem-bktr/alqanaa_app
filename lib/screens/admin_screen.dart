@@ -46,6 +46,7 @@ class _AdminScreenState extends State<AdminScreen>
   final bannerSubtitleController = TextEditingController();
   final bannerOrderController = TextEditingController();
   final purchasePriceController = TextEditingController();
+  final purchasePriceCartonController = TextEditingController(); // ✅ جديد
   final stockQuantityController = TextEditingController();
   final unitsPerCartonController = TextEditingController(text: '1'); // ✅ جديد
 
@@ -119,6 +120,30 @@ class _AdminScreenState extends State<AdminScreen>
       curve: Curves.easeOutCubic,
     );
     _checkAdminPassword();
+
+    // ✅ مراقبة تغييرات الأسعار لحساب الربح والتحويل التلقائي
+    purchasePriceCartonController.addListener(_onCartonPriceChanged);
+    unitsPerCartonController.addListener(_onCartonPriceChanged);
+    
+    // مستمعين لتحديث واجهة الربح عند تغيير أسعار البيع
+    cartonNormalController.addListener(refresh);
+    unitNormalController.addListener(refresh);
+    cartonSpecialController.addListener(refresh);
+    unitSpecialController.addListener(refresh);
+    purchasePriceController.addListener(refresh);
+  }
+
+  void _onCartonPriceChanged() {
+    final pCarton = double.tryParse(purchasePriceCartonController.text.replaceAll(',', '.')) ?? 0;
+    final units = double.tryParse(unitsPerCartonController.text) ?? 1;
+    if (pCarton > 0 && units > 0) {
+      final pUnit = pCarton / units;
+      // تحديث سعر الحبة فقط إذا لم يكن المستخدم يكتب فيه حالياً (لتجنب الحلقات اللانهائية)
+      if (purchasePriceController.text != pUnit.toStringAsFixed(2)) {
+        purchasePriceController.text = pUnit.toStringAsFixed(2);
+      }
+    }
+    refresh();
   }
 
   Future<void> _checkAdminPassword() async {
@@ -207,6 +232,7 @@ class _AdminScreenState extends State<AdminScreen>
     purchasePriceController.dispose();
     stockQuantityController.dispose();
     unitsPerCartonController.dispose();
+    purchasePriceCartonController.dispose(); // ✅ جديد
     _adminPasswordController.dispose();
     _adminPasswordConfirmController.dispose();
     _fadeController.dispose();
@@ -784,6 +810,7 @@ class _AdminScreenState extends State<AdminScreen>
       
       debugPrint('✅ تم حفظ المنتج في Firestore');
       productNameController.clear();
+      purchasePriceCartonController.clear(); // ✅ جديد
       cartonNormalController.clear();
       unitNormalController.clear();
       cartonSpecialController.clear();
@@ -1097,8 +1124,21 @@ class _AdminScreenState extends State<AdminScreen>
     final maxSCtrl =
     TextEditingController(text: product.maxQtySpecial.toString());
     final buyPriceCtrl = TextEditingController(text: product.purchasePrice.toString());
-    final upcCtrl = TextEditingController(text: product.unitsPerCarton.toString()); // ✅
+    final upcCtrl = TextEditingController(text: product.unitsPerCarton.toString()); 
+    final buyPriceCartonCtrl = TextEditingController(text: (product.purchasePrice * product.unitsPerCarton).toStringAsFixed(0)); // ✅ جديد
     final stockCtrl = TextEditingController(text: product.stockQuantity.toString());
+
+    // تحديث سعر الحبة تلقائياً عند تغيير سعر الكرتون في الدايالوج
+    void onEditCartonPriceChanged() {
+      final pC = double.tryParse(buyPriceCartonCtrl.text.replaceAll(',', '.')) ?? 0;
+      final u = double.tryParse(upcCtrl.text) ?? 1;
+      if (pC > 0 && u > 0) {
+        buyPriceCtrl.text = (pC / u).toStringAsFixed(2);
+      }
+    }
+    buyPriceCartonCtrl.addListener(onEditCartonPriceChanged);
+    upcCtrl.addListener(onEditCartonPriceChanged);
+
     final editFlavorController = TextEditingController();
     String? newImagePath;
     SellType editSellType = product.sellType;
@@ -1106,19 +1146,40 @@ class _AdminScreenState extends State<AdminScreen>
     List<FlavorModel>.from(product.flavors);
     bool editIsFeatured = product.isFeatured;
     Category? editCategory = _categoryById(product.categoryId);
+    
+    // تحديث سعر الحبة تلقائياً عند تغيير سعر الكرتون في الدايالوج
+    void onEditCartonPriceChanged() {
+      final pC = double.tryParse(buyPriceCartonCtrl.text.replaceAll(',', '.')) ?? 0;
+      final u = double.tryParse(upcCtrl.text) ?? 1;
+      if (pC > 0 && u > 0) {
+        buyPriceCtrl.text = (pC / u).toStringAsFixed(2);
+      }
+    }
+    buyPriceCartonCtrl.addListener(onEditCartonPriceChanged);
+    upcCtrl.addListener(onEditCartonPriceChanged);
+
     await showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setSt) => AlertDialog(
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16)),
-          title: const Text('تعديل المنتج',
-              style: TextStyle(color: Color(0xFF2E7D32))),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+        builder: (context, setSt) {
+          // إضافة مستمعين لتحديث واجهة الربح في الدايالوج
+          void onUpdate() { if (context.mounted) setSt(() {}); }
+          buyPriceCtrl.removeListener(onUpdate); buyPriceCtrl.addListener(onUpdate);
+          buyPriceCartonCtrl.removeListener(onUpdate); buyPriceCartonCtrl.addListener(onUpdate);
+          upcCtrl.removeListener(onUpdate); upcCtrl.addListener(onUpdate);
+          cartonNCtrl.removeListener(onUpdate); cartonNCtrl.addListener(onUpdate);
+          unitNCtrl.removeListener(onUpdate); unitNCtrl.addListener(onUpdate);
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16)),
+            title: const Text('تعديل المنتج',
+                style: TextStyle(color: Color(0xFF2E7D32))),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                 Center(
                   child: GestureDetector(
                     onTap: () async {
@@ -1177,7 +1238,7 @@ class _AdminScreenState extends State<AdminScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('إدارة المخزن والشراء',
+                      const Text('إدارة المخزن وتكلفة الشراء',
                           style: TextStyle(
                               color: Colors.blue,
                               fontWeight: FontWeight.bold)),
@@ -1185,12 +1246,19 @@ class _AdminScreenState extends State<AdminScreen>
                       Row(children: [
                         Expanded(
                             child: _dialogField(
-                                buyPriceCtrl, 'سعر شراء (حبة)',
+                                buyPriceCartonCtrl, 'سعر الكرتون',
                                 type: TextInputType.number)),
                         const SizedBox(width: 8),
                         Expanded(
                             child: _dialogField(
                                 upcCtrl, 'حبة/كرتون',
+                                type: TextInputType.number)),
+                      ]),
+                      const SizedBox(height: 8),
+                      Row(children: [
+                        Expanded(
+                            child: _dialogField(
+                                buyPriceCtrl, 'سعر الحبة',
                                 type: TextInputType.number)),
                         const SizedBox(width: 8),
                         Expanded(
@@ -1198,6 +1266,12 @@ class _AdminScreenState extends State<AdminScreen>
                                 stockCtrl, 'الكمية (حبة)',
                                 type: TextInputType.number)),
                       ]),
+                      _buildProfitIndicator(isDark,
+                        pUnitCtrl: buyPriceCtrl,
+                        upcCtrl: upcCtrl,
+                        sellCCtrl: cartonNCtrl,
+                        sellUCtrl: unitNCtrl,
+                      ),
                     ],
                   ),
                 ),
@@ -2351,6 +2425,66 @@ class _AdminScreenState extends State<AdminScreen>
     );
   }
 
+  Widget _buildProfitIndicator(bool isDark, {
+    TextEditingController? pUnitCtrl,
+    TextEditingController? upcCtrl,
+    TextEditingController? sellCCtrl,
+    TextEditingController? sellUCtrl,
+  }) {
+    final pUnit = double.tryParse((pUnitCtrl ?? purchasePriceController).text.replaceAll(',', '.')) ?? 0;
+    final units = double.tryParse((upcCtrl ?? unitsPerCartonController).text) ?? 1;
+    final pCarton = pUnit * units;
+
+    final sellC = double.tryParse((sellCCtrl ?? cartonNormalController).text.replaceAll(',', '.')) ?? 0;
+    final sellU = double.tryParse((sellUCtrl ?? unitNormalController).text.replaceAll(',', '.')) ?? 0;
+
+
+    if (pUnit <= 0) return const SizedBox.shrink();
+
+    final profitC = sellC - pCarton;
+    final profitU = sellU - pUnit;
+
+    final percentC = pCarton > 0 ? (profitC / pCarton) * 100 : 0;
+    final percentU = pUnit > 0 ? (profitU / pUnit) * 100 : 0;
+
+    return Container(
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.blue.withOpacity(0.1) : Colors.blue.shade50.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.blue.shade200.withOpacity(0.5)),
+      ),
+      child: Column(
+        children: [
+          _profitRow('💡 ربح الكرتون:', profitC, percentC),
+          const Padding(padding: EdgeInsets.symmetric(vertical: 4), child: Divider(height: 1, thickness: 0.5)),
+          _profitRow('💡 ربح الحبة:', profitU, percentU),
+        ],
+      ),
+    );
+  }
+
+  Widget _profitRow(String label, double profit, double percent) {
+    final isLoss = profit < 0;
+    final color = isLoss ? Colors.red : const Color(0xFF2E7D32);
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text('${profit.toStringAsFixed(0)} DA', 
+              style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 14)),
+            Text('${percent.toStringAsFixed(1)}%', 
+              style: TextStyle(color: color.withOpacity(0.8), fontSize: 11, fontWeight: FontWeight.w500)),
+          ],
+        ),
+      ],
+    );
+  }
+
   Widget _buildCategoryForm(bool isDark, Color fillColor) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2590,18 +2724,19 @@ class _AdminScreenState extends State<AdminScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('إدارة المخزن والشراء',
+              const Text('إدارة المخزن وتكلفة الشراء',
                   style: TextStyle(
                       color: Colors.blue,
                       fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               Row(children: [
                 Expanded(
                   child: TextField(
-                    controller: purchasePriceController,
+                    controller: purchasePriceCartonController,
                     keyboardType: TextInputType.number,
                     decoration: InputDecoration(
-                      hintText: 'سعر الشراء (حبة)',
+                      labelText: 'سعر شراء الكرتون',
+                      hintText: '0.0',
                       filled: true,
                       fillColor: Colors.white,
                       border: OutlineInputBorder(
@@ -2617,7 +2752,27 @@ class _AdminScreenState extends State<AdminScreen>
                     controller: unitsPerCartonController,
                     keyboardType: TextInputType.number,
                     decoration: InputDecoration(
-                      hintText: 'حبة في الكرتون',
+                      labelText: 'قطع/كرتون',
+                      hintText: '1',
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                ),
+              ]),
+              const SizedBox(height: 8),
+              Row(children: [
+                Expanded(
+                  child: TextField(
+                    controller: purchasePriceController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: 'سعر شراء الحبة',
+                      hintText: '0.0',
                       filled: true,
                       fillColor: Colors.white,
                       border: OutlineInputBorder(
@@ -2633,7 +2788,8 @@ class _AdminScreenState extends State<AdminScreen>
                     controller: stockQuantityController,
                     keyboardType: TextInputType.number,
                     decoration: InputDecoration(
-                      hintText: 'الكمية (حبات)',
+                      labelText: 'المخزون (حبة)',
+                      hintText: '0',
                       filled: true,
                       fillColor: Colors.white,
                       border: OutlineInputBorder(
@@ -2644,6 +2800,7 @@ class _AdminScreenState extends State<AdminScreen>
                   ),
                 ),
               ]),
+              _buildProfitIndicator(isDark),
             ],
           ),
         ),
