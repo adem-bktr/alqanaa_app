@@ -278,6 +278,9 @@ class PrinterService {
   static const _dotLine = '  . . . . . . . . . . . . . . .';
 
   // ── الترويسة ──
+  static List<int> _buildHeader(Generator g) {
+    List<int> b = [];
+    b += g.reset();
     b += _t(
       g,
       'AL QANAA GROSSISTE',
@@ -383,7 +386,7 @@ class PrinterService {
           b += _t(
             g,
             ' > ${flavorsList.join(", ")}',
-            styles: const PosStyles(fontType: PosFontType.fontB, italic: true),
+            styles: const PosStyles(fontType: PosFontType.fontB),
           );
         }
 
@@ -445,6 +448,16 @@ class PrinterService {
       );
     } else {
       b += _t(g, 'Facture Payee (Solder)');
+    }
+
+    // 4. الرصيد الإجمالي (الدين الكلي) - إذا كان متوفراً
+    if (newBalance != null && newBalance > 0) {
+      b += _t(g, _line2, styles: const PosStyles(align: PosAlign.center));
+      b += _t(
+        g,
+        'SOLDE TOTAL DU : ${_money(newBalance)} DA',
+        styles: const PosStyles(bold: true, align: PosAlign.center),
+      );
     }
     
     return b;

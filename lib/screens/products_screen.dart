@@ -1145,7 +1145,7 @@ class _AnimatedProductCardState extends State<_AnimatedProductCard>
                           children: [
                             if (widget.product.canSellCarton)
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.between,
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   const Text('📦 كرتون:', style: TextStyle(fontSize: 10, color: Colors.grey)),
                                   Text(
@@ -1160,7 +1160,7 @@ class _AnimatedProductCardState extends State<_AnimatedProductCard>
                             if (widget.product.canSellCarton && widget.product.canSellUnit) const SizedBox(height: 4),
                             if (widget.product.canSellUnit)
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.between,
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   const Text('🛍️ قطعة:', style: TextStyle(fontSize: 10, color: Colors.grey)),
                                   Text(

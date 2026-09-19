@@ -1128,25 +1128,9 @@ class _AdminScreenState extends State<AdminScreen>
     final buyPriceCartonCtrl = TextEditingController(text: (product.purchasePrice * product.unitsPerCarton).toStringAsFixed(0)); // ✅ جديد
     final stockCtrl = TextEditingController(text: product.stockQuantity.toString());
 
-    // تحديث سعر الحبة تلقائياً عند تغيير سعر الكرتون في الدايالوج
-    void onEditCartonPriceChanged() {
-      final pC = double.tryParse(buyPriceCartonCtrl.text.replaceAll(',', '.')) ?? 0;
-      final u = double.tryParse(upcCtrl.text) ?? 1;
-      if (pC > 0 && u > 0) {
-        buyPriceCtrl.text = (pC / u).toStringAsFixed(2);
-      }
-    }
-    buyPriceCartonCtrl.addListener(onEditCartonPriceChanged);
-    upcCtrl.addListener(onEditCartonPriceChanged);
-
-    final editFlavorController = TextEditingController();
-    String? newImagePath;
-    SellType editSellType = product.sellType;
-    List<FlavorModel> editFlavors =
-    List<FlavorModel>.from(product.flavors);
-    bool editIsFeatured = product.isFeatured;
     Category? editCategory = _categoryById(product.categoryId);
-    
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     // تحديث سعر الحبة تلقائياً عند تغيير سعر الكرتون في الدايالوج
     void onEditCartonPriceChanged() {
       final pC = double.tryParse(buyPriceCartonCtrl.text.replaceAll(',', '.')) ?? 0;
@@ -1510,7 +1494,8 @@ class _AdminScreenState extends State<AdminScreen>
             ),
           ],
         ),
-      ),
+      },
+    ),
     );
   }
 
@@ -2465,7 +2450,7 @@ class _AdminScreenState extends State<AdminScreen>
     );
   }
 
-  Widget _profitRow(String label, double profit, double percent) {
+  Widget _profitRow(String label, num profit, num percent) {
     final isLoss = profit < 0;
     final color = isLoss ? Colors.red : const Color(0xFF2E7D32);
     return Row(
