@@ -1129,6 +1129,11 @@ class _AdminScreenState extends State<AdminScreen>
     final stockCtrl = TextEditingController(text: product.stockQuantity.toString());
 
     Category? editCategory = _categoryById(product.categoryId);
+    String? newImagePath;
+    SellType editSellType = product.sellType;
+    bool editIsFeatured = product.isFeatured;
+    List<FlavorModel> editFlavors = List<FlavorModel>.from(product.flavors);
+    final editFlavorController = TextEditingController();
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // تحديث سعر الحبة تلقائياً عند تغيير سعر الكرتون في الدايالوج
@@ -1493,7 +1498,7 @@ class _AdminScreenState extends State<AdminScreen>
                   style: TextStyle(color: Colors.white)),
             ),
           ],
-        ),
+        );
       },
     ),
     );

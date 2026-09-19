@@ -1938,36 +1938,4 @@ class _CartScreenState extends State<CartScreen> {
       ),
     );
   }
-              ],
-            ),
-            if (item.product.hasFlavors &&
-                (item.flavor == null || item.flavor!.isEmpty))
-              Container(
-                margin: const EdgeInsets.only(top: 6),
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(
-                      color: Colors.orange.withOpacity(0.4)),
-                ),
-                child: const Row(
-                  children: [
-                    Icon(Icons.warning_amber,
-                        size: 14, color: Colors.orange),
-                    SizedBox(width: 6),
-                    Text('يرجى اختيار الطعم',
-                        style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.orange,
-                            fontWeight: FontWeight.w500)),
-                  ],
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
 }
