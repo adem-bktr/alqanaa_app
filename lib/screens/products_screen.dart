@@ -1130,29 +1130,51 @@ class _AnimatedProductCardState extends State<_AnimatedProductCard>
                             fontWeight: FontWeight.bold,
                             fontSize: 13,
                             color: textColor),
-                        maxLines: 2,
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 4),
-                      if (widget.product.canSellCarton)
-                        Text(
-                          'كرتون: ${cartonPrice.toStringAsFixed(0)} DA',
-                          style: TextStyle(
-                              color: widget.isDark
-                                  ? Colors.green.shade400
-                                  : const Color(0xFF2E7D32),
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold),
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: widget.isDark ? Colors.white54.withOpacity(0.05) : Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: widget.isDark ? Colors.grey.shade800 : Colors.grey.shade200, width: 0.5),
                         ),
-                      if (widget.product.canSellUnit)
-                        Text(
-                          'حبة: ${unitPrice.toStringAsFixed(0)} DA',
-                          style: TextStyle(
-                              color: widget.isDark
-                                  ? Colors.green.shade300
-                                  : const Color(0xFF388E3C),
-                              fontSize: 11),
+                        child: Column(
+                          children: [
+                            if (widget.product.canSellCarton)
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.between,
+                                children: [
+                                  const Text('📦 كرتون:', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                                  Text(
+                                    '${cartonPrice.toStringAsFixed(0)} DA',
+                                    style: TextStyle(
+                                        color: widget.isDark ? Colors.green.shade400 : const Color(0xFF2E7D32),
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
+                            if (widget.product.canSellCarton && widget.product.canSellUnit) const SizedBox(height: 4),
+                            if (widget.product.canSellUnit)
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.between,
+                                children: [
+                                  const Text('🛍️ قطعة:', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                                  Text(
+                                    '${unitPrice.toStringAsFixed(0)} DA',
+                                    style: TextStyle(
+                                        color: widget.isDark ? Colors.green.shade300 : const Color(0xFF388E3C),
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600),
+                                  ),
+                                ],
+                              ),
+                          ],
                         ),
+                      ),
                       const SizedBox(height: 6),
                       SizedBox(
                         width: double.infinity,

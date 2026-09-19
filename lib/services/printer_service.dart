@@ -278,27 +278,15 @@ class PrinterService {
   static const _dotLine = '  . . . . . . . . . . . . . . .';
 
   // ── الترويسة ──
-  static List<int> _buildHeader(Generator g) {
-    List<int> b = [];
-    b += g.reset();
-    b += _t(g, _line1, styles: const PosStyles(align: PosAlign.center));
     b += _t(
       g,
       'AL QANAA GROSSISTE',
       styles: const PosStyles(
         align: PosAlign.center,
         bold: true,
-        height: PosTextSize.size2,
-        width: PosTextSize.size2,
       ),
     );
-    b += _t(
-      g,
-      'Bienvenue chez nous',
-      styles: const PosStyles(align: PosAlign.center, bold: true),
-    );
-    b += _t(g, _line1, styles: const PosStyles(align: PosAlign.center));
-    b += g.feed(1);
+    b += _t(g, _line2, styles: const PosStyles(align: PosAlign.center));
     return b;
   }
 
@@ -316,14 +304,13 @@ class PrinterService {
     final name = _clean(customerName);
     final phone = _clean(customerPhone);
 
-    b += _t(g, 'Date   : $date');
+    b += _t(g, 'Date : $date', styles: const PosStyles(fontType: PosFontType.fontB));
     b += _t(
       g,
-      'Client : ${name.isEmpty ? "-" : name}',
+      'CLT  : ${name.isEmpty ? "-" : name}',
       styles: const PosStyles(bold: true),
     );
-    b += _t(g, 'Tel    : ${phone.isEmpty ? "-" : phone}');
-    b += _t(g, 'Order  : #$shortId');
+    b += _t(g, 'Order: #$shortId', styles: const PosStyles(fontType: PosFontType.fontB));
     b += _t(g, _line2, styles: const PosStyles(align: PosAlign.center));
     return b;
   }
@@ -384,31 +371,22 @@ class PrinterService {
         final type = data['isCarton'] == true ? 'Crt' : 'Unt';
         final flavorsList = data['flavors'] as List<String>;
 
-        // ✅ السطر الأول: رقم + الاسم + النوع
-        b += _t(
-          g,
-          '$idx. $name ($type)',
-          styles: const PosStyles(bold: true),
-        );
-
-        // ✅ السطر الثاني: الكمية والمبلغ الإجمالي
+        // ✅ سطر واحد مدمج: الاسم + الكمية + السعر للتصغير وتوفير الورق
         b += g.row([
-          _c('   Qte: ${qty.toStringAsFixed(0)}', 6,
-              const PosStyles(align: PosAlign.left)),
-          _c('${_money(total)} DA', 6,
-              const PosStyles(align: PosAlign.right, bold: true)),
+          _c('$idx.$name', 7, const PosStyles(bold: true, fontType: PosFontType.fontB)),
+          _c('${qty.toStringAsFixed(0)}$type', 2, const PosStyles(align: PosAlign.right, fontType: PosFontType.fontB)),
+          _c('${total.toStringAsFixed(0)}', 3, const PosStyles(align: PosAlign.right, bold: true, fontType: PosFontType.fontB)),
         ]);
 
         // ✅ عرض الأذواق بشكل مجمع في سطر واحد تحت المنتج
         if (flavorsList.isNotEmpty) {
           b += _t(
             g,
-            '   Aromes: ${flavorsList.join(", ")}',
-            styles: const PosStyles(fontType: PosFontType.fontB),
+            ' > ${flavorsList.join(", ")}',
+            styles: const PosStyles(fontType: PosFontType.fontB, italic: true),
           );
         }
 
-        b += _t(g, _dotLine);
         idx++;
       } catch (e) {
         debugPrint('⚠️ خطأ في طباعة منتج مجمع: $e');
@@ -433,26 +411,11 @@ class PrinterService {
   // ── الإجمالي ──
   static List<int> _buildTotal(Generator g, double total) {
     List<int> b = [];
-    b += _t(g, _line1, styles: const PosStyles(align: PosAlign.center));
-    b += _t(
-      g,
-      'TOTAL A PAYER',
-      styles: const PosStyles(
-        align: PosAlign.center,
-        bold: true,
-      ),
-    );
-    b += _t(
-      g,
-      '${_money(total)} DA',
-      styles: const PosStyles(
-        align: PosAlign.center,
-        bold: true,
-        height: PosTextSize.size2,
-        width: PosTextSize.size2,
-      ),
-    );
-    b += _t(g, _line1, styles: const PosStyles(align: PosAlign.center));
+    b += _t(g, _line2, styles: const PosStyles(align: PosAlign.center));
+    b += g.row([
+      _c('TOTAL A PAYER', 7, const PosStyles(bold: true)),
+      _c('${_money(total)} DA', 5, const PosStyles(align: PosAlign.right, bold: true)),
+    ]);
     return b;
   }
 
@@ -493,20 +456,15 @@ class PrinterService {
     b += g.feed(1);
     b += _t(
       g,
-      'Merci pour votre confiance !',
-      styles: const PosStyles(align: PosAlign.center, bold: true),
+      'Merci de votre visite !',
+      styles: const PosStyles(align: PosAlign.center, fontType: PosFontType.fontB),
     );
     b += _t(
       g,
-      'Tel: 0666629473',
-      styles: const PosStyles(align: PosAlign.center),
+      '0666629473',
+      styles: const PosStyles(align: PosAlign.center, fontType: PosFontType.fontB),
     );
-    b += _t(
-      g,
-      'AL QANAA GROSSISTE',
-      styles: const PosStyles(align: PosAlign.center),
-    );
-    b += g.feed(3);
+    b += g.feed(2);
     b += g.cut();
     return b;
   }

@@ -395,12 +395,11 @@ class _MainScreenState extends State<MainScreen>
     final pending   = recentOrders.where((o) => o.status == 'pending').length;
     return GridView.count(
       shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: isDesktop ? 4 : 2, crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: 1.8,
+      crossAxisCount: isDesktop ? 3 : 3, crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: 1.5,
       children: [
         _buildStatCard('📦', '$pending', 'طلبات تنتظر', Colors.red, isDark, cardBg),
         _buildStatCard('🏪', '${brands.length}', 'علامة تجارية', Colors.blue, isDark, cardBg),
         _buildStatCard('📋', '${stats['totalOrders'] ?? 0}', 'إجمالي الطلبات', Colors.purple, isDark, cardBg),
-        _buildStatCard('💰', '${(stats['totalSales'] ?? 0).toStringAsFixed(0)}', 'إجمالي مبيعات', Colors.green, isDark, cardBg),
       ],
     );
   }
@@ -484,7 +483,21 @@ class _MainScreenState extends State<MainScreen>
             Text('القناعة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
             Text('لوحة التحكم', style: TextStyle(color: Colors.white70, fontSize: 10)),
           ]),
-        ])),
+        ]),
+        actions: [
+          IconButton(
+            icon: Icon(
+              PrinterService.isConnected ? Icons.print_rounded : Icons.print_disabled_rounded,
+              color: PrinterService.isConnected ? Colors.lightGreenAccent : Colors.white70,
+            ),
+            tooltip: PrinterService.isConnected ? 'الطابعة متصلة: ${PrinterService.connectedDeviceName}' : 'الطابعة غير متصلة',
+            onPressed: () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const PrinterScreen())).then((_) => setState(() {}));
+            },
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
       body: IndexedStack(index: _currentNavIndex, children: pages),
       bottomNavigationBar: isDesktop ? null : Container(
         decoration: BoxDecoration(boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, -2))]),
@@ -503,19 +516,117 @@ class _MainScreenState extends State<MainScreen>
   }
 
   Widget _buildAdminDrawer(bool isDark) {
-    final name = _adminUser?.name ?? 'الأدمن';
-    return Drawer(child: ListView(children: [
-      UserAccountsDrawerHeader(
-        decoration: const BoxDecoration(color: Color(0xFF2E7D32)),
-        currentAccountPicture: CircleAvatar(backgroundColor: Colors.white.withOpacity(0.2), child: Text(name[0].toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold))),
-        accountName: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
-        accountEmail: Text(_adminUser?.email ?? ''),
+    final name = _adminUser?.name ?? 'مدير النظام';
+    final email = _adminUser?.email ?? 'admin@alqanaa.com';
+    return Drawer(
+      backgroundColor: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.only(top: 50, bottom: 20, left: 16, right: 16),
+            width: double.infinity,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF1B5E20), Color(0xFF2E7D32)],
+                begin: Alignment.topRight,
+                end: Alignment.bottomLeft,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CircleAvatar(
+                  radius: 36,
+                  backgroundColor: Colors.white.withOpacity(0.25),
+                  child: Text(
+                    name.isNotEmpty ? name[0].toUpperCase() : 'A',
+                    style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  name,
+                  style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                Text(
+                  email,
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                const SizedBox(height: 8),
+                ListTile(
+                  leading: const Icon(Icons.dashboard_outlined, color: Color(0xFF2E7D32)),
+                  title: const Text('لوحة التحكم الرئيسية', style: TextStyle(fontWeight: FontWeight.w600)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    setState(() => _currentNavIndex = 0);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.storefront_outlined, color: Color(0xFF2E7D32)),
+                  title: const Text('المتجر والأصناف', style: TextStyle(fontWeight: FontWeight.w600)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    setState(() => _currentNavIndex = 1);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.admin_panel_settings_outlined, color: Color(0xFF2E7D32)),
+                  title: const Text('لوحة التحكم المحمية', style: TextStyle(fontWeight: FontWeight.w600)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    setState(() => _currentNavIndex = 2);
+                  },
+                ),
+                const Divider(),
+                ListTile(
+                  leading: const Icon(Icons.print_outlined, color: Colors.blueGrey),
+                  title: const Text('إعدادات الطابعة والاتصال', style: TextStyle(fontWeight: FontWeight.w600)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const PrinterScreen())).then((_) => setState(() {}));
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.visibility_outlined, color: Colors.purple),
+                  title: const Text('معاينة كزبون عادي', style: TextStyle(fontWeight: FontWeight.w600)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _previewAsUser();
+                  },
+                ),
+                ListTile(
+                  leading: Icon(isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined, color: Colors.orange),
+                  title: Text(isDark ? 'تفعيل الوضع النهاري' : 'تفعيل الوضع الليلي', style: const TextStyle(fontWeight: FontWeight.w600)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    widget.onToggleDarkMode();
+                  },
+                ),
+                const Divider(),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: ListTile(
+              leading: const Icon(Icons.logout_rounded, color: Colors.red),
+              title: const Text('تسجيل خروج آمن', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+              onTap: () {
+                Navigator.pop(context);
+                _logout();
+              },
+            ),
+          ),
+        ],
       ),
-      ListTile(leading: const Icon(Icons.visibility), title: const Text('معاينة كزبون'), onTap: () { Navigator.pop(context); _previewAsUser(); }),
-      ListTile(leading: Icon(isDark ? Icons.light_mode : Icons.dark_mode), title: Text(isDark ? 'الوضع النهاري' : 'الوضع الليلي'), onTap: () { Navigator.pop(context); widget.onToggleDarkMode(); }),
-      const Divider(),
-      ListTile(leading: const Icon(Icons.logout, color: Colors.red), title: const Text('تسجيل الخروج'), onTap: () { Navigator.pop(context); _logout(); }),
-    ]));
+    );
   }
 }
 
