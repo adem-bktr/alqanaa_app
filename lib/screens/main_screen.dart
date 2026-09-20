@@ -233,20 +233,20 @@ class _MainScreenState extends State<MainScreen>
 
     return Column(children: [
       Container(width: double.infinity, decoration: const BoxDecoration(gradient: LinearGradient(colors: [Color(0xFF1B5E20), Color(0xFF2E7D32)])), padding: const EdgeInsets.all(12),
-        child: TextField(controller: _storeSearchCtrl, onChanged: (_) => _applyStoreFilter(), decoration: InputDecoration(hintText: 'بحث سريع عن منتج...', prefixIcon: const Icon(Icons.search), filled: true, fillColor: isDark ? const Color(0xFF2A2A3E) : Colors.white, border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none)))),
+          child: TextField(controller: _storeSearchCtrl, onChanged: (_) => _applyStoreFilter(), decoration: InputDecoration(hintText: 'بحث سريع عن منتج...', prefixIcon: const Icon(Icons.search), filled: true, fillColor: isDark ? const Color(0xFF2A2A3E) : Colors.white, border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none)))),
       Container(height: 100, color: isDark ? const Color(0xFF161625) : Colors.white,
-        child: ListView.builder(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 10), itemCount: brands.length, itemBuilder: (context, i) {
-          final b = brands[i]; final isSel = _selectedBrandId == b.id;
-          return GestureDetector(onTap: () { setState(() => _selectedBrandId = b.id); _applyStoreFilter(); },
-            child: AnimatedContainer(duration: const Duration(milliseconds: 200), width: 80, margin: const EdgeInsets.symmetric(horizontal: 5, vertical: 10), decoration: BoxDecoration(color: isSel ? const Color(0xFF2E7D32).withOpacity(0.1) : Colors.transparent, borderRadius: BorderRadius.circular(15), border: Border.all(color: isSel ? const Color(0xFF2E7D32) : Colors.grey.shade300, width: isSel ? 2 : 1)),
-              child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                if (b.logoPath.isNotEmpty) ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.network(b.logoPath, width: 40, height: 40, fit: BoxFit.cover, errorBuilder: (_,__,___) => const Icon(Icons.store))) else const Icon(Icons.store),
-                const SizedBox(height: 4), Text(b.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, fontWeight: isSel ? FontWeight.bold : FontWeight.normal, color: isSel ? const Color(0xFF2E7D32) : textColor))
-              ])));
-        })),
-      Expanded(child: crossAxisCount > 1 
-        ? GridView.builder(padding: const EdgeInsets.all(12), gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: crossAxisCount, crossAxisSpacing: 10, mainAxisSpacing: 12, childAspectRatio: 0.70), itemCount: _storeFilteredProducts.length, itemBuilder: (context, i) => _buildAdvancedProductCard(_storeFilteredProducts[i], isDark, cardColor, textColor))
-        : ListView.builder(padding: const EdgeInsets.all(10), itemCount: _storeFilteredProducts.length, itemBuilder: (context, i) => _buildFastProductCard(_storeFilteredProducts[i], isDark, cardColor, textColor))),
+          child: ListView.builder(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 10), itemCount: brands.length, itemBuilder: (context, i) {
+            final b = brands[i]; final isSel = _selectedBrandId == b.id;
+            return GestureDetector(onTap: () { setState(() => _selectedBrandId = b.id); _applyStoreFilter(); },
+                child: AnimatedContainer(duration: const Duration(milliseconds: 200), width: 80, margin: const EdgeInsets.symmetric(horizontal: 5, vertical: 10), decoration: BoxDecoration(color: isSel ? const Color(0xFF2E7D32).withOpacity(0.1) : Colors.transparent, borderRadius: BorderRadius.circular(15), border: Border.all(color: isSel ? const Color(0xFF2E7D32) : Colors.grey.shade300, width: isSel ? 2 : 1)),
+                    child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      if (b.logoPath.isNotEmpty) ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.network(b.logoPath, width: 40, height: 40, fit: BoxFit.cover, errorBuilder: (_,__,___) => const Icon(Icons.store))) else const Icon(Icons.store),
+                      const SizedBox(height: 4), Text(b.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, fontWeight: isSel ? FontWeight.bold : FontWeight.normal, color: isSel ? const Color(0xFF2E7D32) : textColor))
+                    ])));
+          })),
+      Expanded(child: crossAxisCount > 1
+          ? GridView.builder(padding: const EdgeInsets.all(12), gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: crossAxisCount, crossAxisSpacing: 10, mainAxisSpacing: 12, childAspectRatio: 0.70), itemCount: _storeFilteredProducts.length, itemBuilder: (context, i) => _buildAdvancedProductCard(_storeFilteredProducts[i], isDark, cardColor, textColor))
+          : ListView.builder(padding: const EdgeInsets.all(10), itemCount: _storeFilteredProducts.length, itemBuilder: (context, i) => _buildFastProductCard(_storeFilteredProducts[i], isDark, cardColor, textColor))),
       _buildFloatingCartBar(),
     ]);
   }
@@ -256,80 +256,80 @@ class _MainScreenState extends State<MainScreen>
     final price = isCarton ? p.priceCartonNormal : p.priceUnitNormal;
 
     return Opacity(
-      opacity: p.isAvailable ? 1.0 : 0.6, 
-      child: Container(
-        decoration: BoxDecoration(
-          color: cardColor, 
-          borderRadius: BorderRadius.circular(20), 
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 15, offset: const Offset(0, 5))]
-        ),
-        child: Column(
-          children: [
-            Expanded(
-              child: Stack(
-                fit: StackFit.expand,
+        opacity: p.isAvailable ? 1.0 : 0.6,
+        child: Container(
+            decoration: BoxDecoration(
+                color: cardColor,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 15, offset: const Offset(0, 5))]
+            ),
+            child: Column(
                 children: [
-                  ClipRRect(
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(20)), 
-                    child: p.imagePath.isNotEmpty 
-                      ? CachedNetworkImage(imageUrl: p.imagePath, fit: BoxFit.cover, errorWidget: (_,__,___) => const Icon(Icons.image, size: 50)) 
-                      : Container(color: Colors.grey.shade100, child: const Icon(Icons.image, size: 50))
+                  Expanded(
+                      child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            ClipRRect(
+                                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                                child: p.imagePath.isNotEmpty
+                                    ? CachedNetworkImage(imageUrl: p.imagePath, fit: BoxFit.cover, errorWidget: (_,__,___) => const Icon(Icons.image, size: 50))
+                                    : Container(color: Colors.grey.shade100, child: const Icon(Icons.image, size: 50))
+                            ),
+                            Positioned(bottom: 10, right: 10, child: _buildStockPill(p)),
+                          ]
+                      )
                   ),
-                  Positioned(bottom: 10, right: 10, child: _buildStockPill(p)),
-                ]
-              )
-            ),
-            Padding(
-              padding: const EdgeInsets.all(12), 
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
-                  const SizedBox(height: 6),
-                  if (p.isAvailable) ...[
-                    if (p.hasFlavors) ...[
-                      _buildFlavorChips(p, isCarton),
-                      const SizedBox(height: 4),
-                    ],
-                    Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade50,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
+                  Padding(
+                      padding: const EdgeInsets.all(12),
                       child: Column(
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              GestureDetector(
-                                onTap: () => setState(() => _itemIsCartonMap[p.id] = true),
-                                child: _unitBadge('كرتون', isCarton, isDark),
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
+                            const SizedBox(height: 6),
+                            if (p.isAvailable) ...[
+                              if (p.hasFlavors) ...[
+                                _buildFlavorChips(p, isCarton),
+                                const SizedBox(height: 4),
+                              ],
+                              Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade50,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Column(
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        GestureDetector(
+                                          onTap: () => setState(() => _itemIsCartonMap[p.id] = true),
+                                          child: _unitBadge('كرتون', isCarton, isDark),
+                                        ),
+                                        GestureDetector(
+                                          onTap: () => setState(() => _itemIsCartonMap[p.id] = false),
+                                          child: _unitBadge('حبة', !isCarton, isDark),
+                                        ),
+                                      ],
+                                    ),
+                                    const Divider(height: 12, thickness: 0.5),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text('${price.toStringAsFixed(0)} DA', style: const TextStyle(color: Color(0xFF2E7D32), fontWeight: FontWeight.bold, fontSize: 14)),
+                                        if (!p.hasFlavors) _buildQtySelector(p, isCarton: isCarton), // ✅ المنتج ذو الأذواق: الكمية على كل ذوق
+                                      ],
+                                    ),
+                                  ],
+                                ),
                               ),
-                              GestureDetector(
-                                onTap: () => setState(() => _itemIsCartonMap[p.id] = false),
-                                child: _unitBadge('حبة', !isCarton, isDark),
-                              ),
-                            ],
-                          ),
-                          const Divider(height: 12, thickness: 0.5),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text('${price.toStringAsFixed(0)} DA', style: const TextStyle(color: Color(0xFF2E7D32), fontWeight: FontWeight.bold, fontSize: 14)),
-                              _buildQtySelector(p, isCarton: isCarton),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ] else const Center(child: Text('غير متوفر', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 12))),
+                            ] else const Center(child: Text('غير متوفر', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 12))),
+                          ]
+                      )
+                  ),
                 ]
-              )
-            ),
-          ]
+            )
         )
-      )
     );
   }
 
@@ -369,33 +369,75 @@ class _MainScreenState extends State<MainScreen>
   Widget _buildFastProductCard(Product p, bool isDark, Color cardColor, Color textColor) {
     bool isCarton = _itemIsCartonMap[p.id] ?? true;
     return Opacity(opacity: p.isAvailable ? 1.0 : 0.5, child: Container(margin: const EdgeInsets.only(bottom: 10), padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(15)),
-      child: Column(children: [
-        Row(children: [
-          ClipRRect(borderRadius: BorderRadius.circular(10), child: p.imagePath.isNotEmpty ? Image.network(p.imagePath, width: 60, height: 60, fit: BoxFit.cover) : Container(width: 60, height: 60, color: Colors.grey.shade200, child: const Icon(Icons.image))),
-          const SizedBox(width: 12),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-            Text('المخزن: ${_getStockLabel(p)}', style: const TextStyle(color: Colors.blue, fontSize: 10)),
-            Row(children: [ _unitToggle(p, true, isCarton), const SizedBox(width: 5), if (p.canSellUnit) _unitToggle(p, false, !isCarton) ]),
-          ])),
-          if (p.isAvailable) _buildQtySelector(p, isCarton: isCarton)
-        ]),
-        if (p.hasFlavors && p.isAvailable) _buildFlavorChips(p, isCarton),
-      ])));
+        child: Column(children: [
+          Row(children: [
+            ClipRRect(borderRadius: BorderRadius.circular(10), child: p.imagePath.isNotEmpty ? Image.network(p.imagePath, width: 60, height: 60, fit: BoxFit.cover) : Container(width: 60, height: 60, color: Colors.grey.shade200, child: const Icon(Icons.image))),
+            const SizedBox(width: 12),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              Text('المخزن: ${_getStockLabel(p)}', style: const TextStyle(color: Colors.blue, fontSize: 10)),
+              Row(children: [ _unitToggle(p, true, isCarton), const SizedBox(width: 5), if (p.canSellUnit) _unitToggle(p, false, !isCarton) ]),
+            ])),
+            if (p.isAvailable) _buildQtySelector(p, isCarton: isCarton)
+          ]),
+          if (p.hasFlavors && p.isAvailable) _buildFlavorChips(p, isCarton),
+        ])));
   }
 
   Widget _buildFlavorChips(Product p, bool isCarton) {
-    return SizedBox(height: 35, child: ListView.builder(scrollDirection: Axis.horizontal, itemCount: p.flavors.length, itemBuilder: (context, i) {
-      final f = p.flavors[i]; if (!f.isAvailable) return const SizedBox.shrink();
-      return Padding(padding: const EdgeInsets.only(left: 5), child: ActionChip(label: Text(f.name, style: const TextStyle(fontSize: 10)), 
-        onPressed: () => _fastAddToCart(p, flavor: f.name, isCarton: isCarton), backgroundColor: Colors.purple.withOpacity(0.05)));
-    }));
+    return SizedBox(
+      height: 50,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: p.flavors.length,
+        itemBuilder: (context, i) {
+          final f = p.flavors[i];
+          if (!f.isAvailable) return const SizedBox.shrink();
+          final qty = _flavorQty(p, f.name, isCarton);
+          final active = qty > 0;
+          return Container(
+            margin: const EdgeInsets.only(left: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: active ? const Color(0xFF2E7D32).withOpacity(0.12) : Colors.purple.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: active ? const Color(0xFF2E7D32) : Colors.grey.shade300),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(f.name, style: TextStyle(fontSize: 10, fontWeight: active ? FontWeight.bold : FontWeight.normal)),
+                const SizedBox(height: 2),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (active) ...[
+                      GestureDetector(
+                        onTap: () => _fastRemoveFromCart(p, flavor: f.name, isCarton: isCarton),
+                        child: const Icon(Icons.remove_circle, color: Colors.red, size: 20),
+                      ),
+                      const SizedBox(width: 4),
+                      Text('$qty', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                      const SizedBox(width: 4),
+                    ],
+                    GestureDetector(
+                      onTap: () => _fastAddToCart(p, flavor: f.name, isCarton: isCarton),
+                      child: const Icon(Icons.add_circle, color: Color(0xFF2E7D32), size: 22),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
   }
 
   Widget _unitToggle(Product p, bool forCarton, bool isSelected) {
-    return GestureDetector(onTap: () => setState(() => _itemIsCartonMap[p.id] = forCarton), child: Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), 
-      decoration: BoxDecoration(color: isSelected ? const Color(0xFF2E7D32) : Colors.grey.shade200, borderRadius: BorderRadius.circular(8)),
-      child: Text(forCarton ? '📦 كرتون' : '🛍️ حبة', style: TextStyle(fontSize: 9, color: isSelected ? Colors.white : Colors.grey))));
+    return GestureDetector(onTap: () => setState(() => _itemIsCartonMap[p.id] = forCarton), child: Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(color: isSelected ? const Color(0xFF2E7D32) : Colors.grey.shade200, borderRadius: BorderRadius.circular(8)),
+        child: Text(forCarton ? '📦 كرتون' : '🛍️ حبة', style: TextStyle(fontSize: 9, color: isSelected ? Colors.white : Colors.grey))));
   }
 
   Widget _buildQtySelector(Product p, {required bool isCarton}) {
@@ -421,6 +463,23 @@ class _MainScreenState extends State<MainScreen>
     });
   }
 
+  int _flavorQty(Product p, String flavor, bool isCarton) {
+    final idx = cart.indexWhere((it) => it.product.id == p.id && it.isCarton == isCarton && it.flavor == flavor);
+    return idx == -1 ? 0 : cart[idx].quantity;
+  }
+
+  void _fastRemoveFromCart(Product p, {String? flavor, required bool isCarton}) {
+    setState(() {
+      final idx = cart.indexWhere((it) => it.product.id == p.id && it.isCarton == isCarton && it.flavor == flavor);
+      if (idx == -1) return;
+      if (cart[idx].quantity > 1) {
+        cart[idx].quantity--;
+      } else {
+        cart.removeAt(idx);
+      }
+    });
+  }
+
   String _getStockLabel(Product p) {
     if (p.unitsPerCarton > 1) {
       int crt = p.stockQuantity ~/ p.unitsPerCarton; int pcs = p.stockQuantity % p.unitsPerCarton;
@@ -433,12 +492,12 @@ class _MainScreenState extends State<MainScreen>
     if (cart.isEmpty) return const SizedBox.shrink();
     final total = cart.fold(0.0, (sum, it) => sum + it.totalPrice);
     return GestureDetector(onTap: () => Navigator.push(context, SlidePageRoute(page: CartScreen(cart: cart, isAdmin: true))).then((_) => setState((){})),
-      child: Container(margin: const EdgeInsets.all(10), padding: const EdgeInsets.all(15), decoration: BoxDecoration(color: const Color(0xFF2E7D32), borderRadius: BorderRadius.circular(15)),
-        child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text('${cart.length} أصناف', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          Text('الإجمالي: ${total.toStringAsFixed(0)} DA', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-          const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 16),
-        ])));
+        child: Container(margin: const EdgeInsets.all(10), padding: const EdgeInsets.all(15), decoration: BoxDecoration(color: const Color(0xFF2E7D32), borderRadius: BorderRadius.circular(15)),
+            child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Text('${cart.length} أصناف', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              Text('الإجمالي: ${total.toStringAsFixed(0)} DA', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+              const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 16),
+            ])));
   }
 
   // ══════════════════════════════════
@@ -528,7 +587,6 @@ class _MainScreenState extends State<MainScreen>
       ]),
     );
   }
-
   Widget _buildQuickActionsList(bool isDark, Color cardBg) {
     final actions = [
       {'icon': Icons.camera_enhance_rounded, 'label': 'سكان فاتورة مورد', 'subtitle': 'تحديث المخزن', 'colors': [const Color(0xFF006064), const Color(0xFF00ACC1)], 'onTap': () => Navigator.push(context, SlidePageRoute(page: const ScanInvoiceScreen()))},
