@@ -184,13 +184,27 @@ class _OrdersScreenState extends State<OrdersScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
+                          Row(
+                            children: [
+                              TextButton.icon(
+                                onPressed: () => _showEditOrderItemsDialog(order),
+                                icon: const Icon(Icons.edit, size: 16),
+                                label: const Text('تعديل', style: TextStyle(fontSize: 12)),
+                              ),
+                              TextButton.icon(
+                                onPressed: () => _rejectOrder(order),
+                                icon: const Icon(Icons.cancel_outlined, size: 16, color: Colors.orange),
+                                label: const Text('رفض', style: TextStyle(fontSize: 12, color: Colors.orange)),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                                onPressed: () => _deleteOrder(order),
+                                tooltip: 'حذف نهائي',
+                              ),
+                            ],
+                          ),
                           Text('الباقي: ${formatter.format(order.total - order.paidAmount)} DA', 
                             style: TextStyle(color: (order.total - order.paidAmount) > 0 ? Colors.red : Colors.green, fontWeight: FontWeight.bold)),
-                          TextButton.icon(
-                            onPressed: () => _showEditOrderItemsDialog(order),
-                            icon: const Icon(Icons.edit, size: 16),
-                            label: const Text('تعديل الطلب كاملاً', style: TextStyle(fontSize: 12)),
-                          ),
                         ],
                       ),
                     ]))
@@ -203,6 +217,41 @@ class _OrdersScreenState extends State<OrdersScreen> {
       ),
     );
   }
+
+  Future<void> _rejectOrder(Order order) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('رفض الطلب'),
+        content: Text('هل تريد تحويل طلب ${order.customerName} إلى مرفوض؟'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('رفض', style: TextStyle(color: Colors.orange))),
+        ],
+      ),
+    );
+    if (ok == true) {
+      await DataService.updateOrderStatus(order.id, 'rejected');
+    }
+  }
+
+  Future<void> _deleteOrder(Order order) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('حذف الطلب'),
+        content: Text('هل أنت متأكد من حذف طلب ${order.customerName} نهائياً؟'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('حذف', style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+    if (ok == true) {
+      await DataService.deleteOrder(order.id);
+    }
+  }
+
 
   Future<void> _openMap(double lat, double lng) async {
     final url = 'https://www.google.com/maps/search/?api=1&query=$lat,$lng';

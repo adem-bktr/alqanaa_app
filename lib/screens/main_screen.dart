@@ -287,6 +287,10 @@ class _MainScreenState extends State<MainScreen>
                   Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 6),
                   if (p.isAvailable) ...[
+                    if (p.hasFlavors) ...[
+                      _buildFlavorChips(p, isCarton),
+                      const SizedBox(height: 4),
+                    ],
                     Container(
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
@@ -554,11 +558,55 @@ class _MainScreenState extends State<MainScreen>
         Row(children: [
           Expanded(child: _actionButton('✅ تأكيد', const Color(0xFFE8F5E9), const Color(0xFF2E7D32), () async { await DataService.updateOrderStatus(order.id, 'confirmed'); _loadRecentOrders(); })),
           const SizedBox(width: 6),
+          Expanded(child: _actionButton('❌ رفض', const Color(0xFFFFEBEE), Colors.red, () => _confirmReject(order))),
+          const SizedBox(width: 6),
           Expanded(child: _actionButton('🖨️ طباعة', const Color(0xFFE3F2FD), Colors.blue, () => _printOrder(order))),
+          const SizedBox(width: 6),
+          GestureDetector(
+            onTap: () => _confirmDelete(order),
+            child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.grey.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.delete_outline, color: Colors.red, size: 18)),
+          ),
         ]),
       ]),
     );
   }
+
+  Future<void> _confirmReject(Order order) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('تأكيد الرفض'),
+        content: Text('هل أنت متأكد من رفض طلب ${order.customerName}؟'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('إلغاء')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('نعم، رفض', style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+    if (ok == true) {
+      await DataService.updateOrderStatus(order.id, 'rejected');
+      _loadRecentOrders();
+    }
+  }
+
+  Future<void> _confirmDelete(Order order) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('حذف الطلب نهائياً'),
+        content: Text('سيتم حذف طلب ${order.customerName} من السجل نهائياً. لا يمكن التراجع!'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('إلغاء')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('حذف الآن', style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+    if (ok == true) {
+      await DataService.deleteOrder(order.id);
+      _loadRecentOrders();
+    }
+  }
+
 
   Widget _actionButton(String label, Color bg, Color color, VoidCallback onTap) {
     return GestureDetector(onTap: onTap, child: Container(padding: const EdgeInsets.symmetric(vertical: 8), decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)), child: Center(child: Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color)))));
