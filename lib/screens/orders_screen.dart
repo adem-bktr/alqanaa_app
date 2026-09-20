@@ -66,13 +66,22 @@ class _OrdersScreenState extends State<OrdersScreen> {
     if (selectedFilter != 'all') {
       filtered = filtered.where((o) {
         final d = o.createdAt ?? o.dateTime;
-        if (d == null) return false;
+        
+        // محاولة فحص التاريخ كنص لضمان العمل في كل الحالات (خاصة الآيفون والأنظمة القديمة)
+        final todayStr = DateFormat('dd/MM/yyyy', 'en_US').format(now);
+        final isTodayText = o.date.startsWith(todayStr);
+
         if (selectedFilter == 'today') {
-          return d.year == now.year && d.month == now.month && d.day == now.day;
+          if (d != null) {
+            return d.year == now.year && d.month == now.month && d.day == now.day;
+          }
+          return isTodayText;
         } else if (selectedFilter == 'week') {
-          return now.difference(d).inDays <= 7;
+          if (d != null) return now.difference(d).inDays <= 7;
+          return false;
         } else if (selectedFilter == 'month') {
-          return d.year == now.year && d.month == now.month;
+          if (d != null) return d.year == now.year && d.month == now.month;
+          return false;
         }
         return true;
       }).toList();

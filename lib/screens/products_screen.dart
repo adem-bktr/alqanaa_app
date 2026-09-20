@@ -639,9 +639,9 @@ class _ProductsScreenState extends State<ProductsScreen>
       padding: const EdgeInsets.all(12),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: crossAxisCount,
-        crossAxisSpacing: 12,
+        crossAxisSpacing: 10,
         mainAxisSpacing: 12,
-        childAspectRatio: 0.68,
+        childAspectRatio: 0.70,
       ),
       itemCount: filteredProducts.length,
       itemBuilder: (context, index) {
@@ -724,9 +724,9 @@ class _ProductsScreenState extends State<ProductsScreen>
       padding: const EdgeInsets.all(12),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: crossAxisCount,
-        crossAxisSpacing: 12,
+        crossAxisSpacing: 10,
         mainAxisSpacing: 12,
-        childAspectRatio: 0.68,
+        childAspectRatio: 0.70,
       ),
       itemCount: 4,
       itemBuilder: (context, index) {

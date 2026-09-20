@@ -731,7 +731,7 @@ class _CartScreenState extends State<CartScreen> {
 
     try {
       final date =
-      DateFormat('dd/MM/yyyy - HH:mm').format(DateTime.now());
+      DateFormat('dd/MM/yyyy - HH:mm', 'en_US').format(DateTime.now());
       final currentUser = await AuthService.getCurrentUser();
       final orderId =
       DateTime.now().millisecondsSinceEpoch.toString();
