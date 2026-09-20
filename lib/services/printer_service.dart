@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:permission_handler_platform_interface/permission_handler_platform_interface.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/models.dart';
@@ -20,6 +20,7 @@ class PrinterService {
   //  ✅ الربط التلقائي
   // ══════════════════════════════════════════════════════
   static Future<void> autoConnect() async {
+    if (Platform.isWindows) return; // ✅ لا يدعم البلوتوث على ويندوز حالياً من هذه المكتبة
     try {
       final prefs = await SharedPreferences.getInstance();
       final lastAddr = prefs.getString('last_printer_address');
@@ -156,15 +157,18 @@ class PrinterService {
   }
 
   static Future<bool> requestPermissions() async {
+    if (Platform.isWindows) return true; // ✅ لا نحتاج أذونات موبايل على الويندوز
     try {
       if (!Platform.isAndroid) return true;
-      final scan = await Permission.bluetoothScan.request();
-      final conn = await Permission.bluetoothConnect.request();
-      if (scan.isGranted && conn.isGranted) return true;
-      if (scan.isPermanentlyDenied || conn.isPermanentlyDenied) {
-        await openAppSettings();
-      }
-      return false;
+      // استخدام الواجهة مباشرة لتجنب الاعتماد على مكتبة الويندوز المعطلة
+      final handler = PermissionHandlerPlatform.instance;
+      final statuses = await handler.requestPermissions([
+        Permission.bluetoothScan,
+        Permission.bluetoothConnect,
+      ]);
+      
+      return statuses[Permission.bluetoothScan] == PermissionStatus.granted && 
+             statuses[Permission.bluetoothConnect] == PermissionStatus.granted;
     } catch (e) {
       debugPrint('❌ أذونات: $e');
       return false;
@@ -172,6 +176,7 @@ class PrinterService {
   }
 
   static Future<List<BluetoothInfo>> getAvailableDevices() async {
+    if (Platform.isWindows) return []; // ✅ البلوتوث غير مدعوم لويندوز في هذه الحزمة
     try {
       if (!await requestPermissions()) return [];
       if (!await PrintBluetoothThermal.bluetoothEnabled) return [];

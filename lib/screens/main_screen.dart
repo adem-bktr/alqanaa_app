@@ -16,6 +16,8 @@ import 'printer_screen.dart';
 import 'debts_screen.dart';
 import 'stats_screen.dart';
 import 'scan_invoice_screen.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'dart:async';
 
 class MainScreen extends StatefulWidget {
   final VoidCallback onToggleDarkMode;
@@ -49,6 +51,8 @@ class _MainScreenState extends State<MainScreen>
   bool isStatsLoading = true;
   int  _currentNavIndex = 0;
   bool isSpecialPrice = false;
+  bool _isOffline = false;
+  late StreamSubscription<List<ConnectivityResult>> _connectivitySub;
 
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   UserModel? _adminUser;
@@ -89,6 +93,14 @@ class _MainScreenState extends State<MainScreen>
     _fadeAnimation = CurvedAnimation(
         parent: _fadeController, curve: Curves.easeOutCubic);
     _loadAll();
+    _initConnectivity();
+  }
+
+  void _initConnectivity() {
+    _connectivitySub = Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> results) {
+      final isOffline = results.contains(ConnectivityResult.none);
+      if (mounted) setState(() => _isOffline = isOffline);
+    });
   }
 
   @override
@@ -100,6 +112,7 @@ class _MainScreenState extends State<MainScreen>
     _dashboardScroll.dispose();
     _brandsScroll.dispose();
     _keyboardFocus.dispose();
+    _connectivitySub.cancel();
     super.dispose();
   }
 
@@ -498,7 +511,22 @@ class _MainScreenState extends State<MainScreen>
           const SizedBox(width: 8),
         ],
       ),
-      body: IndexedStack(index: _currentNavIndex, children: pages),
+      body: Column(
+        children: [
+          if (_isOffline)
+            Container(
+              width: double.infinity,
+              color: Colors.red.shade700,
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: const Text(
+                '🌐 أنت تعمل في وضع الأوفلاين - سيتم مزامنة البيانات عند الاتصال',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+              ),
+            ),
+          Expanded(child: IndexedStack(index: _currentNavIndex, children: pages)),
+        ],
+      ),
       bottomNavigationBar: isDesktop ? null : Container(
         decoration: BoxDecoration(boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, -2))]),
         child: NavigationBar(

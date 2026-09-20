@@ -20,7 +20,9 @@ dependencies:
   firebase_messaging: ^16.7.0
   http: ^1.2.0
   googleapis_auth: ^2.3.2
-  geolocator: ^14.0.2
+  geolocator_platform_interface: ^4.2.4
+  geolocator_android: ^4.6.1
+  geolocator_apple: ^2.3.2
   geocoding: ^4.0.0
   url_launcher: ^6.3.0
 
@@ -29,7 +31,9 @@ dependencies:
   # ═══════════════════════════
   print_bluetooth_thermal: ^1.0.10
   esc_pos_utils_plus: ^2.0.4
-  permission_handler: ^13.0.2
+  permission_handler_platform_interface: ^4.2.3
+  permission_handler_android: ^12.1.0
+  permission_handler_apple: ^9.4.5
 
   # ═══════════════════════════
   #     State Management
@@ -80,6 +84,7 @@ dependencies:
   # ═══════════════════════════
   intl: ^0.20.2
   share_plus: ^13.1.0
+  connectivity_plus: ^7.3.1
 
 dev_dependencies:
   flutter_test:
