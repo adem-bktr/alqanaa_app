@@ -9,10 +9,30 @@ import 'screens/splash_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/login_screen.dart';
 import 'services/printer_service.dart';
+import 'package:window_manager/window_manager.dart';
+import 'dart:io';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
+    await windowManager.ensureInitialized();
+    WindowOptions windowOptions = const WindowOptions(
+      size: Size(1280, 800),
+      center: true,
+      backgroundColor: Colors.transparent,
+      skipTaskbar: false,
+      titleBarStyle: TitleBarStyle.normal,
+      title: "القناعة - نظام إدارة المبيعات",
+    );
+    windowManager.waitUntilReadyToShow(windowOptions, () async {
+      await windowManager.show();
+      await windowManager.focus();
+    });
+  }
+
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
   
   // ✅ تفعيل ميزة العمل بدون إنترنت (Offline Persistence)
   FirebaseFirestore.instance.settings = const Settings(

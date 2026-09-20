@@ -85,6 +85,7 @@ dependencies:
   intl: ^0.20.2
   share_plus: ^13.1.0
   connectivity_plus: ^7.3.1
+  window_manager: ^0.5.2
 
 dev_dependencies:
   flutter_test:

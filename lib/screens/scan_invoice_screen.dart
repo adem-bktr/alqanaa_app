@@ -17,6 +17,8 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
   File? _image;
   bool _isProcessing = false;
   List<DetectedInvoiceItem> _detectedItems = [];
+  String? _detectedDate;
+  String? _detectedSeller;
   bool _isDisposed = false;
   final _textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
 
@@ -81,9 +83,39 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
       final rows = _groupIntoRows(allLines);
 
       List<DetectedInvoiceItem> items = [];
+      String? detectedDate;
+      String? detectedSeller;
+
       for (var row in rows) {
         row.sort((a, b) => a.boundingBox.left.compareTo(b.boundingBox.left));
         String text = row.map((l) => l.text).join(' ');
+        
+        // 1️⃣ فحص التواريخ (Date Recognition)
+        final dateRegex = RegExp(r'\d{1,2}[/-]\d{1,2}[/-]\d{2,4}');
+        if (dateRegex.hasMatch(text) && detectedDate == null) {
+          detectedDate = dateRegex.stringMatch(text);
+          continue; // لا نحتاجه كصنف منتج
+        }
+
+        // 2️⃣ فحص الوقت (Time Recognition)
+        final timeRegex = RegExp(r'\d{1,2}:\d{2}');
+        if (timeRegex.hasMatch(text) && !text.contains(RegExp(r'[a-zA-Z]'))) {
+           // غالباً وقت، نتجاهله من قائمة المنتجات
+           continue;
+        }
+
+        // 3️⃣ فحص الأسماء (اسم البائع / المورد)
+        final sellerKeywords = ['Vendeur', 'Seller', 'Fournisseur', 'بائع', 'مورد', 'المحل', 'De:', 'From:', 'إلى:'];
+        bool isSellerLine = sellerKeywords.any((k) => text.toLowerCase().contains(k.toLowerCase()));
+        
+        // إذا كان السطر يبدأ بـ "مورد" أو يحتوي على كلمة "بائع" ولا يحتوي على أرقام كثيرة، فهو اسم
+        if (isSellerLine && nums.length < 2) {
+          final parts = text.split(RegExp(r'[:\-]'));
+          detectedSeller = parts.length > 1 ? parts.last.trim() : text.replaceAll(RegExp(sellerKeywords.join('|'), caseSensitive: false), '').trim();
+          continue; 
+        }
+
+        // 4️⃣ معالجة الأرقام والأسعار كالمعتاد
         final nums = RegExp(r'\d+([.,]\d+)?')
             .allMatches(text)
             .map((m) => toDouble(m.group(0)))
@@ -93,10 +125,14 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
         if (nums.isEmpty) continue;
 
         String name = text
+            .replaceAll(RegExp(r'\d{1,2}[/-]\d{1,2}[/-]\d{2,4}'), '') // إزالة التاريخ من الاسم
             .replaceAll(RegExp(r'\d+([.,]\d+)?'), '')
             .replaceAll(RegExp(r'[^\w\s\u0600-\u06FF]'), ' ')
             .trim();
+        
+        // تنظيف الاسم من الكلمات المفتاحية المزعجة
         if (name.length <= 2 && nums.length < 2) continue;
+        if (['total', 'tva', 'tva', 'net', 'pagé', 'page', 'facture', 'n°', 'date'].any((k) => name.toLowerCase().contains(k))) continue;
 
         final mappedId = await DataService.getMappedProductId(name);
         Product? matched =
@@ -120,7 +156,14 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
           needsReview: !(parsed.isMathValid || nums.length >= 2) || parsed.quantity <= 0,
         ));
       }
-      if (!_isDisposed) setState(() { _detectedItems = items; _isProcessing = false; });
+      if (!_isDisposed) {
+        setState(() { 
+          _detectedItems = items; 
+          _detectedDate = detectedDate;
+          _detectedSeller = detectedSeller;
+          _isProcessing = false; 
+        });
+      }
     } catch (e) {
       if (!_isDisposed) {
         setState(() => _isProcessing = false);
@@ -282,8 +325,22 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
         ]))) else ...[
           Container(height: 150, width: double.infinity, margin: const EdgeInsets.all(10), decoration: BoxDecoration(borderRadius: BorderRadius.circular(15), image: DecorationImage(image: FileImage(_image!), fit: BoxFit.cover))),
           if (_isProcessing) const Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator(color: Color(0xFF2E7D32)))
-          else if (_detectedItems.isEmpty) const Expanded(child: Center(child: Text('لم يتم التعرف على أي أصناف — حاول صورة أوضح')))
+          else if (_detectedItems.isEmpty && !_isProcessing) const Expanded(child: Center(child: Text('لم يتم التعرف على أي أصناف — حاول صورة أوضح')))
           else ...[
+              if (_detectedDate != null || _detectedSeller != null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(color: Colors.blue.withOpacity(0.1), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.blue.shade200)),
+                    child: Column(
+                      children: [
+                        if (_detectedSeller != null) Row(children: [const Icon(Icons.person, size: 16, color: Colors.blue), const SizedBox(width: 8), Text('البائع المستخرج: $_detectedSeller', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))]),
+                        if (_detectedDate != null) Row(children: [const Icon(Icons.calendar_today, size: 16, color: Colors.blue), const SizedBox(width: 8), Text('التاريخ المستخرج: $_detectedDate', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))]),
+                      ],
+                    ),
+                  ),
+                ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
                 child: Row(children: [

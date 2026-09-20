@@ -146,10 +146,43 @@ class _OrdersScreenState extends State<OrdersScreen> {
                   subtitle: Text('مسدد: ${formatter.format(order.paidAmount)} / إجمالي: ${formatter.format(order.total)} DA', style: const TextStyle(fontSize: 12)),
                   children: [
                     Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('📅 ${order.date}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                          Row(
+                            children: [
+                              if (order.latitude != null && order.longitude != null)
+                                IconButton(
+                                  icon: const Icon(Icons.location_on, color: Colors.redAccent),
+                                  tooltip: 'فتح الموقع في الخريطة',
+                                  onPressed: () => _openMap(order.latitude!, order.longitude!),
+                                ),
+                              IconButton(
+                                icon: const Icon(Icons.print, color: Color(0xFF2E7D32)),
+                                tooltip: 'إعادة طباعة الوصل',
+                                onPressed: () => _printOrder(order),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const Divider(),
                       ...order.items.map((i) => Padding(padding: const EdgeInsets.symmetric(vertical: 2), 
                         child: Text('• ${i['productName']} x ${i['quantity']} ${i['typeLabel']} = ${formatter.format(toDouble(i['price']) * toDouble(i['quantity']))} DA', style: TextStyle(color: textColor)))),
                       const Divider(),
-                      Text('الباقي: ${formatter.format(order.total - order.paidAmount)} DA', style: TextStyle(color: (order.total - order.paidAmount) > 0 ? Colors.red : Colors.green, fontWeight: FontWeight.bold)),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('الباقي: ${formatter.format(order.total - order.paidAmount)} DA', 
+                            style: TextStyle(color: (order.total - order.paidAmount) > 0 ? Colors.red : Colors.green, fontWeight: FontWeight.bold)),
+                          TextButton.icon(
+                            onPressed: () => _showEditOrderItemsDialog(order),
+                            icon: const Icon(Icons.edit, size: 16),
+                            label: const Text('تعديل الطلب كاملاً', style: TextStyle(fontSize: 12)),
+                          ),
+                        ],
+                      ),
                     ]))
                   ],
                 ),
@@ -160,4 +193,33 @@ class _OrdersScreenState extends State<OrdersScreen> {
       ),
     );
   }
+
+  Future<void> _openMap(double lat, double lng) async {
+    final url = 'https://www.google.com/maps/search/?api=1&query=$lat,$lng';
+    if (await canLaunchUrl(Uri.parse(url))) {
+      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    }
+  }
+
+  Future<void> _printOrder(Order order) async {
+    final ok = await PrinterService.printReceipt(
+      order: order,
+      customerName: order.customerName,
+      customerPhone: order.customerPhone,
+      amountPaid: order.paidAmount,
+      customerDebtBalance: order.remainingBalance,
+    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(ok ? '✅ جاري الطباعة' : '❌ فشلت الطباعة'), backgroundColor: ok ? Colors.green : Colors.red),
+      );
+    }
+  }
+
+import 'edit_order_screen.dart';
+
+  Future<void> _showEditOrderItemsDialog(Order order) async {
+    Navigator.push(context, MaterialPageRoute(builder: (_) => EditOrderScreen(order: order)));
+  }
+
 }

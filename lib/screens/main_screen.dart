@@ -16,6 +16,7 @@ import 'printer_screen.dart';
 import 'debts_screen.dart';
 import 'stats_screen.dart';
 import 'scan_invoice_screen.dart';
+import 'desktop_pos_view.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'dart:async';
 
@@ -481,16 +482,32 @@ class _MainScreenState extends State<MainScreen>
   @override
   Widget build(BuildContext context) {
     final isDark = widget.isDarkMode;
-    final pages = [_buildDashboard(isDark), _buildAdminStoreTab(isDark), const AdminScreen()];
+    final pages = [
+      _buildDashboard(isDark), 
+      _buildAdminStoreTab(isDark), 
+      const AdminScreen(),
+      if (isDesktop) DesktopPosView(cart: cart, onCartChanged: () => setState(() {})),
+    ];
+    
     return Scaffold(
       key: _scaffoldKey,
-      drawer: isDesktop ? null : _buildAdminDrawer(isDark),
-      appBar: isDesktop ? null : AppBar(
+      drawer: _buildAdminDrawer(isDark), // ✅ القائمة الجانبية متاحة دائماً الآن
+      appBar: AppBar(
         backgroundColor: const Color(0xFF2E7D32),
         elevation: 0,
-        leading: IconButton(icon: const Icon(Icons.menu_rounded, color: Colors.white), onPressed: () => _scaffoldKey.currentState?.openDrawer()),
+        leading: IconButton(
+          icon: const Icon(Icons.menu_rounded, color: Colors.white), 
+          onPressed: () => _scaffoldKey.currentState?.openDrawer()
+        ),
         title: Row(children: [
-          Container(width: 32, height: 32, decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(8)), child: ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.asset('assets/logo.png', fit: BoxFit.cover, errorBuilder: (_,__,___) => const Icon(Icons.store, color: Colors.white, size: 20)))),
+          Container(
+            width: 32, height: 32, 
+            decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(8)), 
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8), 
+              child: Image.asset('assets/logo.png', fit: BoxFit.cover, errorBuilder: (_,__,___) => const Icon(Icons.store, color: Colors.white, size: 20))
+            )
+          ),
           const SizedBox(width: 10),
           const Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
             Text('القناعة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
@@ -527,7 +544,7 @@ class _MainScreenState extends State<MainScreen>
           Expanded(child: IndexedStack(index: _currentNavIndex, children: pages)),
         ],
       ),
-      bottomNavigationBar: isDesktop ? null : Container(
+      bottomNavigationBar: Container(
         decoration: BoxDecoration(boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, -2))]),
         child: NavigationBar(
           selectedIndex: _currentNavIndex,
@@ -539,7 +556,10 @@ class _MainScreenState extends State<MainScreen>
             NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded, color: Color(0xFF2E7D32)), label: 'الرئيسية'),
             NavigationDestination(icon: Icon(Icons.store_outlined), selectedIcon: Icon(Icons.store_rounded, color: Color(0xFF2E7D32)), label: 'المتجر'),
             NavigationDestination(icon: Icon(Icons.admin_panel_settings_outlined), selectedIcon: Icon(Icons.admin_panel_settings_rounded, color: Color(0xFF2E7D32)), label: 'الإدارة'),
+            if (isDesktop) const NavigationDestination(icon: Icon(Icons.point_of_sale_outlined), selectedIcon: Icon(Icons.point_of_sale_rounded, color: Color(0xFF2E7D32)), label: 'نقطة بيع'),
           ])),
+    );
+  }
     );
   }
 
