@@ -64,7 +64,6 @@ class _DesktopPosViewState extends State<DesktopPosView> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Row(
       children: [
-        // ── قائمة المنتجات (الجهة اليسرى) ──
         Expanded(
           flex: 7,
           child: Column(
@@ -100,7 +99,6 @@ class _DesktopPosViewState extends State<DesktopPosView> {
             ],
           ),
         ),
-        // ── ملخص السلة السريع (الجهة اليمنى) ──
         Container(
           width: 380,
           decoration: BoxDecoration(

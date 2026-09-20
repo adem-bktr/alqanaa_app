@@ -12,6 +12,7 @@ import '../services/data_service.dart';
 import '../services/notification_service.dart';
 import '../services/printer_service.dart';
 import '../utils/converters.dart';
+import 'edit_order_screen.dart';
 
 class OrdersScreen extends StatefulWidget {
   final bool showTodayOnly;
@@ -216,10 +217,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
     }
   }
 
-import 'edit_order_screen.dart';
-
   Future<void> _showEditOrderItemsDialog(Order order) async {
     Navigator.push(context, MaterialPageRoute(builder: (_) => EditOrderScreen(order: order)));
   }
-
 }

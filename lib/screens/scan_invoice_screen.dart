@@ -104,7 +104,14 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
            continue;
         }
 
-        // 3️⃣ فحص الأسماء (اسم البائع / المورد)
+        // 3️⃣ معالجة الأرقام مبدئياً للفحص
+        final nums = RegExp(r'\d+([.,]\d+)?')
+            .allMatches(text)
+            .map((m) => toDouble(m.group(0)))
+            .whereType<double>()
+            .toList();
+
+        // 4️⃣ فحص الأسماء (اسم البائع / المورد)
         final sellerKeywords = ['Vendeur', 'Seller', 'Fournisseur', 'بائع', 'مورد', 'المحل', 'De:', 'From:', 'إلى:'];
         bool isSellerLine = sellerKeywords.any((k) => text.toLowerCase().contains(k.toLowerCase()));
         
@@ -114,13 +121,6 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
           detectedSeller = parts.length > 1 ? parts.last.trim() : text.replaceAll(RegExp(sellerKeywords.join('|'), caseSensitive: false), '').trim();
           continue; 
         }
-
-        // 4️⃣ معالجة الأرقام والأسعار كالمعتاد
-        final nums = RegExp(r'\d+([.,]\d+)?')
-            .allMatches(text)
-            .map((m) => toDouble(m.group(0)))
-            .whereType<double>()
-            .toList();
 
         if (nums.isEmpty) continue;
 
