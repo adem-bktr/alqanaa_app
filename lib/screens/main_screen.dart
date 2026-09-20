@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:badges/badges.dart' as badges;
+import 'package:cached_network_image/cached_network_image.dart';
 import '../models/models.dart';
 import '../services/data_service.dart';
 import '../services/auth_service.dart';
@@ -271,7 +272,7 @@ class _MainScreenState extends State<MainScreen>
                   ClipRRect(
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(20)), 
                     child: p.imagePath.isNotEmpty 
-                      ? CachedNetworkImage(imageUrl: p.imagePath, fit: BoxFit.cover, errorBuilder: (_,__,___) => const Icon(Icons.image, size: 50)) 
+                      ? CachedNetworkImage(imageUrl: p.imagePath, fit: BoxFit.cover, errorWidget: (_,__,___) => const Icon(Icons.image, size: 50)) 
                       : Container(color: Colors.grey.shade100, child: const Icon(Icons.image, size: 50))
                   ),
                   Positioned(bottom: 10, right: 10, child: _buildStockPill(p)),
