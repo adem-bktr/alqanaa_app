@@ -1116,6 +1116,12 @@ class _AnimatedProductCardState extends State<_AnimatedProductCard>
                             ),
                           ),
                         ),
+                      // ✅ مؤشر المخزون المطور (Stock Pill)
+                      Positioned(
+                        bottom: 8,
+                        right: 8,
+                        child: _buildStockPill(widget.product),
+                      ),
                     ],
                   ),
                 ),
@@ -1137,8 +1143,8 @@ class _AnimatedProductCardState extends State<_AnimatedProductCard>
                       Container(
                         padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
-                          color: widget.isDark ? Colors.white54.withOpacity(0.05) : Colors.grey.shade50,
-                          borderRadius: BorderRadius.circular(8),
+                          color: widget.isDark ? Colors.white54.withValues(alpha: 0.05) : Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(10),
                           border: Border.all(color: widget.isDark ? Colors.grey.shade800 : Colors.grey.shade200, width: 0.5),
                         ),
                         child: Column(
@@ -1157,7 +1163,11 @@ class _AnimatedProductCardState extends State<_AnimatedProductCard>
                                   ),
                                 ],
                               ),
-                            if (widget.product.canSellCarton && widget.product.canSellUnit) const SizedBox(height: 4),
+                            if (widget.product.canSellCarton && widget.product.canSellUnit) 
+                              Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 2),
+                                child: Divider(height: 1, thickness: 0.5, color: widget.isDark ? Colors.white10 : Colors.black12),
+                              ),
                             if (widget.product.canSellUnit)
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1175,7 +1185,7 @@ class _AnimatedProductCardState extends State<_AnimatedProductCard>
                           ],
                         ),
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 8),
                       SizedBox(
                         width: double.infinity,
                         child: MouseRegion(
@@ -1196,13 +1206,19 @@ class _AnimatedProductCardState extends State<_AnimatedProductCard>
                               padding:
                               const EdgeInsets.symmetric(vertical: 8),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(10),
                               ),
                             ),
-                            child: Text(
-                              widget.maxReached ? 'وصلت الحد' : '+ إضافة',
-                              style: const TextStyle(
-                                  color: Colors.white, fontSize: 12),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(widget.maxReached ? Icons.error_outline : Icons.add_shopping_cart, size: 16, color: Colors.white),
+                                const SizedBox(width: 6),
+                                Text(
+                                  widget.maxReached ? 'الحد الأقصى' : 'إضافة',
+                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -1214,6 +1230,35 @@ class _AnimatedProductCardState extends State<_AnimatedProductCard>
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildStockPill(Product p) {
+    Color color = Colors.green;
+    String label = 'متوفر';
+    if (!p.isAvailable || p.stockQuantity <= 0) {
+      color = Colors.red;
+      label = 'نفد';
+    } else if (p.stockQuantity <= 5 * (p.unitsPerCarton > 0 ? p.unitsPerCarton : 1)) {
+      color = Colors.orange;
+      label = 'قليل';
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.85),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4)],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(width: 5, height: 5, decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle)),
+          const SizedBox(width: 4),
+          Text(label, style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+        ],
       ),
     );
   }
