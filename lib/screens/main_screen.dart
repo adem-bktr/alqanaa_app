@@ -197,20 +197,32 @@ class _MainScreenState extends State<MainScreen>
   // ══════════════════════════════════
   //  Fast Store Logic
   // ══════════════════════════════════
-  String _selectedBrandId = '';
+  String _selectedBrandId = ''; // ✅ فارغ = "الكل"
   List<Product> _allProducts = [];
   List<Product> _storeFilteredProducts = [];
   final _storeSearchCtrl = TextEditingController();
   final Map<String, bool> _itemIsCartonMap = {};
+  bool _storeLoaded  = false; // ✅ يمنع تكرار تحميل المتجر
+  bool _storeLoading = false;
 
+  // ✅ تحميل المتجر مرة واحدة فقط، مع معالجة الأخطاء
   Future<void> _loadStoreData() async {
-    final b = await DataService.getBrands();
-    final p = await DataService.getAllProducts();
-    setState(() {
-      brands = b; _allProducts = p;
-      if (brands.isNotEmpty && _selectedBrandId.isEmpty) _selectedBrandId = brands.first.id;
+    _storeLoading = true;
+    try {
+      final b = await DataService.getBrands();
+      final p = await DataService.getAllProducts();
+      if (!mounted) return;
+      setState(() {
+        brands = b;
+        _allProducts = p;
+        _storeLoaded = true;
+      });
       _applyStoreFilter();
-    });
+    } catch (_) {
+      // عند الفشل تبقى _storeLoaded = false فتتاح محاولة جديدة لاحقاً
+    } finally {
+      _storeLoading = false;
+    }
   }
 
   void _applyStoreFilter() {
@@ -224,8 +236,23 @@ class _MainScreenState extends State<MainScreen>
     });
   }
 
+  // ✅ وضع البيع الفعلي للمنتج (كرتون/حبة) مع احترام نوع البيع
+  bool _isCartonMode(Product p) {
+    if (!p.canSellUnit) return true;
+    if (!p.canSellCarton) return false;
+    return _itemIsCartonMap[p.id] ?? true;
+  }
+
+  // ✅ نفس طريقة حساب السعر في CartItem (خاص/عادي + الخصم)
+  double _cardPrice(Product p, bool isCarton) {
+    final base = isCarton
+        ? (isSpecialPrice ? p.priceCartonSpecial : p.priceCartonNormal)
+        : (isSpecialPrice ? p.priceUnitSpecial : p.priceUnitNormal);
+    return p.discountedPrice(base);
+  }
+
   Widget _buildAdminStoreTab(bool isDark) {
-    if (_allProducts.isEmpty && !isLoading) _loadStoreData();
+    if (!_storeLoaded && !_storeLoading && !isLoading) _loadStoreData();
     final cardColor = isDark ? const Color(0xFF1E1E2E) : Colors.white;
     final textColor = isDark ? Colors.white : Colors.black87;
     final screenWidth = MediaQuery.of(context).size.width;
@@ -235,13 +262,16 @@ class _MainScreenState extends State<MainScreen>
       Container(width: double.infinity, decoration: const BoxDecoration(gradient: LinearGradient(colors: [Color(0xFF1B5E20), Color(0xFF2E7D32)])), padding: const EdgeInsets.all(12),
           child: TextField(controller: _storeSearchCtrl, onChanged: (_) => _applyStoreFilter(), decoration: InputDecoration(hintText: 'بحث سريع عن منتج...', prefixIcon: const Icon(Icons.search), filled: true, fillColor: isDark ? const Color(0xFF2A2A3E) : Colors.white, border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none)))),
       Container(height: 100, color: isDark ? const Color(0xFF161625) : Colors.white,
-          child: ListView.builder(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 10), itemCount: brands.length, itemBuilder: (context, i) {
-            final b = brands[i]; final isSel = _selectedBrandId == b.id;
-            return GestureDetector(onTap: () { setState(() => _selectedBrandId = b.id); _applyStoreFilter(); },
+          child: ListView.builder(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 10), itemCount: brands.length + 1, itemBuilder: (context, i) {
+            // ✅ العنصر الأول = "الكل"
+            final isAll = i == 0;
+            final Brand? b = isAll ? null : brands[i - 1];
+            final isSel = isAll ? _selectedBrandId.isEmpty : _selectedBrandId == b!.id;
+            return GestureDetector(onTap: () { setState(() => _selectedBrandId = isAll ? '' : b!.id); _applyStoreFilter(); },
                 child: AnimatedContainer(duration: const Duration(milliseconds: 200), width: 80, margin: const EdgeInsets.symmetric(horizontal: 5, vertical: 10), decoration: BoxDecoration(color: isSel ? const Color(0xFF2E7D32).withOpacity(0.1) : Colors.transparent, borderRadius: BorderRadius.circular(15), border: Border.all(color: isSel ? const Color(0xFF2E7D32) : Colors.grey.shade300, width: isSel ? 2 : 1)),
                     child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      if (b.logoPath.isNotEmpty) ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.network(b.logoPath, width: 40, height: 40, fit: BoxFit.cover, errorBuilder: (_,__,___) => const Icon(Icons.store))) else const Icon(Icons.store),
-                      const SizedBox(height: 4), Text(b.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, fontWeight: isSel ? FontWeight.bold : FontWeight.normal, color: isSel ? const Color(0xFF2E7D32) : textColor))
+                      if (isAll) Icon(Icons.apps, size: 32, color: isSel ? const Color(0xFF2E7D32) : Colors.grey) else if (b!.logoPath.isNotEmpty) ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.network(b.logoPath, width: 40, height: 40, fit: BoxFit.cover, errorBuilder: (_,__,___) => const Icon(Icons.store))) else const Icon(Icons.store),
+                      const SizedBox(height: 4), Text(isAll ? 'الكل' : b!.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, fontWeight: isSel ? FontWeight.bold : FontWeight.normal, color: isSel ? const Color(0xFF2E7D32) : textColor))
                     ])));
           })),
       Expanded(child: crossAxisCount > 1
@@ -252,11 +282,13 @@ class _MainScreenState extends State<MainScreen>
   }
 
   Widget _buildAdvancedProductCard(Product p, bool isDark, Color cardColor, Color textColor) {
-    bool isCarton = _itemIsCartonMap[p.id] ?? true;
-    final price = isCarton ? p.priceCartonNormal : p.priceUnitNormal;
+    final bool isCarton = _isCartonMode(p); // ✅ يحترم نوع البيع
+    final price = _cardPrice(p, isCarton);   // ✅ السعر الخاص/العادي + الخصم
+    // ✅ المنتج ذو الأذواق وكلها غير متوفرة يُعتبر غير متوفر
+    final bool sellable = p.isAvailable && (!p.hasFlavors || p.availableFlavors.isNotEmpty);
 
     return Opacity(
-        opacity: p.isAvailable ? 1.0 : 0.6,
+        opacity: sellable ? 1.0 : 0.6,
         child: Container(
             decoration: BoxDecoration(
                 color: cardColor,
@@ -286,7 +318,7 @@ class _MainScreenState extends State<MainScreen>
                           children: [
                             Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
                             const SizedBox(height: 6),
-                            if (p.isAvailable) ...[
+                            if (sellable) ...[
                               if (p.hasFlavors) ...[
                                 _buildFlavorChips(p, isCarton),
                                 const SizedBox(height: 4),
@@ -302,14 +334,16 @@ class _MainScreenState extends State<MainScreen>
                                     Row(
                                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                       children: [
-                                        GestureDetector(
-                                          onTap: () => setState(() => _itemIsCartonMap[p.id] = true),
-                                          child: _unitBadge('كرتون', isCarton, isDark),
-                                        ),
-                                        GestureDetector(
-                                          onTap: () => setState(() => _itemIsCartonMap[p.id] = false),
-                                          child: _unitBadge('حبة', !isCarton, isDark),
-                                        ),
+                                        if (p.canSellCarton) // ✅ يظهر فقط إذا كان البيع بالكرتون مسموحاً
+                                          GestureDetector(
+                                            onTap: () => setState(() => _itemIsCartonMap[p.id] = true),
+                                            child: _unitBadge('كرتون', isCarton, isDark),
+                                          ),
+                                        if (p.canSellUnit) // ✅ يظهر فقط إذا كان البيع بالحبة مسموحاً
+                                          GestureDetector(
+                                            onTap: () => setState(() => _itemIsCartonMap[p.id] = false),
+                                            child: _unitBadge('حبة', !isCarton, isDark),
+                                          ),
                                       ],
                                     ),
                                     const Divider(height: 12, thickness: 0.5),
@@ -348,7 +382,7 @@ class _MainScreenState extends State<MainScreen>
   Widget _buildStockPill(Product p) {
     Color color = Colors.green;
     String label = 'متوفر';
-    if (!p.isAvailable || p.stockQuantity <= 0) {
+    if (!p.isAvailable || p.stockQuantity <= 0 || (p.hasFlavors && p.availableFlavors.isEmpty)) {
       color = Colors.red;
       label = 'نفد';
     } else if (p.stockQuantity <= 5 * (p.unitsPerCarton > 0 ? p.unitsPerCarton : 1)) {
@@ -392,7 +426,26 @@ class _MainScreenState extends State<MainScreen>
         itemCount: p.flavors.length,
         itemBuilder: (context, i) {
           final f = p.flavors[i];
-          if (!f.isAvailable) return const SizedBox.shrink();
+          if (!f.isAvailable) {
+            // ✅ الذوق غير المتوفر: يظهر رمادياً ومشطوباً بدون أزرار إضافة
+            return Container(
+              margin: const EdgeInsets.only(left: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: Colors.grey.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(f.name, style: const TextStyle(fontSize: 10, color: Colors.grey, decoration: TextDecoration.lineThrough)),
+                  const SizedBox(height: 2),
+                  const Text('غير متوفر', style: TextStyle(fontSize: 9, color: Colors.red, fontWeight: FontWeight.bold)),
+                ],
+              ),
+            );
+          }
           final qty = _flavorQty(p, f.name, isCarton);
           final active = qty > 0;
           return Container(
@@ -457,6 +510,8 @@ class _MainScreenState extends State<MainScreen>
   }
 
   void _fastAddToCart(Product p, {String? flavor, required bool isCarton}) {
+    // ✅ لا يُضاف ذوق غير متوفر إلى السلة
+    if (flavor != null && p.flavors.any((f) => f.name == flavor && !f.isAvailable)) return;
     setState(() {
       final existing = cart.indexWhere((it) => it.product.id == p.id && it.isCarton == isCarton && it.flavor == flavor);
       if (existing != -1) cart[existing].quantity++; else cart.add(CartItem(product: p, quantity: 1, isCarton: isCarton, isSpecialPrice: isSpecialPrice, flavor: flavor));
@@ -491,10 +546,17 @@ class _MainScreenState extends State<MainScreen>
   Widget _buildFloatingCartBar() {
     if (cart.isEmpty) return const SizedBox.shrink();
     final total = cart.fold(0.0, (sum, it) => sum + it.totalPrice);
+    // ✅ عرض الكميات الفعلية بدل عدد الأسطر
+    final cartons = cart.where((it) => it.isCarton).fold<int>(0, (s, it) => s + it.quantity);
+    final units   = cart.where((it) => !it.isCarton).fold<int>(0, (s, it) => s + it.quantity);
+    final parts = <String>[
+      if (cartons > 0) '$cartons كرتون',
+      if (units > 0) '$units حبة',
+    ];
     return GestureDetector(onTap: () => Navigator.push(context, SlidePageRoute(page: CartScreen(cart: cart, isAdmin: true))).then((_) => setState((){})),
         child: Container(margin: const EdgeInsets.all(10), padding: const EdgeInsets.all(15), decoration: BoxDecoration(color: const Color(0xFF2E7D32), borderRadius: BorderRadius.circular(15)),
             child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Text('${cart.length} أصناف', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              Text(parts.join(' و '), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               Text('الإجمالي: ${total.toStringAsFixed(0)} DA', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
               const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 16),
             ])));
@@ -587,6 +649,7 @@ class _MainScreenState extends State<MainScreen>
       ]),
     );
   }
+
   Widget _buildQuickActionsList(bool isDark, Color cardBg) {
     final actions = [
       {'icon': Icons.camera_enhance_rounded, 'label': 'سكان فاتورة مورد', 'subtitle': 'تحديث المخزن', 'colors': [const Color(0xFF006064), const Color(0xFF00ACC1)], 'onTap': () => Navigator.push(context, SlidePageRoute(page: const ScanInvoiceScreen()))},
@@ -681,12 +744,12 @@ class _MainScreenState extends State<MainScreen>
   Widget build(BuildContext context) {
     final isDark = widget.isDarkMode;
     final pages = [
-      _buildDashboard(isDark), 
-      _buildAdminStoreTab(isDark), 
+      _buildDashboard(isDark),
+      _buildAdminStoreTab(isDark),
       const AdminScreen(),
       if (isDesktop) DesktopPosView(cart: cart, onCartChanged: () => setState(() {})),
     ];
-    
+
     return Scaffold(
       key: _scaffoldKey,
       drawer: _buildAdminDrawer(isDark), // ✅ القائمة الجانبية متاحة دائماً الآن
@@ -694,17 +757,17 @@ class _MainScreenState extends State<MainScreen>
         backgroundColor: const Color(0xFF2E7D32),
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.menu_rounded, color: Colors.white), 
-          onPressed: () => _scaffoldKey.currentState?.openDrawer()
+            icon: const Icon(Icons.menu_rounded, color: Colors.white),
+            onPressed: () => _scaffoldKey.currentState?.openDrawer()
         ),
         title: Row(children: [
           Container(
-            width: 32, height: 32, 
-            decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(8)), 
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(8), 
-              child: Image.asset('assets/logo.png', fit: BoxFit.cover, errorBuilder: (_,__,___) => const Icon(Icons.store, color: Colors.white, size: 20))
-            )
+              width: 32, height: 32,
+              decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(8)),
+              child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.asset('assets/logo.png', fit: BoxFit.cover, errorBuilder: (_,__,___) => const Icon(Icons.store, color: Colors.white, size: 20))
+              )
           ),
           const SizedBox(width: 10),
           const Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
@@ -743,19 +806,19 @@ class _MainScreenState extends State<MainScreen>
         ],
       ),
       bottomNavigationBar: Container(
-        decoration: BoxDecoration(boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, -2))]),
-        child: NavigationBar(
-          selectedIndex: _currentNavIndex,
-          onDestinationSelected: (idx) => setState(() => _currentNavIndex = idx),
-          backgroundColor: isDark ? const Color(0xFF1E1E2E) : Colors.white,
-          indicatorColor: const Color(0xFF2E7D32).withOpacity(0.15),
-          height: 65,
-          destinations: [
-            const NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded, color: Color(0xFF2E7D32)), label: 'الرئيسية'),
-            const NavigationDestination(icon: Icon(Icons.store_outlined), selectedIcon: Icon(Icons.store_rounded, color: Color(0xFF2E7D32)), label: 'المتجر'),
-            const NavigationDestination(icon: Icon(Icons.admin_panel_settings_outlined), selectedIcon: Icon(Icons.admin_panel_settings_rounded, color: Color(0xFF2E7D32)), label: 'الإدارة'),
-            if (isDesktop) const NavigationDestination(icon: Icon(Icons.point_of_sale_outlined), selectedIcon: Icon(Icons.point_of_sale_rounded, color: Color(0xFF2E7D32)), label: 'نقطة بيع'),
-          ])),
+          decoration: BoxDecoration(boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, -2))]),
+          child: NavigationBar(
+              selectedIndex: _currentNavIndex,
+              onDestinationSelected: (idx) => setState(() => _currentNavIndex = idx),
+              backgroundColor: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+              indicatorColor: const Color(0xFF2E7D32).withOpacity(0.15),
+              height: 65,
+              destinations: [
+                const NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded, color: Color(0xFF2E7D32)), label: 'الرئيسية'),
+                const NavigationDestination(icon: Icon(Icons.store_outlined), selectedIcon: Icon(Icons.store_rounded, color: Color(0xFF2E7D32)), label: 'المتجر'),
+                const NavigationDestination(icon: Icon(Icons.admin_panel_settings_outlined), selectedIcon: Icon(Icons.admin_panel_settings_rounded, color: Color(0xFF2E7D32)), label: 'الإدارة'),
+                if (isDesktop) const NavigationDestination(icon: Icon(Icons.point_of_sale_outlined), selectedIcon: Icon(Icons.point_of_sale_rounded, color: Color(0xFF2E7D32)), label: 'نقطة بيع'),
+              ])),
     );
   }
 
