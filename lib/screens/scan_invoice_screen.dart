@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui' as ui;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
@@ -231,6 +232,30 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
     }
   }
 
+  /// ✅ إعادة ترميز الصورة إلى PNG عادي قبل تمريرها لقارئ النص.
+  /// صور آيفون (من الألبوم أو الكاميرا) غالباً بصيغة HEIC، وقد يفشل
+  /// قارئ النص الأصلي عند فتحها مباشرة على جهاز iOS حقيقي فيوقف التطبيق.
+  /// نفك ترميزها بمحرك Flutter نفسه (بدون أي حزمة إضافية) ونحفظها PNG.
+  Future<String> _ensureSafeImage(String path) async {
+    try {
+      final bytes = await File(path).readAsBytes();
+      final codec = await ui.instantiateImageCodec(bytes);
+      final frame = await codec.getNextFrame();
+      final byteData = await frame.image.toByteData(format: ui.ImageByteFormat.png);
+      frame.image.dispose();
+      if (byteData == null) return path;
+      final dir = Directory.systemTemp;
+      final outPath =
+          '${dir.path}/scan_${DateTime.now().millisecondsSinceEpoch}.png';
+      final outFile = File(outPath);
+      await outFile.writeAsBytes(byteData.buffer.asUint8List());
+      return outPath;
+    } catch (_) {
+      // فشل التحويل: نرجع للمسار الأصلي كما كان سلوك الكود قبل هذا التعديل
+      return path;
+    }
+  }
+
   Future<void> _processImage(String path) async {
     if (_isDisposed) return;
     try {
@@ -240,7 +265,9 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
         } catch (_) {}
       }
 
-      final inputImage = InputImage.fromFilePath(path);
+      final safePath = await _ensureSafeImage(path);
+      if (_isDisposed) return;
+      final inputImage = InputImage.fromFilePath(safePath);
       final recognizedText = await _textRecognizer.processImage(inputImage);
 
       List<TextLine> allLines = [];
@@ -476,7 +503,7 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
       final name = designation
           .map((w) => w.text)
           .join(' ')
-          .replaceAll(RegExp(r'[|_\[\]{}]'), ' ')
+          .replaceAll(RegExp(r'[^\w\s\u0600-\u06FF]'), ' ')
           .replaceAll(RegExp(r'\s+'), ' ')
           .trim();
 
