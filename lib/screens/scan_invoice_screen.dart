@@ -33,10 +33,17 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
   static const double _maxPlausiblePrice = 100000;
   static const double _maxPlausibleQty = 5000;
   static const double _maxPlausibleTotal = 10000000;
+  static const double _maxPlausibleColisage = 1000;
   // أقصى خطأ نسبي بين (الكمية × السعر) والمجموع ليُعتبر مطابقاً
   static const double _mathTolerance = 0.05;
+  // في الفاتورة الجدولية الحساب مطبوع بدقة، فنستعمل حداً أضيق
+  static const double _tableTolerance = 0.005;
   // الربط التلقائي بالاسم فقط عند تطابق شبه تام
   static const double _autoMatchThreshold = 0.9;
+
+  static const List<String> _sellerKeywords = [
+    'Vendeur', 'Seller', 'Fournisseur', 'بائع', 'مورد', 'المحل', 'De:', 'From:', 'إلى:'
+  ];
 
   @override
   void dispose() {
@@ -242,78 +249,108 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
       }
       allLines.sort((a, b) => a.boundingBox.top.compareTo(b.boundingBox.top));
 
-      // تجميع الأسطر في صفوف بحد يتكيف مع حجم الخط في الصورة
-      final rows = _groupIntoRows(allLines);
-
       List<DetectedInvoiceItem> items = [];
       String? detectedDate;
       String? detectedSeller;
+      final dateRegex = RegExp(r'\d{1,2}[/-]\d{1,2}[/-]\d{2,4}');
 
-      for (var row in rows) {
-        row.sort((a, b) => a.boundingBox.left.compareTo(b.boundingBox.left));
-        String text = row.map((l) => l.text).join(' ');
+      // ✅ الفاتورة الجدولية (Bon de vente): صفوفها مرتبطة بكلمة "Unité"
+      final tableItems = await _parseTable(allLines);
 
-        // 1️⃣ فحص التواريخ
-        final dateRegex = RegExp(r'\d{1,2}[/-]\d{1,2}[/-]\d{2,4}');
-        if (dateRegex.hasMatch(text) && detectedDate == null) {
-          detectedDate = dateRegex.stringMatch(text);
-          continue;
+      if (tableItems != null) {
+        items = tableItems;
+        for (final l in allLines) {
+          final text = l.text;
+          if (detectedDate == null && dateRegex.hasMatch(text)) {
+            detectedDate = dateRegex.stringMatch(text);
+            continue;
+          }
+          final lower = text.toLowerCase();
+          final isSellerLine =
+          _sellerKeywords.any((k) => lower.contains(k.toLowerCase()));
+          if (detectedSeller == null && isSellerLine && _extractNumbers(text).length < 2) {
+            final parts = text.split(RegExp(r'[:\-]'));
+            detectedSeller = parts.length > 1
+                ? parts.last.trim()
+                : text
+                .replaceAll(RegExp(_sellerKeywords.join('|'), caseSensitive: false), '')
+                .trim();
+          }
         }
+      } else {
+        // ─────────── المسار العام (فواتير بدون أعمدة واضحة) ───────────
+        // تجميع الأسطر في صفوف بحد يتكيف مع حجم الخط في الصورة
+        final rows = _groupIntoRows(allLines);
 
-        // 2️⃣ فحص الوقت
-        final timeRegex = RegExp(r'\d{1,2}:\d{2}');
-        if (timeRegex.hasMatch(text) && !text.contains(RegExp(r'[a-zA-Z]'))) {
-          continue;
+        for (var row in rows) {
+          row.sort((a, b) => a.boundingBox.left.compareTo(b.boundingBox.left));
+          String text = row.map((l) => l.text).join(' ');
+
+          // 1️⃣ فحص التواريخ
+          if (dateRegex.hasMatch(text) && detectedDate == null) {
+            detectedDate = dateRegex.stringMatch(text);
+            continue;
+          }
+
+          // 2️⃣ فحص الوقت
+          final timeRegex = RegExp(r'\d{1,2}:\d{2}');
+          if (timeRegex.hasMatch(text) && !text.contains(RegExp(r'[a-zA-Z]'))) {
+            continue;
+          }
+
+          // 3️⃣ الأرقام (بترتيب الأعمدة من اليسار لليمين) — سطر بسطر
+          final nums = <double>[];
+          for (final l in row) {
+            nums.addAll(_extractNumbers(l.text));
+          }
+
+          // 4️⃣ اسم البائع / المورد
+          bool isSellerLine =
+          _sellerKeywords.any((k) => text.toLowerCase().contains(k.toLowerCase()));
+
+          if (isSellerLine && nums.length < 2) {
+            final parts = text.split(RegExp(r'[:\-]'));
+            detectedSeller = parts.length > 1
+                ? parts.last.trim()
+                : text
+                .replaceAll(RegExp(_sellerKeywords.join('|'), caseSensitive: false), '')
+                .trim();
+            continue;
+          }
+
+          if (nums.isEmpty) continue;
+
+          String name = text
+              .replaceAll(RegExp(r'\d{1,2}[/-]\d{1,2}[/-]\d{2,4}'), '')
+              .replaceAll(RegExp(r'\d+([.,]\d+)?'), '')
+              .replaceAll(RegExp(r'[^\w\s\u0600-\u06FF]'), ' ')
+              .trim();
+
+          if (name.length <= 2 && nums.length < 2) continue;
+
+          // ✅ مطابقة الكلمة كاملة (لا حذف لمنتج اسمه يحتوي "net" مثلاً)
+          if (_isHeaderOrFooterRow(name)) continue;
+
+          final parsed = _resolveQuantityPriceTotal(nums);
+          if (parsed == null) continue;
+
+          final match = await _findMatch(name);
+
+          // لا نحدد الصف تلقائياً إلا إذا كنا واثقين منه
+          final confident = parsed.isMathValid || nums.length == 2;
+          final priceOk = parsed.price <= _maxPlausiblePrice;
+          items.add(DetectedInvoiceItem(
+            rawText: name.isEmpty ? "صنف مجهول" : name,
+            quantity: parsed.quantity,
+            price: parsed.price,
+            total: parsed.total,
+            isMathValid: parsed.isMathValid,
+            matchedProduct: match.product,
+            autoMatched: match.auto,
+            isSelected: parsed.quantity > 0 && confident && priceOk,
+            needsReview: !confident || parsed.quantity <= 0 || !priceOk,
+          ));
         }
-
-        // 3️⃣ الأرقام (بترتيب الأعمدة من اليسار لليمين) — سطر بسطر
-        final nums = <double>[];
-        for (final l in row) {
-          nums.addAll(_extractNumbers(l.text));
-        }
-
-        // 4️⃣ اسم البائع / المورد
-        final sellerKeywords = ['Vendeur', 'Seller', 'Fournisseur', 'بائع', 'مورد', 'المحل', 'De:', 'From:', 'إلى:'];
-        bool isSellerLine = sellerKeywords.any((k) => text.toLowerCase().contains(k.toLowerCase()));
-
-        if (isSellerLine && nums.length < 2) {
-          final parts = text.split(RegExp(r'[:\-]'));
-          detectedSeller = parts.length > 1 ? parts.last.trim() : text.replaceAll(RegExp(sellerKeywords.join('|'), caseSensitive: false), '').trim();
-          continue;
-        }
-
-        if (nums.isEmpty) continue;
-
-        String name = text
-            .replaceAll(RegExp(r'\d{1,2}[/-]\d{1,2}[/-]\d{2,4}'), '')
-            .replaceAll(RegExp(r'\d+([.,]\d+)?'), '')
-            .replaceAll(RegExp(r'[^\w\s\u0600-\u06FF]'), ' ')
-            .trim();
-
-        if (name.length <= 2 && nums.length < 2) continue;
-
-        // ✅ مطابقة الكلمة كاملة (لا حذف لمنتج اسمه يحتوي "net" مثلاً)
-        if (_isHeaderOrFooterRow(name)) continue;
-
-        final parsed = _resolveQuantityPriceTotal(nums);
-        if (parsed == null) continue;
-
-        final match = await _findMatch(name);
-
-        // لا نحدد الصف تلقائياً إلا إذا كنا واثقين منه
-        final confident = parsed.isMathValid || nums.length == 2;
-        final priceOk = parsed.price <= _maxPlausiblePrice;
-        items.add(DetectedInvoiceItem(
-          rawText: name.isEmpty ? "صنف مجهول" : name,
-          quantity: parsed.quantity,
-          price: parsed.price,
-          total: parsed.total,
-          isMathValid: parsed.isMathValid,
-          matchedProduct: match.product,
-          autoMatched: match.auto,
-          isSelected: parsed.quantity > 0 && confident && priceOk,
-          needsReview: !confident || parsed.quantity <= 0 || !priceOk,
-        ));
       }
 
       if (!mounted || _isDisposed) return;
@@ -347,6 +384,232 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
     if (tokens.isEmpty) return false;
     if (keywords.contains(tokens.first)) return true;
     return tokens.every(keywords.contains);
+  }
+
+  // ══════════════════════════════════
+  //  قراءة الفاتورة الجدولية
+  //  الأعمدة: Référence | Désignation | Unité | Qte. | Colisage | Prix Unit. | MONTANT
+  //  المبلغ = الكمية × Colisage × السعر
+  // ══════════════════════════════════
+  static bool _isUnitWord(String t) {
+    final s = t.replaceAll(RegExp(r'[.,:;|]'), '');
+    return RegExp(r'^un[il1|]t[eéèê]$', caseSensitive: false).hasMatch(s);
+  }
+
+  /// ميل النص المحلي (الصورة الملتقطة بالكاميرا تكون مائلة)
+  double _localSlope(List<TextLine> lines, double y, double window) {
+    final s = <double>[];
+    for (final l in lines) {
+      final cp = l.cornerPoints;
+      if (cp.length < 4) continue;
+      final dx = cp[1].x - cp[0].x;
+      if (dx < 60) continue;
+      if ((l.boundingBox.center.dy - y).abs() > window) continue;
+      s.add((cp[1].y - cp[0].y) / dx);
+    }
+    if (s.length < 3) return 0;
+    s.sort();
+    return s[s.length ~/ 2];
+  }
+
+  /// يرجع null إذا لم توجد أي كلمة "Unité" (ليس جدولاً بهذا الشكل)
+  Future<List<DetectedInvoiceItem>?> _parseTable(List<TextLine> lines) async {
+    final words = <_Word>[];
+    for (final l in lines) {
+      for (final e in l.elements) {
+        final t = _normalizeDigits(e.text).trim();
+        if (t.isNotEmpty) words.add(_Word(t, e.boundingBox));
+      }
+    }
+
+    final anchors = words.where((w) => _isUnitWord(w.text)).toList()
+      ..sort((a, b) => a.cy.compareTo(b.cy));
+    if (anchors.isEmpty) return null;
+
+    // المسافة بين الصفوف
+    double pitch = anchors.first.box.height * 1.8;
+    if (anchors.length >= 2) {
+      final gaps = <double>[];
+      for (int i = 1; i < anchors.length; i++) {
+        final g = anchors[i].cy - anchors[i - 1].cy;
+        if (g > 4) gaps.add(g);
+      }
+      if (gaps.isNotEmpty) {
+        gaps.sort();
+        pitch = gaps[gaps.length ~/ 2];
+      }
+    }
+
+    final slopes = anchors.map((a) => _localSlope(lines, a.cy, pitch * 3)).toList();
+
+    // إسناد كل كلمة إلى أقرب صف مع تصحيح الميل
+    final rows = List.generate(anchors.length, (_) => <_Word>[]);
+    for (final w in words) {
+      int best = -1;
+      double bestD = pitch * 0.5;
+      for (int i = 0; i < anchors.length; i++) {
+        final a = anchors[i];
+        final expected = a.cy + slopes[i] * (w.box.center.dx - a.box.center.dx);
+        final d = (w.cy - expected).abs();
+        if (d < bestD) {
+          bestD = d;
+          best = i;
+        }
+      }
+      if (best >= 0) rows[best].add(w);
+    }
+
+    final items = <DetectedInvoiceItem>[];
+    for (final row in rows) {
+      row.sort((a, b) => a.box.left.compareTo(b.box.left));
+      final ai = row.indexWhere((w) => _isUnitWord(w.text));
+      if (ai < 0) continue;
+
+      final left = row.sublist(0, ai);
+      final right = row.sublist(ai + 1);
+
+      // المرجع (Référence) هو أول رقم على اليسار — نحذفه من الاسم
+      var designation = left;
+      if (left.isNotEmpty && RegExp(r'^\d{3,8}$').hasMatch(left.first.text)) {
+        designation = left.sublist(1);
+      }
+      final name = designation
+          .map((w) => w.text)
+          .join(' ')
+          .replaceAll(RegExp(r'[|_\[\]{}]'), ' ')
+          .replaceAll(RegExp(r'\s+'), ' ')
+          .trim();
+
+      final nums = _tableNumbers(right);
+      if (nums.isEmpty) continue; // صف العناوين أو صف فارغ
+      if (name.isNotEmpty && _isHeaderOrFooterRow(name)) continue;
+
+      final parsed = _solveTableRow(nums);
+      final match = await _findMatch(name);
+      final confident = parsed.isMathValid;
+      final priceOk = parsed.price <= _maxPlausiblePrice;
+
+      items.add(DetectedInvoiceItem(
+        rawText: name.isEmpty ? 'صنف مجهول' : name,
+        quantity: parsed.quantity,
+        colisage: parsed.colisage,
+        price: parsed.price,
+        total: parsed.total,
+        isMathValid: parsed.isMathValid,
+        matchedProduct: match.product,
+        autoMatched: match.auto,
+        isCarton: false, // عمود الوحدة "Unité" — السعر للحبة
+        isSelected: parsed.quantity > 0 && confident && priceOk,
+        needsReview: !confident || parsed.quantity <= 0 || !priceOk,
+      ));
+    }
+    return items;
+  }
+
+  /// أرقام ما بعد "Unité" مع دمج فواصل الآلاف (مثل "1" + "560.00")
+  /// بالاعتماد على المسافة الأفقية الصغيرة بينهما
+  List<_Num> _tableNumbers(List<_Word> right) {
+    final toks = <_Word>[];
+    for (final w in right) {
+      final m = RegExp(r'\d[\d.,]*').firstMatch(w.text);
+      if (m == null) continue; // علامة القلم (X) أو نص آخر
+      final t = m.group(0)!.replaceAll(RegExp(r'[.,]+$'), '');
+      if (t.isEmpty) continue;
+      toks.add(_Word(t, w.box));
+    }
+
+    final out = <_Num>[];
+    int i = 0;
+    while (i < toks.length) {
+      var cur = toks[i].text;
+      var box = toks[i].box;
+      while (i + 1 < toks.length &&
+          RegExp(r'^\d{1,3}(?:\d{3})*$').hasMatch(cur) &&
+          RegExp(r'^\d{3}(?:[.,]\d{1,2})?$').hasMatch(toks[i + 1].text) &&
+          (toks[i + 1].box.left - box.right) <= box.height * 0.8) {
+        cur += toks[i + 1].text;
+        box = toks[i + 1].box;
+        i++;
+      }
+      final v = _parseNumberToken(cur);
+      if (v != null) out.add(_Num(v, RegExp(r'[.,]\d{1,2}$').hasMatch(cur)));
+      i++;
+    }
+    return out;
+  }
+
+  /// [الكمية، (علامة)، Colisage، السعر، المبلغ] — نتحقق بالحساب لتحديد الأرقام الصحيحة
+  _ParsedNumbers _solveTableRow(List<_Num> nums) {
+    final v = nums.map((e) => e.v).toList();
+    final n = v.length;
+
+    if (n >= 3) {
+      final total = v[n - 1];
+      final price = v[n - 2];
+      final pre = v.sublist(0, n - 2);
+
+      if (total > 0 && price > 0) {
+        double bestErr = double.infinity;
+        double bestQ = 0, bestC = 1;
+        int bestScore = -1;
+
+        void consider(double q, double c, int score) {
+          if (q <= 0 || c <= 0 || q > _maxPlausibleQty || c > _maxPlausibleColisage) return;
+          final err = ((q * c * price) - total).abs() / total;
+          if (err < bestErr - 1e-9 || ((err - bestErr).abs() <= 1e-9 && score > bestScore)) {
+            bestErr = err;
+            bestQ = q;
+            bestC = c;
+            bestScore = score;
+          }
+        }
+
+        for (int i = 0; i < pre.length; i++) {
+          consider(pre[i], 1, i == 0 ? 1 : 0);
+          for (int j = i + 1; j < pre.length; j++) {
+            // نفضّل: الكمية أول رقم، والـ Colisage آخر رقم (علامة القلم بينهما)
+            consider(pre[i], pre[j], (i == 0 && j == pre.length - 1) ? 2 : 0);
+          }
+        }
+
+        if (bestErr <= _tableTolerance) {
+          return _ParsedNumbers(
+              quantity: bestQ.round(),
+              colisage: bestC.round(),
+              price: price,
+              total: total,
+              isMathValid: true);
+        }
+
+        // الكمية أو Colisage غير مقروءة لكن السعر والمبلغ سليمان: عدد الحبات = المبلغ ÷ السعر
+        if (nums[n - 1].dec && nums[n - 2].dec) {
+          final m = total / price;
+          if (m >= 1 && m <= 100000 && (m - m.round()).abs() < 0.01) {
+            return _ParsedNumbers(
+                quantity: m.round(), colisage: 1, price: price, total: total, isMathValid: true);
+          }
+        }
+      }
+
+      // لا تطابق: نأخذ أفضل تخمين ونطلب المراجعة
+      final q = pre.first;
+      final c = pre.length >= 2 ? pre.last : 1.0;
+      return _ParsedNumbers(
+          quantity: q <= _maxPlausibleQty ? q.round() : 0,
+          colisage: (c >= 1 && c <= _maxPlausibleColisage) ? c.round() : 1,
+          price: price,
+          total: total,
+          isMathValid: false);
+    }
+
+    if (n == 2) {
+      return _ParsedNumbers(
+          quantity: v[0] <= _maxPlausibleQty ? v[0].round() : 0,
+          price: v[1],
+          total: 0,
+          isMathValid: false);
+    }
+    return _ParsedNumbers(quantity: 0, price: v.first, total: 0, isMathValid: false);
   }
 
   /// تجميع أسطر OCR في صفوف مرئية، بحد يتناسب مع الوسيط الحقيقي لارتفاع السطر
@@ -494,8 +757,16 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
       int addUnits = 0;
       double valueSum = 0;
       for (final it in entry.value) {
-        final units = it.isCarton ? it.quantity * upc : it.quantity;
-        final unitBuy = it.isCarton ? it.price / upc : it.price;
+        int units;
+        double unitBuy;
+        if (it.colisage > 1) {
+          // الكمية × Colisage = عدد الحبات، والسعر المطبوع هو سعر الحبة
+          units = it.quantity * it.colisage;
+          unitBuy = it.price;
+        } else {
+          units = it.isCarton ? it.quantity * upc : it.quantity;
+          unitBuy = it.isCarton ? it.price / upc : it.price;
+        }
         addUnits += units;
         valueSum += unitBuy * units;
       }
@@ -988,7 +1259,7 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
   Widget _buildRow(DetectedInvoiceItem item, int i) {
     final mismatch = item.total > 0 &&
         item.quantity > 0 &&
-        ((item.quantity * item.price) - item.total).abs() / item.total > _mathTolerance;
+        (item.lineTotal - item.total).abs() / item.total > _mathTolerance;
     final locked = item.applied || _isSaving;
     return Opacity(
       opacity: item.applied ? 0.5 : 1,
@@ -1017,7 +1288,9 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'الكمية: ${item.quantity} ${item.isCarton ? 'كرتون' : 'حبة'} | السعر: ${_fmt(item.price)} DA'
+                  'الكمية: ${item.quantity}'
+                      '${item.colisage > 1 ? ' × ${item.colisage} حبة' : ' ${item.isCarton ? 'كرتون' : 'حبة'}'}'
+                      ' | السعر: ${_fmt(item.price)} DA'
                       '${item.isMathValid ? ' ✓' : ''}',
                   style: const TextStyle(fontSize: 11),
                 ),
@@ -1065,10 +1338,14 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
                         style: TextStyle(color: Colors.red, fontSize: 11)),
                   ),
                 Row(children: [
-                  _miniChip('كرتون', item.isCarton,
-                      locked ? null : () => setState(() => item.isCarton = true)),
-                  _miniChip('حبة', !item.isCarton,
-                      locked ? null : () => setState(() => item.isCarton = false)),
+                  if (item.colisage <= 1) ...[
+                    _miniChip('كرتون', item.isCarton,
+                        locked ? null : () => setState(() => item.isCarton = true)),
+                    _miniChip('حبة', !item.isCarton,
+                        locked ? null : () => setState(() => item.isCarton = false)),
+                  ] else
+                    Text('الكرتون = ${item.colisage} حبة (السعر للحبة)',
+                        style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
                   const Spacer(),
                   _iconBtn(Icons.swap_horiz, 'تبديل الكمية والسعر', null,
                       locked ? null : () => _swapQtyPrice(item)),
@@ -1089,7 +1366,7 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
       final oldQty = item.quantity;
       item.quantity = item.price.round();
       item.price = oldQty.toDouble();
-      item.total = item.quantity * item.price;
+      item.total = item.lineTotal;
       item.needsReview = false;
       item.isSelected = item.quantity > 0;
     });
@@ -1180,7 +1457,7 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
   Future<void> _showQuickAdd(DetectedInvoiceItem item, List<Category> cats,
       List<Brand> brs, BuildContext matchCtx) async {
     final nCtrl = TextEditingController(text: item.rawText);
-    final upcCtrl = TextEditingController(text: '1');
+    final upcCtrl = TextEditingController(text: item.colisage > 1 ? '${item.colisage}' : '1');
     Category? selCat;
     Brand? selBrand;
     String? error;
@@ -1233,7 +1510,9 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
                 }
                 final parsedUpc = int.tryParse(upcCtrl.text.trim()) ?? 1;
                 final upc = parsedUpc > 0 ? parsedUpc : 1;
-                final unitBuy = item.isCarton ? item.price / upc : item.price;
+                // مع Colisage السعر المطبوع هو سعر الحبة أصلاً
+                final unitBuy =
+                (item.isCarton && item.colisage <= 1) ? item.price / upc : item.price;
                 final p = Product(
                   id: DateTime.now().millisecondsSinceEpoch.toString(),
                   brandId: selBrand!.id,
@@ -1281,6 +1560,7 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
   // ══════════════════════════════════
   Future<void> _showEditDialog(DetectedInvoiceItem item) async {
     final q = TextEditingController(text: item.quantity.toString());
+    final c = TextEditingController(text: item.colisage.toString());
     final p = TextEditingController(text: _fmt(item.price));
     bool isCarton = item.isCarton;
 
@@ -1289,39 +1569,46 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
       builder: (context) => StatefulBuilder(
         builder: (context, setSt) => AlertDialog(
           title: const Text('تعديل'),
-          content: Column(mainAxisSize: MainAxisSize.min, children: [
-            TextField(
-                controller: q,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'الكمية')),
-            TextField(
-                controller: p,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(labelText: 'السعر')),
-            const SizedBox(height: 10),
-            Row(children: [
-              ChoiceChip(
-                  label: const Text('كرتون'),
-                  selected: isCarton,
-                  onSelected: (_) => setSt(() => isCarton = true)),
-              const SizedBox(width: 8),
-              ChoiceChip(
-                  label: const Text('حبة'),
-                  selected: !isCarton,
-                  onSelected: (_) => setSt(() => isCarton = false)),
-              const Spacer(),
-              IconButton(
-                tooltip: 'تبديل الكمية والسعر',
-                icon: const Icon(Icons.swap_horiz),
-                onPressed: () {
-                  final qv = double.tryParse(q.text.trim().replaceAll(',', '.')) ?? 0;
-                  final pv = double.tryParse(p.text.trim().replaceAll(',', '.')) ?? 0;
-                  q.text = pv.round().toString();
-                  p.text = _fmt(qv);
-                },
-              ),
+          content: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              TextField(
+                  controller: q,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'الكمية')),
+              TextField(
+                  controller: c,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                      labelText: 'Colisage (عدد الحبات في الوحدة — 1 إن لم يوجد)')),
+              TextField(
+                  controller: p,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(labelText: 'السعر')),
+              const SizedBox(height: 10),
+              Row(children: [
+                ChoiceChip(
+                    label: const Text('كرتون'),
+                    selected: isCarton,
+                    onSelected: (_) => setSt(() => isCarton = true)),
+                const SizedBox(width: 8),
+                ChoiceChip(
+                    label: const Text('حبة'),
+                    selected: !isCarton,
+                    onSelected: (_) => setSt(() => isCarton = false)),
+                const Spacer(),
+                IconButton(
+                  tooltip: 'تبديل الكمية والسعر',
+                  icon: const Icon(Icons.swap_horiz),
+                  onPressed: () {
+                    final qv = double.tryParse(q.text.trim().replaceAll(',', '.')) ?? 0;
+                    final pv = double.tryParse(p.text.trim().replaceAll(',', '.')) ?? 0;
+                    q.text = pv.round().toString();
+                    p.text = _fmt(qv);
+                  },
+                ),
+              ]),
             ]),
-          ]),
+          ),
           actions: [
             ElevatedButton(
               onPressed: () {
@@ -1330,11 +1617,13 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
                     .round();
                 final newPrice =
                     double.tryParse(p.text.trim().replaceAll(',', '.')) ?? item.price;
+                final newCol = int.tryParse(c.text.trim()) ?? item.colisage;
                 setState(() {
                   item.quantity = newQty;
                   item.price = newPrice;
+                  item.colisage = newCol < 1 ? 1 : newCol;
                   item.isCarton = isCarton;
-                  item.total = newQty * newPrice;
+                  item.total = item.lineTotal;
                   // بعد تأكيد المستخدم للأرقام لم تعد تخميناً
                   item.needsReview = false;
                   item.isSelected = item.quantity > 0;
@@ -1445,6 +1734,21 @@ class _MatchResult {
   _MatchResult(this.product, this.auto);
 }
 
+/// كلمة مقروءة من OCR مع موضعها
+class _Word {
+  final String text;
+  final Rect box;
+  _Word(this.text, this.box);
+  double get cy => box.center.dy;
+}
+
+/// رقم مقروء مع معرفة هل يحمل كسوراً (مثل 560.00)
+class _Num {
+  final double v;
+  final bool dec;
+  _Num(this.v, this.dec);
+}
+
 class _PlanLine {
   final Product product;               // النسخة الحديثة من قاعدة البيانات
   final int addUnits;                  // الكمية المضافة بالحبات
@@ -1466,20 +1770,28 @@ class _ApplyPlan {
   double get totalValue => lines.fold(
       0.0,
           (sum, l) =>
-      sum + l.sources.fold(0.0, (s, it) => s + it.quantity * it.price));
+      sum + l.sources.fold(0.0, (s, it) => s + it.lineTotal));
 }
 
 class _ParsedNumbers {
   final int quantity;
+  final int colisage;
   final double price;
   final double total;
   final bool isMathValid;
-  _ParsedNumbers({required this.quantity, required this.price, required this.total, required this.isMathValid});
+  _ParsedNumbers({
+    required this.quantity,
+    this.colisage = 1,
+    required this.price,
+    required this.total,
+    required this.isMathValid,
+  });
 }
 
 class DetectedInvoiceItem {
   String rawText;
   int quantity;
+  int colisage;       // ✅ عدد الحبات في الوحدة (عمود Colisage) — 1 إن لم يوجد
   double price;
   double total;
   bool isMathValid;
@@ -1492,6 +1804,7 @@ class DetectedInvoiceItem {
   DetectedInvoiceItem({
     required this.rawText,
     required this.quantity,
+    this.colisage = 1,
     required this.price,
     this.total = 0,
     this.isMathValid = false,
@@ -1502,4 +1815,7 @@ class DetectedInvoiceItem {
     this.autoMatched = false,
     this.applied = false,
   });
+
+  /// المبلغ = الكمية × Colisage × السعر
+  double get lineTotal => quantity * (colisage > 1 ? colisage : 1) * price;
 }
