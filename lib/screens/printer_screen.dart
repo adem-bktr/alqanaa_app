@@ -445,11 +445,13 @@ class _PrinterScreenState extends State<PrinterScreen> {
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
       child: Row(
         children: [
-          const Icon(Icons.bluetooth_rounded,
-              color: Color(0xFF2E7D32)),
+          Icon(
+            PrinterService.isDesktop ? Icons.usb_rounded : Icons.bluetooth_rounded,
+            color: const Color(0xFF2E7D32),
+          ),
           const SizedBox(width: 8),
           Text(
-            'أجهزة البلوتوث المقترنة',
+            PrinterService.isDesktop ? 'طابعات النظام والـ USB' : 'أجهزة البلوتوث المقترنة',
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.bold,
@@ -458,7 +460,7 @@ class _PrinterScreenState extends State<PrinterScreen> {
           ),
           const Spacer(),
           Text(
-            '${devices.length} جهاز',
+            PrinterService.isDesktop ? 'جاهز' : '${devices.length} جهاز',
             style: const TextStyle(
                 color: Color(0xFF2E7D32), fontSize: 13),
           ),
@@ -468,6 +470,35 @@ class _PrinterScreenState extends State<PrinterScreen> {
   }
 
   Widget _buildEmptyState(bool isDark) {
+    if (PrinterService.isDesktop) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.usb_rounded, size: 80, color: Color(0xFF2E7D32)),
+            const SizedBox(height: 16),
+            const Text(
+              'طابعة الـ USB والوندوز جاهزة تلقائياً',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'على الحاسوب، يتم إرسال الفواتير مباشرة إلى الطابعة الحرارية المعرفة في النظام.\nاضغط على زر "اختبار" للتأكد من سلامة الاتصال.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              onPressed: _testPrint,
+              icon: const Icon(Icons.print, color: Colors.white),
+              label: const Text('طباعة صفحة اختبار تجريبية', style: TextStyle(color: Colors.white)),
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2E7D32), padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12)),
+            )
+          ],
+        ),
+      );
+    }
+
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),

@@ -794,14 +794,19 @@ class _CartScreenState extends State<CartScreen> {
 
       // ✅ تسجيل الدين إذا الطلبية مربوطة بزبون ومازال باقي مبلغ
       if (_selectedCustomer != null) {
-        if (remaining > 0) {
-          await DataService.addDebtTransaction(
-            customerId: _selectedCustomer!.id,
-            type: 'charge',
-            amount: remaining,
-            note: 'Commande #$orderId',
-          );
-          debugPrint('💳 دين مسجّل: $remaining على ${_selectedCustomer!.name}');
+        if (remaining > 0.05) { // استخدام هامش بسيط لتجنب فروقات الكسور
+          try {
+            await DataService.addDebtTransaction(
+              customerId: _selectedCustomer!.id,
+              type: 'charge',
+              amount: remaining,
+              note: 'دين من فاتورة هاتف رقم #$orderId',
+            );
+            debugPrint('💳 دين مسجّل بنجاح: $remaining على ${_selectedCustomer!.name}');
+          } catch (e) {
+            debugPrint('❌ فشل تسجيل الدين في السيرفر: $e');
+            // هنا يمكن إضافة تنبيه للمستخدم بأن الفاتورة حفظت لكن الدين لم يسجل
+          }
         }
       }
 

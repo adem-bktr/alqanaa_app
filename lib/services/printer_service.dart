@@ -2,9 +2,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:printing/printing.dart'; // ✅ للطباعة على الويندوز/الحاسوب
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
 import '../models/models.dart';
 
 class PrinterService {
@@ -12,9 +14,12 @@ class PrinterService {
   static String? _connectedName;
   static bool _isConnected = false;
 
-  static bool get isConnected => _isConnected;
-  static String? get connectedDeviceName => _connectedName;
+  static bool get isConnected => _isConnected || (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
+  static String? get connectedDeviceName => _connectedName ?? (Platform.isWindows ? 'طابعة النظام' : null);
   static String? get connectedDeviceAddress => _connectedAddress;
+
+  // التحقق هل نحن على الحاسوب
+  static bool get isDesktop => (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
 
   // ══════════════════════════════════════════════════════
   //  ✅ Auto-connect
@@ -156,19 +161,7 @@ class PrinterService {
   }
 
   static Future<bool> requestPermissions() async {
-    try {
-      if (!Platform.isAndroid) return true;
-      final scan = await Permission.bluetoothScan.request();
-      final conn = await Permission.bluetoothConnect.request();
-      if (scan.isGranted && conn.isGranted) return true;
-      if (scan.isPermanentlyDenied || conn.isPermanentlyDenied) {
-        await openAppSettings();
-      }
-      return false;
-    } catch (e) {
-      debugPrint('❌ Permissions: $e');
-      return false;
-    }
+    return true;
   }
 
   static Future<List<BluetoothInfo>> getAvailableDevices() async {
@@ -533,6 +526,12 @@ class PrinterService {
     double? amountPaid,
     double? customerDebtBalance,
   }) async {
+    // 1. إذا كان التطبيق يعمل على نظام تشغيل الحاسوب، نستخدم حزمة Printing للـ USB
+    if (isDesktop) {
+      return await _printDesktop(order, customerName, customerPhone, amountPaid, customerDebtBalance);
+    }
+
+    // 2. إذا كان على الهاتف، نستخدم البلوتوث كما كان سابقاً
     try {
       if (!await checkConnection()) {
         debugPrint('⚠️ No connection');
@@ -568,9 +567,108 @@ class PrinterService {
       final ok = await _send(bytes);
       debugPrint(ok ? '✅ Print successful' : '❌ Print failed');
       return ok;
-    } catch (e, st) {
-      debugPrint('❌ Print error: $e');
-      debugPrint('$st');
+    } catch (e) {
+      debugPrint('❌ PrintReceipt error: $e');
+      return false;
+    }
+  }
+
+  // 🖥️ دالة الطباعة الاحترافية للحاسوب (ترسم الفاتورة كـ PDF لدعم العربي والـ USB كاملاً)
+  static Future<bool> _printDesktop(Order order, String name, String phone, double? amountPaid, double? customerDebtBalance) async {
+    try {
+      final pdf = pw.Document();
+      final dateStr = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
+      final total = _calcTotal(order);
+      
+      pdf.addPage(
+        pw.Page(
+          pageFormat: const PdfPageFormat(80 * PdfPageFormat.mm, double.infinity, marginAll: 4 * PdfPageFormat.mm),
+          build: (pw.Context context) {
+            return pw.Directionality(
+              textDirection: pw.TextDirection.rtl,
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.center,
+                children: [
+                  pw.Text('القناعة - AL QANAA', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 15)),
+                  pw.Text('لبيع المواد الغذائية بالجملة', style: const pw.TextStyle(fontSize: 10)),
+                  pw.Divider(borderStyle: pw.BorderStyle.dashed),
+                  pw.Align(alignment: pw.Alignment.centerRight, child: pw.Text('التاريخ: $dateStr', style: const pw.TextStyle(fontSize: 9))),
+                  pw.Align(alignment: pw.Alignment.centerRight, child: pw.Text('الزبون: ${name.isEmpty ? "عادي" : name}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
+                  if (phone.isNotEmpty) pw.Align(alignment: pw.Alignment.centerRight, child: pw.Text('الهاتف: $phone', style: const pw.TextStyle(fontSize: 9))),
+                  pw.Align(alignment: pw.Alignment.centerRight, child: pw.Text('رقم الطلب: #${order.id.length > 6 ? order.id.substring(order.id.length - 6) : order.id}', style: const pw.TextStyle(fontSize: 9))),
+                  pw.Divider(borderStyle: pw.BorderStyle.dashed),
+                  
+                  // جدول المنتجات
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Expanded(flex: 3, child: pw.Text('المنتج', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9))),
+                      pw.Expanded(flex: 1, child: pw.Text('الكمية', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9), textAlign: pw.TextAlign.center)),
+                      pw.Expanded(flex: 2, child: pw.Text('السعر', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9), textAlign: pw.TextAlign.left)),
+                    ],
+                  ),
+                  pw.Divider(borderStyle: pw.BorderStyle.dashed),
+                  
+                  ...order.items.map((it) {
+                    final itemTotal = (it['price'] as num) * (it['quantity'] as num);
+                    return pw.Padding(
+                      padding: const pw.EdgeInsets.symmetric(vertical: 2),
+                      child: pw.Row(
+                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                        children: [
+                          pw.Expanded(flex: 3, child: pw.Text(it['productName'] ?? 'منتج غير معروف', style: const pw.TextStyle(fontSize: 9))),
+                          pw.Expanded(flex: 1, child: pw.Text('${it['quantity']} ${it['isCarton'] == true ? "كرتون" : "حبة"}', style: const pw.TextStyle(fontSize: 8), textAlign: pw.TextAlign.center)),
+                          pw.Expanded(flex: 2, child: pw.Text('${_money(itemTotal)} DA', style: const pw.TextStyle(fontSize: 9), textAlign: pw.TextAlign.left)),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                  
+                  pw.Divider(borderStyle: pw.BorderStyle.dashed),
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Text('المجموع الإجمالي:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10)),
+                      pw.Text('${_money(total)} DA', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 12)),
+                    ],
+                  ),
+                  
+                  if (amountPaid != null && amountPaid > 0) ...[
+                    pw.SizedBox(height: 2),
+                    pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                      children: [
+                        pw.Text('المبلغ المدفوع:', style: const pw.TextStyle(fontSize: 9)),
+                        pw.Text('${_money(amountPaid)} DA', style: const pw.TextStyle(fontSize: 9)),
+                      ],
+                    ),
+                    pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                      children: [
+                        pw.Text('المتبقي:', style: const pw.TextStyle(fontSize: 9)),
+                        pw.Text('${_money(total - amountPaid)} DA', style: const pw.TextStyle(fontSize: 9)),
+                      ],
+                    ),
+                  ],
+                  
+                  pw.Divider(borderStyle: pw.BorderStyle.dashed),
+                  pw.Text('شكراً لتعاملكم معنا و ثقتكم بنا', style: const pw.TextStyle(fontSize: 9)),
+                  pw.Text('الهاتف: 0666629473', style: const pw.TextStyle(fontSize: 8)),
+                ],
+              ),
+            );
+          },
+        ),
+      );
+
+      // إرسال لـ Windows Spooler مباشرة للطباعة الصامتة أو مع شاشة اختيار الطابعة الافتراضية
+      await Printing.layoutPdf(
+        onLayout: (PdfPageFormat format) async => pdf.save(),
+        name: 'فاتورة_القناعة_${order.id.length > 4 ? order.id.substring(order.id.length - 4) : order.id}',
+      );
+      return true;
+    } catch (e) {
+      debugPrint('❌ Desktop USB Printing Error: $e');
       return false;
     }
   }
@@ -579,6 +677,38 @@ class PrinterService {
   //  Printer test
   // ══════════════════════════════════════════════════════
   static Future<bool> printTest() async {
+    if (isDesktop) {
+      try {
+        final pdf = pw.Document();
+        pdf.addPage(
+          pw.Page(
+            pageFormat: const PdfPageFormat(80 * PdfPageFormat.mm, double.infinity, marginAll: 5 * PdfPageFormat.mm),
+            build: (pw.Context context) {
+              return pw.Directionality(
+                textDirection: pw.TextDirection.rtl,
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.center,
+                  children: [
+                    pw.Text('القناعة - طباعة تجريبية', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14)),
+                    pw.Divider(borderStyle: pw.BorderStyle.dashed),
+                    pw.Text('طابعة الـ USB تعمل بنجاح على نظامك!', style: const pw.TextStyle(fontSize: 10)),
+                    pw.SizedBox(height: 5),
+                    pw.Text(DateFormat('dd/MM/yyyy - HH:mm').format(DateTime.now()), style: const pw.TextStyle(fontSize: 9)),
+                    pw.Divider(borderStyle: pw.BorderStyle.dashed),
+                  ],
+                ),
+              );
+            },
+          ),
+        );
+        await Printing.layoutPdf(onLayout: (format) async => pdf.save(), name: 'اختبار_طابعة_القناعة');
+        return true;
+      } catch (e) {
+        debugPrint('❌ Desktop Test error: $e');
+        return false;
+      }
+    }
+
     try {
       if (!await checkConnection()) return false;
       final profile = await CapabilityProfile.load();

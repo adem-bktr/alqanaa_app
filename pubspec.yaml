@@ -31,10 +31,10 @@ dependencies:
   # ═══════════════════════════
   print_bluetooth_thermal: ^1.0.10
   esc_pos_utils_plus: ^2.0.4
-  permission_handler: ^11.3.1
-  permission_handler_platform_interface: ^4.2.3
-  permission_handler_android: ^12.1.0
-  permission_handler_apple: ^9.4.5
+
+
+
+
 
   # ═══════════════════════════
   #     State Management
@@ -96,6 +96,9 @@ dev_dependencies:
 
 dependency_overrides:
   image: ^4.2.0
+
+
+
 
 flutter:
   uses-material-design: true
