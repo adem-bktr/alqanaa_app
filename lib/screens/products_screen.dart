@@ -48,6 +48,8 @@ class _ProductsScreenState extends State<ProductsScreen>
   @override
   void initState() {
     super.initState();
+    // تقصير المنطق: على الحاسوب نبدأ دائماً بنظام القائمة List
+    isGridView = MediaQuery.of(context).size.width < 900; 
     currentUser = widget.user;
     loadData();
     searchController.addListener(_onSearch);
@@ -1326,7 +1328,87 @@ class _AnimatedProductListItemState
     final cartonPrice = widget.isSpecialPrice
         ? widget.product.discountedPrice(widget.product.priceCartonSpecial)
         : widget.product.discountedPrice(widget.product.priceCartonNormal);
+    final unitPrice = widget.isSpecialPrice
+        ? widget.product.discountedPrice(widget.product.priceUnitSpecial)
+        : widget.product.discountedPrice(widget.product.priceUnitNormal);
 
+    // التحقق هل نحن على الحاسوب لتغيير شكل السطر بالكامل
+    final isDesktop = MediaQuery.of(context).size.width >= 900;
+
+    if (isDesktop) {
+      return TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0.0, end: 1.0),
+        duration: Duration(milliseconds: 200 + (widget.index * 40)),
+        builder: (_, value, child) => Opacity(opacity: value, child: child),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: widget.isDark ? Colors.white10 : Colors.grey.shade200),
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10)],
+          ),
+          child: InkWell(
+            onTap: widget.onTap,
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: SizedBox(
+                      width: 70, height: 70,
+                      child: widget.product.imagePath.isNotEmpty
+                        ? Image.network(widget.product.imagePath, fit: BoxFit.cover)
+                        : Container(color: Colors.grey.shade100, child: const Icon(Icons.inventory_2, color: Colors.grey)),
+                    ),
+                  ),
+                  const SizedBox(width: 20),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(widget.product.name, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: textColor)),
+                        const SizedBox(height: 4),
+                        if (widget.product.flavors.isNotEmpty)
+                          Text('الأذواق: ${widget.product.flavors.map((f) => f.name).join(" - ")}', 
+                               style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                      ],
+                    ),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      if (widget.product.canSellCarton)
+                        Text('${cartonPrice.toStringAsFixed(0)} DA', 
+                             style: const TextStyle(color: Color(0xFF2E7D32), fontWeight: FontWeight.bold, fontSize: 15)),
+                      if (widget.product.canSellUnit)
+                        Text('${unitPrice.toStringAsFixed(0)} DA / حبة', 
+                             style: TextStyle(color: Colors.blue.shade700, fontSize: 13)),
+                    ],
+                  ),
+                  const SizedBox(width: 30),
+                  ElevatedButton.icon(
+                    onPressed: widget.product.isAvailable && !widget.maxReached ? widget.onAdd : null,
+                    icon: const Icon(Icons.add_shopping_cart, size: 18),
+                    label: const Text('أضف للسلة', style: TextStyle(fontWeight: FontWeight.bold)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2E7D32),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // التصميم القديم للهاتف يبقى كما هو
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.0, end: 1.0),
       duration: Duration(milliseconds: 300 + (widget.index * 80)),
@@ -1483,4 +1565,5 @@ class _AnimatedProductListItemState
       ),
     );
   }
+
 }
