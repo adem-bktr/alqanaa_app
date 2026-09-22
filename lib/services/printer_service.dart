@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
-import 'package:permission_handler_platform_interface/permission_handler_platform_interface.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/models.dart';
@@ -17,27 +17,26 @@ class PrinterService {
   static String? get connectedDeviceAddress => _connectedAddress;
 
   // ══════════════════════════════════════════════════════
-  //  ✅ الربط التلقائي
+  //  ✅ Auto-connect
   // ══════════════════════════════════════════════════════
   static Future<void> autoConnect() async {
-    if (Platform.isWindows) return; // ✅ لا يدعم البلوتوث على ويندوز حالياً من هذه المكتبة
     try {
       final prefs = await SharedPreferences.getInstance();
       final lastAddr = prefs.getString('last_printer_address');
       final lastName = prefs.getString('last_printer_name');
 
       if (lastAddr != null && lastAddr.isNotEmpty) {
-        debugPrint('⏳ محاولة اتصال تلقائي بـ $lastName...');
+        debugPrint('⏳ Attempting auto-connect to $lastName...');
         final ok = await PrintBluetoothThermal.connect(macPrinterAddress: lastAddr);
         if (ok) {
           _connectedAddress = lastAddr;
-          _connectedName = lastName ?? 'طابعة محفوظة';
+          _connectedName = lastName ?? 'Saved printer';
           _isConnected = true;
-          debugPrint('✅ تم الاتصال التلقائي بنجاح');
+          debugPrint('✅ Auto-connect successful');
         }
       }
     } catch (e) {
-      debugPrint('⚠️ فشل الاتصال التلقائي: $e');
+      debugPrint('⚠️ Auto-connect failed: $e');
     }
   }
 
@@ -50,7 +49,7 @@ class PrinterService {
   }
 
   // ══════════════════════════════════════════════════════
-  //  ✅ 1. تنسيق المبالغ يدوياً
+  //  ✅ 1. Manual amount formatting
   // ══════════════════════════════════════════════════════
   static String _money(num value) {
     final isNeg = value < 0;
@@ -67,22 +66,22 @@ class PrinterService {
   }
 
   // ══════════════════════════════════════════════════════
-  //  ✅ 2. تنظيف أي نص → ASCII آمن
+  //  ✅ 2. Sanitize any text → safe ASCII
   // ══════════════════════════════════════════════════════
   static const Map<int, String> _map = {
-    // ── مسافات خفية خطيرة ──
+    // ── Dangerous invisible spaces ──
     0x00A0: ' ', 0x202F: ' ', 0x2007: ' ', 0x2009: ' ',
     0x2002: ' ', 0x2003: ' ', 0x2004: ' ', 0x2005: ' ',
     0x2006: ' ', 0x2008: ' ', 0x205F: ' ', 0x3000: ' ',
-    // ── محارف اتجاه غير مرئية (حذف) ──
+    // ── Invisible direction characters (remove) ──
     0x200B: '', 0x200C: '', 0x200D: '', 0x200E: '', 0x200F: '',
     0x061C: '', 0xFEFF: '', 0x202A: '', 0x202B: '', 0x202C: '',
-    // ── أرقام عربية ──
+    // ── Arabic-Indic digits ──
     0x0660: '0', 0x0661: '1', 0x0662: '2', 0x0663: '3', 0x0664: '4',
     0x0665: '5', 0x0666: '6', 0x0667: '7', 0x0668: '8', 0x0669: '9',
     0x06F0: '0', 0x06F1: '1', 0x06F2: '2', 0x06F3: '3', 0x06F4: '4',
     0x06F5: '5', 0x06F6: '6', 0x06F7: '7', 0x06F8: '8', 0x06F9: '9',
-    // ── حروف عربية ──
+    // ── Arabic letters ──
     0x0627: 'a', 0x0623: 'a', 0x0625: 'i', 0x0622: 'a', 0x0671: 'a',
     0x0628: 'b', 0x062A: 't', 0x062B: 'th', 0x062C: 'j', 0x062D: 'h',
     0x062E: 'kh', 0x062F: 'd', 0x0630: 'dh', 0x0631: 'r', 0x0632: 'z',
@@ -91,10 +90,10 @@ class PrinterService {
     0x0643: 'k', 0x0644: 'l', 0x0645: 'm', 0x0646: 'n', 0x0647: 'h',
     0x0629: 'a', 0x0648: 'w', 0x0624: 'o', 0x064A: 'y', 0x0649: 'a',
     0x0626: 'i', 0x0621: '',
-    // ── تشكيل (حذف) ──
+    // ── Diacritics (remove) ──
     0x064B: '', 0x064C: '', 0x064D: '', 0x064E: '', 0x064F: '',
     0x0650: '', 0x0651: '', 0x0652: '', 0x0640: '',
-    // ── فرنسية ──
+    // ── French ──
     0x00E9: 'e', 0x00E8: 'e', 0x00EA: 'e', 0x00EB: 'e',
     0x00C9: 'E', 0x00C8: 'E', 0x00CA: 'E', 0x00CB: 'E',
     0x00E0: 'a', 0x00E2: 'a', 0x00E4: 'a', 0x00C0: 'A', 0x00C2: 'A',
@@ -102,7 +101,7 @@ class PrinterService {
     0x00EE: 'i', 0x00EF: 'i', 0x00CE: 'I', 0x00CF: 'I',
     0x00F4: 'o', 0x00F6: 'o', 0x00D4: 'O', 0x00D6: 'O',
     0x00E7: 'c', 0x00C7: 'C', 0x00F1: 'n', 0x00D1: 'N',
-    // ── رموز ──
+    // ── Symbols ──
     0x2019: "'", 0x2018: "'", 0x00B4: "'", 0x2032: "'",
     0x201C: '"', 0x201D: '"', 0x00AB: '"', 0x00BB: '"',
     0x2013: '-', 0x2014: '-', 0x2212: '-',
@@ -127,7 +126,7 @@ class PrinterService {
   }
 
   // ══════════════════════════════════════════════════════
-  //  ✅ 3. أغلفة آمنة
+  //  ✅ 3. Safe wrappers
   // ══════════════════════════════════════════════════════
   static List<int> _t(Generator g, Object? text, {PosStyles? styles}) {
     return g.text(_clean(text), styles: styles ?? const PosStyles());
@@ -138,13 +137,13 @@ class PrinterService {
   }
 
   // ══════════════════════════════════════════════════════
-  //  البلوتوث
+  //  Bluetooth
   // ══════════════════════════════════════════════════════
   static String getDeviceName(dynamic d) {
     try {
       if (d is BluetoothInfo && d.name.trim().isNotEmpty) return d.name;
     } catch (_) {}
-    return 'جهاز غير معروف';
+    return 'Unknown device';
   }
 
   static String getDeviceAddress(dynamic d) {
@@ -157,32 +156,28 @@ class PrinterService {
   }
 
   static Future<bool> requestPermissions() async {
-    if (Platform.isWindows) return true; // ✅ لا نحتاج أذونات موبايل على الويندوز
     try {
       if (!Platform.isAndroid) return true;
-      // استخدام الواجهة مباشرة لتجنب الاعتماد على مكتبة الويندوز المعطلة
-      final handler = PermissionHandlerPlatform.instance;
-      final statuses = await handler.requestPermissions([
-        Permission.bluetoothScan,
-        Permission.bluetoothConnect,
-      ]);
-      
-      return statuses[Permission.bluetoothScan] == PermissionStatus.granted && 
-             statuses[Permission.bluetoothConnect] == PermissionStatus.granted;
+      final scan = await Permission.bluetoothScan.request();
+      final conn = await Permission.bluetoothConnect.request();
+      if (scan.isGranted && conn.isGranted) return true;
+      if (scan.isPermanentlyDenied || conn.isPermanentlyDenied) {
+        await openAppSettings();
+      }
+      return false;
     } catch (e) {
-      debugPrint('❌ أذونات: $e');
+      debugPrint('❌ Permissions: $e');
       return false;
     }
   }
 
   static Future<List<BluetoothInfo>> getAvailableDevices() async {
-    if (Platform.isWindows) return []; // ✅ البلوتوث غير مدعوم لويندوز في هذه الحزمة
     try {
       if (!await requestPermissions()) return [];
       if (!await PrintBluetoothThermal.bluetoothEnabled) return [];
       return await PrintBluetoothThermal.pairedBluetooths;
     } catch (e) {
-      debugPrint('❌ الأجهزة: $e');
+      debugPrint('❌ Devices: $e');
       return [];
     }
   }
@@ -210,13 +205,13 @@ class PrinterService {
         _isConnected = true;
         await _saveLastPrinter(_connectedAddress!, _connectedName!);
         await Future.delayed(const Duration(milliseconds: 500));
-        debugPrint('✅ متصل بـ $_connectedName');
+        debugPrint('✅ Connected to $_connectedName');
       } else {
         _reset();
       }
       return ok;
     } catch (e) {
-      debugPrint('❌ الاتصال: $e');
+      debugPrint('❌ Connection: $e');
       _reset();
       return false;
     }
@@ -243,62 +238,75 @@ class PrinterService {
   }
 
   // ══════════════════════════════════════════════════════
-  //  الإرسال
+  //  Sending
   // ══════════════════════════════════════════════════════
   static Future<bool> _send(List<int> bytes) async {
-    debugPrint('📤 إرسال ${bytes.length} byte...');
+    debugPrint('📤 Sending ${bytes.length} bytes...');
     try {
       if (await PrintBluetoothThermal.writeBytes(bytes)) {
-        debugPrint('✅ نجح الإرسال دفعة واحدة');
+        debugPrint('✅ Sent successfully in one shot');
         return true;
       }
     } catch (e) {
-      debugPrint('⚠️ فشل الإرسال الكامل: $e');
+      debugPrint('⚠️ Full send failed: $e');
     }
 
-    // خطة بديلة: تقسيم
+    // Fallback plan: chunked send
     try {
       const size = 256;
       for (int i = 0; i < bytes.length; i += size) {
         final end = (i + size > bytes.length) ? bytes.length : i + size;
         if (!await PrintBluetoothThermal.writeBytes(bytes.sublist(i, end))) {
-          debugPrint('❌ فشل عند $i');
+          debugPrint('❌ Failed at $i');
           return false;
         }
         await Future.delayed(const Duration(milliseconds: 60));
       }
-      debugPrint('✅ نجح بالتقسيم');
+      debugPrint('✅ Chunked send succeeded');
       return true;
     } catch (e) {
-      debugPrint('❌ فشل التقسيم: $e');
+      debugPrint('❌ Chunked send failed: $e');
       return false;
     }
   }
 
   // ══════════════════════════════════════════════════════
-  //  بناء الإيصال
+  //  Building the receipt
   // ══════════════════════════════════════════════════════
   static const _line1 = '================================';
   static const _line2 = '--------------------------------';
   static const _dotLine = '  . . . . . . . . . . . . . . .';
 
-  // ── الترويسة ──
+  // ✅ نص أكبر قليلاً: نرفع الارتفاع فقط (العرض يبقى عادياً) حتى لا
+  // ينكسر السطر على ورق 58mm كما يحدث مع size2/size2 الكامل
+  static const _bigger = PosStyles(height: PosTextSize.size2);
+
+  // ── Header ──
   static List<int> _buildHeader(Generator g) {
     List<int> b = [];
     b += g.reset();
+    b += _t(g, _line1, styles: const PosStyles(align: PosAlign.center));
     b += _t(
       g,
       'AL QANAA GROSSISTE',
       styles: const PosStyles(
         align: PosAlign.center,
         bold: true,
+        height: PosTextSize.size2,
+        width: PosTextSize.size2,
       ),
     );
-    b += _t(g, _line2, styles: const PosStyles(align: PosAlign.center));
+    b += _t(
+      g,
+      'Bienvenue chez nous',
+      styles: const PosStyles(align: PosAlign.center, bold: true),
+    );
+    b += _t(g, _line1, styles: const PosStyles(align: PosAlign.center));
+    b += g.feed(1);
     return b;
   }
 
-  // ── معلومات الزبون ──
+  // ── Customer info ──
   static List<int> _buildCustomerInfo({
     required Generator g,
     required Order order,
@@ -312,46 +320,49 @@ class PrinterService {
     final name = _clean(customerName);
     final phone = _clean(customerPhone);
 
-    b += _t(g, 'Date : $date', styles: const PosStyles(fontType: PosFontType.fontB));
+    b += _t(g, 'Date   : $date', styles: _bigger);
     b += _t(
       g,
-      'CLT  : ${name.isEmpty ? "-" : name}',
-      styles: const PosStyles(bold: true),
+      'Client : ${name.isEmpty ? "-" : name}',
+      styles: const PosStyles(bold: true, height: PosTextSize.size2),
     );
-    b += _t(g, 'Order: #$shortId', styles: const PosStyles(fontType: PosFontType.fontB));
+    b += _t(g, 'Tel    : ${phone.isEmpty ? "-" : phone}', styles: _bigger);
+    b += _t(g, 'Order  : #$shortId', styles: _bigger);
     b += _t(g, _line2, styles: const PosStyles(align: PosAlign.center));
     return b;
   }
 
-  // ── رأس الجدول ──
+  // ── Table header ──
   static List<int> _buildTableHeader(Generator g) {
     List<int> b = [];
     b += _t(
       g,
       ' # | Produit',
-      styles: const PosStyles(bold: true, underline: true),
+      styles: const PosStyles(
+          bold: true, underline: true, height: PosTextSize.size2),
     );
     b += _t(
       g,
       '   Qte       Montant',
-      styles: const PosStyles(bold: true, underline: true),
+      styles: const PosStyles(
+          bold: true, underline: true, height: PosTextSize.size2),
     );
     b += _t(g, _line2, styles: const PosStyles(align: PosAlign.center));
     return b;
   }
 
-  // ── ✅ المنتجات — مجمعة حسب الاسم ──
+  // ── ✅ Products — grouped by name ──
   static List<int> _buildItems(Generator g, List items) {
     List<int> b = [];
-    
-    // ✅ تجميع المنتجات حسب الاسم
+
+    // ✅ Group products by name
     final Map<String, Map<String, dynamic>> grouped = {};
     for (final it in items) {
-      final name = it['productName']?.toString() ?? 'منتج غير معروف';
+      final name = it['productName']?.toString() ?? 'Unknown product';
       if (grouped.containsKey(name)) {
         grouped[name]!['quantity'] = (grouped[name]!['quantity'] as num) + (it['quantity'] as num);
         grouped[name]!['total'] = (grouped[name]!['total'] as num) + ((it['price'] as num) * (it['quantity'] as num));
-        
+
         final flavor = it['flavor']?.toString() ?? '';
         if (flavor.isNotEmpty) {
           final flavors = grouped[name]!['flavors'] as List<String>;
@@ -364,8 +375,8 @@ class PrinterService {
           'quantity': it['quantity'] as num,
           'total': (it['price'] as num) * (it['quantity'] as num),
           'isCarton': it['isCarton'],
-          'flavors': flavor.isNotEmpty 
-              ? ['$flavor (${it['quantity']})'] 
+          'flavors': flavor.isNotEmpty
+              ? ['$flavor (${it['quantity']})']
               : <String>[],
         };
       }
@@ -379,32 +390,44 @@ class PrinterService {
         final type = data['isCarton'] == true ? 'Crt' : 'Unt';
         final flavorsList = data['flavors'] as List<String>;
 
-        // ✅ سطر واحد مدمج: الاسم + الكمية + السعر للتصغير وتوفير الورق
+        // ✅ First line: number + name + type
+        b += _t(
+          g,
+          '$idx. $name ($type)',
+          styles: const PosStyles(
+              bold: true, align: PosAlign.left, height: PosTextSize.size2),
+        );
+
+        // ✅ Second line: quantity and total amount
         b += g.row([
-          _c('$idx.$name', 7, const PosStyles(bold: true, fontType: PosFontType.fontB)),
-          _c('${qty.toStringAsFixed(0)}$type', 2, const PosStyles(align: PosAlign.right, fontType: PosFontType.fontB)),
-          _c('${total.toStringAsFixed(0)}', 3, const PosStyles(align: PosAlign.right, bold: true, fontType: PosFontType.fontB)),
+          _c('   Qte: ${qty.toStringAsFixed(0)}', 6,
+              const PosStyles(align: PosAlign.left, height: PosTextSize.size2)),
+          _c('${_money(total)} DA', 6,
+              const PosStyles(
+                  align: PosAlign.right, bold: true, height: PosTextSize.size2)),
         ]);
 
-        // ✅ عرض الأذواق بشكل مجمع في سطر واحد تحت المنتج
+        // ✅ Show flavors grouped in one line below the product
         if (flavorsList.isNotEmpty) {
           b += _t(
             g,
-            ' > ${flavorsList.join(", ")}',
-            styles: const PosStyles(fontType: PosFontType.fontB),
+            '   Aromes: ${flavorsList.join(", ")}',
+            styles: const PosStyles(
+                fontType: PosFontType.fontB, height: PosTextSize.size2),
           );
         }
 
+        b += _t(g, _dotLine);
         idx++;
       } catch (e) {
-        debugPrint('⚠️ خطأ في طباعة منتج مجمع: $e');
+        debugPrint('⚠️ Error printing grouped product: $e');
       }
     });
-    
+
     return b;
   }
 
-  // ── حساب الإجمالي ──
+  // ── Total calculation ──
   static double _calcTotal(Order order) {
     if (order.total > 0) return order.total;
     double t = 0;
@@ -416,79 +439,92 @@ class PrinterService {
     return t;
   }
 
-  // ── الإجمالي ──
+  // ── Total ──
   static List<int> _buildTotal(Generator g, double total) {
     List<int> b = [];
-    b += _t(g, _line2, styles: const PosStyles(align: PosAlign.center));
-    b += g.row([
-      _c('TOTAL A PAYER', 7, const PosStyles(bold: true)),
-      _c('${_money(total)} DA', 5, const PosStyles(align: PosAlign.right, bold: true)),
-    ]);
+    b += _t(g, _line1, styles: const PosStyles(align: PosAlign.center));
+    b += _t(
+      g,
+      'TOTAL A PAYER',
+      styles: const PosStyles(
+        align: PosAlign.center,
+        bold: true,
+      ),
+    );
+    b += _t(
+      g,
+      '${_money(total)} DA',
+      styles: const PosStyles(
+        align: PosAlign.center,
+        bold: true,
+        height: PosTextSize.size2,
+        width: PosTextSize.size2,
+      ),
+    );
+    b += _t(g, _line1, styles: const PosStyles(align: PosAlign.center));
     return b;
   }
 
-  // ── معلومات الدين ──
+  // ── Debt info ──
   static List<int> _buildDebtInfo(
       Generator g, double orderTotal, double? amountPaid, double? newBalance, Order order) {
     List<int> b = [];
-    
-    // الأولوية للقيم المحفوظة في الطلبية
+
+    // Priority given to the values saved on the order
     final paid = order.paidAmount;
     final remaining = orderTotal - paid;
 
     b += _t(g, _line2, styles: const PosStyles(align: PosAlign.center));
-    
-    // 1. الإجمالي الكبير
-    b += _t(g, 'Total Facture : ${_money(orderTotal)} DA', styles: const PosStyles(bold: true));
-    
-    // 2. المسدد
-    b += _t(g, 'Montant Verse : ${_money(paid)} DA');
-    
-    // 3. الباقي (الدين المترتب عن هذه الفاتورة)
+
+    // 1. Grand total
+    b += _t(g, 'Total Facture : ${_money(orderTotal)} DA',
+        styles: const PosStyles(bold: true, height: PosTextSize.size2));
+
+    // 2. Amount paid
+    b += _t(g, 'Montant Verse : ${_money(paid)} DA', styles: _bigger);
+
+    // 3. Remaining (debt resulting from this invoice)
     if (remaining > 0) {
       b += _t(
         g,
         'Reste a Payer : ${_money(remaining)} DA',
-        styles: const PosStyles(bold: true, underline: true),
+        styles: const PosStyles(
+            bold: true, underline: true, height: PosTextSize.size2),
       );
     } else {
-      b += _t(g, 'Facture Payee (Solder)');
+      b += _t(g, 'Facture Payee (Solder)', styles: _bigger);
     }
 
-    // 4. الرصيد الإجمالي (الدين الكلي) - إذا كان متوفراً
-    if (newBalance != null && newBalance > 0) {
-      b += _t(g, _line2, styles: const PosStyles(align: PosAlign.center));
-      b += _t(
-        g,
-        'SOLDE TOTAL DU : ${_money(newBalance)} DA',
-        styles: const PosStyles(bold: true, align: PosAlign.center),
-      );
-    }
-    
     return b;
   }
 
-  // ── التذييل ──
+  // ── Footer ──
   static List<int> _buildFooter(Generator g) {
     List<int> b = [];
     b += g.feed(1);
     b += _t(
       g,
-      'Merci de votre visite !',
-      styles: const PosStyles(align: PosAlign.center, fontType: PosFontType.fontB),
+      'Merci pour votre confiance !',
+      styles: const PosStyles(
+          align: PosAlign.center, bold: true, height: PosTextSize.size2),
     );
     b += _t(
       g,
-      '0666629473',
-      styles: const PosStyles(align: PosAlign.center, fontType: PosFontType.fontB),
+      'Tel: 0666629473',
+      styles: const PosStyles(align: PosAlign.center, height: PosTextSize.size2),
     );
-    b += g.feed(2);
+    b += _t(
+      g,
+      'AL QANAA GROSSISTE',
+      styles: const PosStyles(align: PosAlign.center, height: PosTextSize.size2),
+    );
+    b += g.feed(3);
     b += g.cut();
     return b;
   }
 
   // ══════════════════════════════════════════════════════
-  //  ✅ الطباعة الرئيسية
+  //  ✅ Main print function
   // ══════════════════════════════════════════════════════
   static Future<bool> printReceipt({
     required Order order,
@@ -499,7 +535,7 @@ class PrinterService {
   }) async {
     try {
       if (!await checkConnection()) {
-        debugPrint('⚠️ لا يوجد اتصال');
+        debugPrint('⚠️ No connection');
         return false;
       }
 
@@ -509,7 +545,7 @@ class PrinterService {
       final date =
       DateFormat('dd/MM/yyyy - HH:mm', 'en_US').format(DateTime.now());
 
-      debugPrint('🖨️ بدء الطباعة — ${order.items.length} منتج');
+      debugPrint('🖨️ Starting print — ${order.items.length} products');
 
       final orderTotal = _calcTotal(order);
 
@@ -528,19 +564,19 @@ class PrinterService {
       bytes += _buildDebtInfo(g, orderTotal, amountPaid, customerDebtBalance, order);
       bytes += _buildFooter(g);
 
-      debugPrint('📦 حجم الإيصال: ${bytes.length} byte');
+      debugPrint('📦 Receipt size: ${bytes.length} bytes');
       final ok = await _send(bytes);
-      debugPrint(ok ? '✅ تمت الطباعة' : '❌ فشلت الطباعة');
+      debugPrint(ok ? '✅ Print successful' : '❌ Print failed');
       return ok;
     } catch (e, st) {
-      debugPrint('❌ خطأ في الطباعة: $e');
+      debugPrint('❌ Print error: $e');
       debugPrint('$st');
       return false;
     }
   }
 
   // ══════════════════════════════════════════════════════
-  //  اختبار الطابعة
+  //  Printer test
   // ══════════════════════════════════════════════════════
   static Future<bool> printTest() async {
     try {
@@ -582,7 +618,7 @@ class PrinterService {
 
       return await _send(b);
     } catch (e) {
-      debugPrint('❌ خطأ في الاختبار: $e');
+      debugPrint('❌ Test error: $e');
       return false;
     }
   }

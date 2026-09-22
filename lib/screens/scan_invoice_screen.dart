@@ -1068,122 +1068,124 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
             ),
         ],
       ),
-      body: Column(children: [
-        _buildSettingsCard(busy),
-        if (_image == null)
-          Expanded(child: Center(child: _buildPicker()))
-        else ...[
-          Container(
-            height: 150,
-            width: double.infinity,
-            margin: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(15),
-              image: DecorationImage(image: FileImage(_image!), fit: BoxFit.cover),
+      body: SafeArea(
+        child: Column(children: [
+          _buildSettingsCard(busy),
+          if (_image == null)
+            Expanded(child: Center(child: _buildPicker()))
+          else ...[
+            Container(
+              height: 220,
+              width: double.infinity,
+              margin: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(15),
+                image: DecorationImage(image: FileImage(_image!), fit: BoxFit.cover),
+              ),
             ),
-          ),
-          if (_isProcessing)
-            const Padding(
-              padding: EdgeInsets.all(20),
-              child: CircularProgressIndicator(color: Color(0xFF2E7D32)),
-            )
-          else if (_detectedItems.isEmpty)
-            Expanded(
-              child: Center(
-                child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  const Text('لم يتم التعرف على أي أصناف — حاول صورة أوضح'),
-                  const SizedBox(height: 12),
-                  Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    TextButton.icon(
-                      onPressed: _reset,
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('صورة أخرى'),
+            if (_isProcessing)
+              const Padding(
+                padding: EdgeInsets.all(20),
+                child: CircularProgressIndicator(color: Color(0xFF2E7D32)),
+              )
+            else if (_detectedItems.isEmpty)
+              Expanded(
+                child: Center(
+                  child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    const Text('لم يتم التعرف على أي أصناف — حاول صورة أوضح'),
+                    const SizedBox(height: 12),
+                    Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      TextButton.icon(
+                        onPressed: _reset,
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('صورة أخرى'),
+                      ),
+                      const SizedBox(width: 8),
+                      TextButton.icon(
+                        onPressed: _showAddManualDialog,
+                        icon: const Icon(Icons.add),
+                        label: const Text('إضافة صنف يدوياً'),
+                      ),
+                    ]),
+                  ]),
+                ),
+              )
+            else ...[
+                if (_detectedDate != null || _detectedSeller != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.blue.shade200),
+                      ),
+                      child: Column(children: [
+                        if (_detectedSeller != null)
+                          Row(children: [
+                            const Icon(Icons.person, size: 16, color: Colors.blue),
+                            const SizedBox(width: 8),
+                            Text('البائع المستخرج: $_detectedSeller',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                          ]),
+                        if (_detectedDate != null)
+                          Row(children: [
+                            const Icon(Icons.calendar_today, size: 16, color: Colors.blue),
+                            const SizedBox(width: 8),
+                            Text('التاريخ المستخرج: $_detectedDate',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                          ]),
+                      ]),
                     ),
-                    const SizedBox(width: 8),
+                  ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 2),
+                  child: Row(children: [
+                    const Icon(Icons.info_outline, size: 16, color: Colors.orange),
+                    const SizedBox(width: 5),
+                    Expanded(
+                      child: Text(
+                        'الأصناف المميزة بـ ⚠️ تحتاج مراجعتك قبل التحديث',
+                        style: TextStyle(fontSize: 11, color: Colors.grey[700]),
+                      ),
+                    ),
                     TextButton.icon(
-                      onPressed: _showAddManualDialog,
-                      icon: const Icon(Icons.add),
-                      label: const Text('إضافة صنف يدوياً'),
+                      onPressed: _isSaving ? null : _showAddManualDialog,
+                      icon: const Icon(Icons.add, size: 16),
+                      label: const Text('صنف', style: TextStyle(fontSize: 12)),
                     ),
                   ]),
-                ]),
-              ),
-            )
-          else ...[
-              if (_detectedDate != null || _detectedSeller != null)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.blue.shade200),
-                    ),
-                    child: Column(children: [
-                      if (_detectedSeller != null)
-                        Row(children: [
-                          const Icon(Icons.person, size: 16, color: Colors.blue),
-                          const SizedBox(width: 8),
-                          Text('البائع المستخرج: $_detectedSeller',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                        ]),
-                      if (_detectedDate != null)
-                        Row(children: [
-                          const Icon(Icons.calendar_today, size: 16, color: Colors.blue),
-                          const SizedBox(width: 8),
-                          Text('التاريخ المستخرج: $_detectedDate',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                        ]),
-                    ]),
+                ),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: _detectedItems.length,
+                    itemBuilder: (context, i) => _buildRow(_detectedItems[i], i),
                   ),
                 ),
+              ],
+            if (_detectedItems.isNotEmpty)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 2),
-                child: Row(children: [
-                  const Icon(Icons.info_outline, size: 16, color: Colors.orange),
-                  const SizedBox(width: 5),
-                  Expanded(
-                    child: Text(
-                      'الأصناف المميزة بـ ⚠️ تحتاج مراجعتك قبل التحديث',
-                      style: TextStyle(fontSize: 11, color: Colors.grey[700]),
-                    ),
+                padding: const EdgeInsets.all(15),
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2E7D32),
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 48),
                   ),
-                  TextButton.icon(
-                    onPressed: _isSaving ? null : _showAddManualDialog,
-                    icon: const Icon(Icons.add, size: 16),
-                    label: const Text('صنف', style: TextStyle(fontSize: 12)),
-                  ),
-                ]),
-              ),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: _detectedItems.length,
-                  itemBuilder: (context, i) => _buildRow(_detectedItems[i], i),
+                  onPressed: (_isSaving || _isProcessing) ? null : _confirmAndApply,
+                  child: _isSaving
+                      ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : Text('تحديث المخزن ($_selectedCount)'),
                 ),
               ),
-            ],
-          if (_detectedItems.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.all(15),
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2E7D32),
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(double.infinity, 48),
-                ),
-                onPressed: (_isSaving || _isProcessing) ? null : _confirmAndApply,
-                child: _isSaving
-                    ? const SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : Text('تحديث المخزن ($_selectedCount)'),
-              ),
-            ),
-        ],
-      ]),
+          ],
+        ]),
+      ),
     );
   }
 
