@@ -473,7 +473,7 @@ class _MainScreenState extends State<MainScreen>
     return Opacity(opacity: p.isAvailable ? 1.0 : 0.5, child: Container(margin: const EdgeInsets.only(bottom: 10), padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(15)),
         child: Column(children: [
           Row(children: [
-            ClipRRect(borderRadius: BorderRadius.circular(10), child: p.imagePath.isNotEmpty ? Image.network(p.imagePath, width: 60, height: 60, fit: BoxFit.cover) : Container(width: 60, height: 60, color: Colors.grey.shade200, child: const Icon(Icons.image))),
+            ClipRRect(borderRadius: BorderRadius.circular(10), child: p.imagePath.isNotEmpty ? CachedNetworkImage(imageUrl: p.imagePath, width: 60, height: 60, fit: BoxFit.cover, placeholder: (c, u) => Container(width: 60, height: 60, color: Colors.grey.shade200), errorWidget: (c, u, e) => Container(width: 60, height: 60, color: Colors.grey.shade200, child: const Icon(Icons.image))) : Container(width: 60, height: 60, color: Colors.grey.shade200, child: const Icon(Icons.image))),
             const SizedBox(width: 12),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:shimmer/shimmer.dart';
 
 import '../models/models.dart';
 import '../services/data_service.dart';
@@ -344,20 +346,18 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen>
                     ClipRRect(
                       borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                       child: product.imagePath.isNotEmpty
-                          ? Image.network(
-                        product.imagePath,
+                          ? CachedNetworkImage(
+                        imageUrl: product.imagePath,
                         fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => Container(
+                        placeholder: (context, url) => Shimmer.fromColors(
+                          baseColor: Colors.grey[300]!,
+                          highlightColor: Colors.grey[100]!,
+                          child: Container(color: Colors.white),
+                        ),
+                        errorWidget: (context, url, error) => Container(
                           color: const Color(0xFFE8F5E9),
                           child: const Icon(Icons.inventory_2, size: 50, color: Color(0xFF2E7D32)),
                         ),
-                        loadingBuilder: (context, child, loadingProgress) {
-                          if (loadingProgress == null) return child;
-                          return Container(
-                            color: const Color(0xFFE8F5E9),
-                            child: const Center(child: CircularProgressIndicator(color: Color(0xFF2E7D32))),
-                          );
-                        },
                       )
                           : Container(
                         color: const Color(0xFFE8F5E9),
@@ -489,7 +489,19 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen>
                     child: SizedBox(
                       width: 70, height: 70,
                       child: product.imagePath.isNotEmpty
-                          ? Image.network(product.imagePath, fit: BoxFit.cover)
+                          ? CachedNetworkImage(
+                              imageUrl: product.imagePath,
+                              fit: BoxFit.cover,
+                              placeholder: (context, url) => Shimmer.fromColors(
+                                baseColor: Colors.grey[300]!,
+                                highlightColor: Colors.grey[100]!,
+                                child: Container(color: Colors.white),
+                              ),
+                              errorWidget: (context, url, error) => Container(
+                                color: Colors.grey.shade100,
+                                child: const Icon(Icons.inventory_2, color: Colors.grey),
+                              ),
+                            )
                           : Container(color: Colors.grey.shade100, child: const Icon(Icons.inventory_2, color: Colors.grey)),
                     ),
                   ),
@@ -578,23 +590,19 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen>
                   width: 100,
                   height: 100,
                   child: product.imagePath.isNotEmpty
-                      ? Image.network(
-                    product.imagePath,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Container(
-                      color: const Color(0xFFE8F5E9),
-                      child: const Icon(Icons.image, color: Color(0xFF2E7D32)),
-                    ),
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return Container(
-                        color: const Color(0xFFE8F5E9),
-                        child: const Center(
-                          child: CircularProgressIndicator(color: Color(0xFF2E7D32)),
+                      ? CachedNetworkImage(
+                        imageUrl: product.imagePath,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => Shimmer.fromColors(
+                          baseColor: Colors.grey[300]!,
+                          highlightColor: Colors.grey[100]!,
+                          child: Container(color: Colors.white),
                         ),
-                      );
-                    },
-                  )
+                        errorWidget: (context, url, error) => Container(
+                          color: const Color(0xFFE8F5E9),
+                          child: const Icon(Icons.image, color: Color(0xFF2E7D32)),
+                        ),
+                      )
                       : Container(color: const Color(0xFFE8F5E9), child: const Icon(Icons.inventory_2, color: Color(0xFF2E7D32), size: 40)),
                 ),
               ),

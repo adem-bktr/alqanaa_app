@@ -182,12 +182,12 @@ class _ReceiptPreviewDialogState extends State<ReceiptPreviewDialog> {
                             borderRadius: BorderRadius.circular(8),
                             child: Image.asset(
                               'assets/logo.png',
-                              height: 55,
-                              width: 55,
+                              height: 90,
+                              width: 90,
                               fit: BoxFit.contain,
                               errorBuilder: (_, __, ___) => const Icon(
                                 Icons.store_rounded,
-                                size: 45,
+                                size: 75,
                                 color: Colors.blueAccent,
                               ),
                             ),
@@ -242,68 +242,106 @@ class _ReceiptPreviewDialogState extends State<ReceiptPreviewDialog> {
                           ),
                         ),
 
-                        // قائمة المنتجات
-                        ...widget.order.items.asMap().entries.map((entry) {
-                          final idx = entry.key + 1;
-                          final it = entry.value;
-                          final name =
-                              it['productName']?.toString() ?? 'Produit';
-                          final qty = (it['quantity'] as num? ?? 0).toDouble();
-                          final price = (it['price'] as num? ?? 0).toDouble();
-                          final lineTotal = qty * price;
-                          final flavor = it['flavor']?.toString() ?? '';
+                        // قائمة المنتجات (مجمعة تماماً كالطباعة الفعلية)
+                        Builder(
+                          builder: (context) {
+                            final Map<String, Map<String, dynamic>> grouped = {};
+                            for (final it in widget.order.items) {
+                              final name = it['productName']?.toString() ?? 'Produit';
+                              final isCarton = it['isCarton'] == true;
+                              final key = '$name-$isCarton';
+                              final price = (it['price'] as num? ?? 0).toDouble();
+                              final qty = (it['quantity'] as num? ?? 0).toDouble();
 
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 3),
-                            child: Column(
+                              if (grouped.containsKey(key)) {
+                                grouped[key]!['quantity'] = (grouped[key]!['quantity'] as double) + qty;
+                                grouped[key]!['total'] = (grouped[key]!['total'] as double) + (qty * price);
+                                final flavor = it['flavor']?.toString() ?? '';
+                                if (flavor.isNotEmpty) {
+                                  final flavors = grouped[key]!['flavors'] as List<String>;
+                                  flavors.add('$flavor (${qty.toStringAsFixed(0)})');
+                                }
+                              } else {
+                                final flavor = it['flavor']?.toString() ?? '';
+                                grouped[key] = {
+                                  'productName': name,
+                                  'quantity': qty,
+                                  'total': qty * price,
+                                  'isCarton': isCarton,
+                                  'flavors': flavor.isNotEmpty
+                                      ? ['$flavor (${qty.toStringAsFixed(0)})']
+                                      : <String>[],
+                                };
+                              }
+                            }
+
+                            final groupedList = grouped.values.toList();
+
+                            return Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  '$idx. $name',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12,
-                                    color: Colors.black87,
+                              children: groupedList.asMap().entries.map((entry) {
+                                final idx = entry.key + 1;
+                                final data = entry.value;
+                                final name = data['productName'] as String;
+                                final qty = data['quantity'] as double;
+                                final total = data['total'] as double;
+                                final isCarton = data['isCarton'] == true;
+                                final type = isCarton ? 'Crt' : 'Unt';
+                                final flavorsList = data['flavors'] as List<String>;
+
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 3),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '$idx. $name ($type)',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                          color: Colors.black87,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Row(
+                                        mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            '   Qte: ${qty.toStringAsFixed(0)}',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: Colors.grey.shade700,
+                                            ),
+                                          ),
+                                          Text(
+                                            '${_money(total)} DA',
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      if (flavorsList.isNotEmpty)
+                                        Padding(
+                                          padding: const EdgeInsets.only(left: 12, top: 1),
+                                          child: Text(
+                                            '   Aromes: ${flavorsList.join(", ")}',
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              color: Colors.blueGrey.shade700,
+                                              fontStyle: FontStyle.italic,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
                                   ),
-                                ),
-                                const SizedBox(height: 2),
-                                Row(
-                                  mainAxisAlignment:
-                                  MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      '   Qte: ${qty.toStringAsFixed(0)} x ${_money(price)} DA',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: Colors.grey.shade700,
-                                      ),
-                                    ),
-                                    Text(
-                                      '${_money(lineTotal)} DA',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                if (flavor.isNotEmpty)
-                                  Padding(
-                                    padding: const EdgeInsets.only(left: 12, top: 1),
-                                    child: Text(
-                                      'Arome: $flavor',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        color: Colors.blueGrey.shade600,
-                                        fontStyle: FontStyle.italic,
-                                      ),
-                                    ),
-                                  ),
-                                const Divider(height: 8, thickness: 0.5),
-                              ],
-                            ),
-                          );
-                        }),
+                                );
+                              }).toList(),
+                            );
+                          },
+                        ),
 
                         const SizedBox(height: 4),
                         const Center(

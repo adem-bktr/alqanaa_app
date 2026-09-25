@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:shimmer/shimmer.dart';
 
 import 'package:badges/badges.dart' as badges;
 import 'package:url_launcher/url_launcher.dart';
@@ -707,17 +709,13 @@ class _UserMainScreenState extends State<UserMainScreen>
                 borderRadius: BorderRadius.circular(20),
                 child: Stack(children: [
                   if (banner.imageUrl.isNotEmpty)
-                    Image.network(
-                      banner.imageUrl,
+                    CachedNetworkImage(
+                      imageUrl: banner.imageUrl,
                       width: double.infinity,
                       height: double.infinity,
                       fit: BoxFit.cover,
-                      gaplessPlayback: true, // يمنع الوميض عند الانتقال
-                      errorBuilder: (_, __, ___) => _buildBannerBg(banner),
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return _buildBannerBg(banner);
-                      },
+                      placeholder: (context, url) => _buildBannerBg(banner),
+                      errorWidget: (_, __, ___) => _buildBannerBg(banner),
                     )
                   else _buildBannerBg(banner),
                   Container(
@@ -999,7 +997,19 @@ class _UserMainScreenState extends State<UserMainScreen>
                 child: SizedBox(
                   width: 60, height: 60,
                   child: p.imagePath.isNotEmpty
-                      ? Image.network(p.imagePath, fit: BoxFit.cover)
+                      ? CachedNetworkImage(
+                          imageUrl: p.imagePath,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => Shimmer.fromColors(
+                            baseColor: Colors.grey[300]!,
+                            highlightColor: Colors.grey[100]!,
+                            child: Container(color: Colors.white),
+                          ),
+                          errorWidget: (context, url, error) => Container(
+                            color: Colors.grey.shade100,
+                            child: const Icon(Icons.image, color: Colors.grey),
+                          ),
+                        )
                       : Container(color: Colors.grey.shade100, child: const Icon(Icons.image, color: Colors.grey)),
                 ),
               ),
@@ -1620,24 +1630,19 @@ class _ProductMiniCardState extends State<_ProductMiniCard> {
                       fit: StackFit.expand,
                       children: [
                         widget.product.imagePath.isNotEmpty
-                            ? Image.network(
-                          widget.product.imagePath,
+                            ? CachedNetworkImage(
+                          imageUrl: widget.product.imagePath,
                           fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => Container(
+                          placeholder: (context, url) => Shimmer.fromColors(
+                            baseColor: Colors.grey[300]!,
+                            highlightColor: Colors.grey[100]!,
+                            child: Container(color: Colors.white),
+                          ),
+                          errorWidget: (context, url, error) => Container(
                             color: const Color(0xFFE8F5E9),
                             child: const Icon(Icons.inventory_2_rounded,
                                 color: Color(0xFF2E7D32), size: 32),
                           ),
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return Container(
-                              color: const Color(0xFFE8F5E9),
-                              child: const Center(
-                                child: CircularProgressIndicator(
-                                    color: Color(0xFF2E7D32), strokeWidth: 2),
-                              ),
-                            );
-                          },
                         )
                             : Container(
                             color: const Color(0xFFE8F5E9),
@@ -1812,20 +1817,18 @@ class _AnimatedBrandCardState extends State<_AnimatedBrandCard> {
                 widget.brand.logoPath.isNotEmpty
                     ? ClipRRect(
                   borderRadius: BorderRadius.circular(12),
-                  child: Image.network(
-                    widget.brand.logoPath,
+                  child: CachedNetworkImage(
+                    imageUrl: widget.brand.logoPath,
                     width: 56,
                     height: 56,
                     fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) =>
+                    placeholder: (context, url) => Shimmer.fromColors(
+                      baseColor: Colors.grey[300]!,
+                      highlightColor: Colors.grey[100]!,
+                      child: Container(color: Colors.white),
+                    ),
+                    errorWidget: (context, error, stackTrace) =>
                     const Icon(Icons.store_rounded, size: 32, color: Color(0xFF2E7D32)),
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return const Center(
-                        child: CircularProgressIndicator(
-                            color: Color(0xFF2E7D32), strokeWidth: 2),
-                      );
-                    },
                   ),
                 )
                     : const Icon(Icons.store_rounded, size: 32, color: Color(0xFF2E7D32)),

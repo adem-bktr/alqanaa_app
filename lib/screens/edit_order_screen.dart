@@ -38,6 +38,27 @@ class _EditOrderScreenState extends State<EditOrderScreen> {
       ),
       body: isLoading ? const Center(child: CircularProgressIndicator()) : Column(
         children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () async {
+                  final newItem = await _showSelectProductForOrder();
+                  if (newItem != null) {
+                    setState(() => items.add(newItem));
+                  }
+                },
+                icon: const Icon(Icons.add_shopping_cart, size: 18),
+                label: const Text('إضافة منتج جديد للطلبية', style: TextStyle(fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue.shade700,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ),
+          ),
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.all(12),
@@ -138,6 +159,58 @@ class _EditOrderScreenState extends State<EditOrderScreen> {
     } finally {
       if (mounted) setState(() => isLoading = false);
     }
+  }
+
+  Future<Map<String, dynamic>?> _showSelectProductForOrder() async {
+    final products = await DataService.getAllProducts();
+    if (products.isEmpty) return null;
+
+    String query = '';
+    return await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setSt) => AlertDialog(
+          title: const Text('اختر منتجاً لإضافته'),
+          content: SizedBox(
+            width: double.maxFinite,
+            height: 400,
+            child: Column(
+              children: [
+                TextField(
+                  decoration: const InputDecoration(hintText: 'بحث...', prefixIcon: Icon(Icons.search)),
+                  onChanged: (v) => setSt(() => query = v.toLowerCase()),
+                ),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: products.length,
+                    itemBuilder: (context, i) {
+                      final p = products[i];
+                      if (query.isNotEmpty && !p.name.toLowerCase().contains(query)) return const SizedBox.shrink();
+                      return ListTile(
+                        title: Text(p.name),
+                        subtitle: Text('${formatter.format(p.priceCartonNormal)} DA'),
+                        onTap: () {
+                          Navigator.pop(context, {
+                            'productId': p.id,
+                            'productName': p.name,
+                            'quantity': 1,
+                            'price': p.priceCartonNormal,
+                            'unitPrice': p.priceCartonNormal,
+                            'isCarton': true,
+                            'typeLabel': 'كرتون',
+                            'flavor': '',
+                          });
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   double toDouble(dynamic v) {

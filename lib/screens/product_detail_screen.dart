@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:shimmer/shimmer.dart';
 
 import 'package:intl/intl.dart';
 import '../models/models.dart';
@@ -935,20 +937,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             child: Stack(children: [
               Positioned.fill(
                 child: widget.product.imagePath.isNotEmpty
-                    ? Image.network(
-                  widget.product.imagePath,
+                    ? CachedNetworkImage(
+                  imageUrl: widget.product.imagePath,
                   fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Container(
+                  placeholder: (context, url) => Shimmer.fromColors(
+                    baseColor: Colors.grey[300]!,
+                    highlightColor: Colors.grey[100]!,
+                    child: Container(color: Colors.white),
+                  ),
+                  errorWidget: (context, url, error) => Container(
                     color: const Color(0xFFE8F5E9),
                     child: const Icon(Icons.image, size: 80, color: Color(0xFF2E7D32)),
                   ),
-                  loadingBuilder: (context, child, loadingProgress) {
-                    if (loadingProgress == null) return child;
-                    return Container(
-                      color: const Color(0xFFE8F5E9),
-                      child: const Center(child: CircularProgressIndicator(color: Color(0xFF2E7D32))),
-                    );
-                  },
                 )
                     : Container(
                   color: const Color(0xFFE8F5E9),
@@ -1041,20 +1041,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       fit: StackFit.expand,
                       children: [
                         widget.product.imagePath.isNotEmpty
-                            ? Image.network(
-                          widget.product.imagePath,
+                            ? CachedNetworkImage(
+                          imageUrl: widget.product.imagePath,
                           fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => Container(
+                          placeholder: (context, url) => Shimmer.fromColors(
+                            baseColor: Colors.grey[300]!,
+                            highlightColor: Colors.grey[100]!,
+                            child: Container(color: Colors.white),
+                          ),
+                          errorWidget: (context, url, error) => Container(
                             color: const Color(0xFFE8F5E9),
                             child: const Icon(Icons.image, size: 80, color: Color(0xFF2E7D32)),
                           ),
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return Container(
-                              color: const Color(0xFFE8F5E9),
-                              child: const Center(child: CircularProgressIndicator(color: Color(0xFF2E7D32))),
-                            );
-                          },
                         )
                             : Container(
                           color: const Color(0xFFE8F5E9),

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:shimmer/shimmer.dart';
 
 import '../models/models.dart';
 import '../services/data_service.dart';
@@ -1012,27 +1014,21 @@ class _AnimatedProductCardState extends State<_AnimatedProductCard>
                         borderRadius: const BorderRadius.vertical(
                             top: Radius.circular(16)),
                         child: widget.product.imagePath.isNotEmpty
-                            ? Image.network(
-                          widget.product.imagePath,
+                            ? CachedNetworkImage(
+                          imageUrl: widget.product.imagePath,
                           fit: BoxFit.cover,
-                          gaplessPlayback: true,
-                          cacheWidth: 400, // تحسين الأداء بتحديد حجم الذاكرة
-                          errorBuilder: (context, error, stackTrace) => Container(
+                          memCacheWidth: 400,
+                          placeholder: (context, url) => Shimmer.fromColors(
+                            baseColor: Colors.grey[300]!,
+                            highlightColor: Colors.grey[100]!,
+                            child: Container(color: Colors.white),
+                          ),
+                          errorWidget: (context, url, error) => Container(
                             color: const Color(0xFFE8F5E9),
                             child: const Icon(Icons.image,
                                 size: 50,
                                 color: Color(0xFF2E7D32)),
                           ),
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return Container(
-                              color: const Color(0xFFE8F5E9),
-                              child: const Center(
-                                child: CircularProgressIndicator(
-                                    color: Color(0xFF2E7D32)),
-                              ),
-                            );
-                          },
                         )
                             : Container(
                           color: const Color(0xFFE8F5E9),
@@ -1354,7 +1350,19 @@ class _AnimatedProductListItemState
                     child: SizedBox(
                       width: 70, height: 70,
                       child: widget.product.imagePath.isNotEmpty
-                        ? Image.network(widget.product.imagePath, fit: BoxFit.cover)
+                        ? CachedNetworkImage(
+                            imageUrl: widget.product.imagePath,
+                            fit: BoxFit.cover,
+                            placeholder: (context, url) => Shimmer.fromColors(
+                              baseColor: Colors.grey[300]!,
+                              highlightColor: Colors.grey[100]!,
+                              child: Container(color: Colors.white),
+                            ),
+                            errorWidget: (context, url, error) => Container(
+                              color: Colors.grey.shade100,
+                              child: const Icon(Icons.inventory_2, color: Colors.grey),
+                            ),
+                          )
                         : Container(color: Colors.grey.shade100, child: const Icon(Icons.inventory_2, color: Colors.grey)),
                     ),
                   ),
@@ -1448,26 +1456,20 @@ class _AnimatedProductListItemState
                     width: 100,
                     height: 100,
                     child: widget.product.imagePath.isNotEmpty
-                        ? Image.network(
-                      widget.product.imagePath,
+                        ? CachedNetworkImage(
+                      imageUrl: widget.product.imagePath,
                       fit: BoxFit.cover,
-                      gaplessPlayback: true,
-                      cacheWidth: 300,
-                      errorBuilder: (context, error, stackTrace) => Container(
+                      memCacheWidth: 300,
+                      placeholder: (context, url) => Shimmer.fromColors(
+                        baseColor: Colors.grey[300]!,
+                        highlightColor: Colors.grey[100]!,
+                        child: Container(color: Colors.white),
+                      ),
+                      errorWidget: (context, url, error) => Container(
                         color: const Color(0xFFE8F5E9),
                         child: const Icon(Icons.image,
                             color: Color(0xFF2E7D32)),
                       ),
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return Container(
-                          color: const Color(0xFFE8F5E9),
-                          child: const Center(
-                            child: CircularProgressIndicator(
-                                color: Color(0xFF2E7D32)),
-                          ),
-                        );
-                      },
                     )
                         : Container(
                       color: const Color(0xFFE8F5E9),

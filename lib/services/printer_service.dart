@@ -618,7 +618,7 @@ class PrinterService {
                 children: [
                   // ── Header ──
                   if (logoImage != null) ...[
-                    pw.Center(child: pw.Image(logoImage, width: 60, height: 60)),
+                    pw.Center(child: pw.Image(logoImage, width: 90, height: 90)),
                     pw.SizedBox(height: 4),
                   ],
                   pw.Center(
