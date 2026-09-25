@@ -6,7 +6,7 @@ import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:printing/printing.dart'; // ✅ للطباعة على الويندوز/الحاسوب
+import 'package:printing/printing.dart'; // للطباعة على الويندوز والحاسوب
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import '../models/models.dart';
@@ -16,12 +16,19 @@ class PrinterService {
   static String? _connectedName;
   static bool _isConnected = false;
 
-  static bool get isConnected => _isConnected || (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
-  static String? get connectedDeviceName => _connectedName ?? (Platform.isWindows ? 'طابعة النظام' : null);
+  static bool get isConnected =>
+      _isConnected ||
+          (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux));
+
+  static String? get connectedDeviceName =>
+      _connectedName ??
+          (!kIsWeb && Platform.isWindows ? 'Imprimante système' : null);
+
   static String? get connectedDeviceAddress => _connectedAddress;
 
   // التحقق هل نحن على الحاسوب
-  static bool get isDesktop => (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
+  static bool get isDesktop =>
+      !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
 
   // ══════════════════════════════════════════════════════
   //  ✅ Auto-connect
@@ -31,7 +38,6 @@ class PrinterService {
       final prefs = await SharedPreferences.getInstance();
       final lastAddr = prefs.getString('last_printer_address');
       final lastName = prefs.getString('last_printer_name');
-
       if (lastAddr != null && lastAddr.isNotEmpty) {
         debugPrint('⏳ Attempting auto-connect to $lastName...');
         final ok = await PrintBluetoothThermal.connect(macPrinterAddress: lastAddr);
@@ -62,7 +68,6 @@ class PrinterService {
     final isNeg = value < 0;
     final digits = value.abs().round().toString();
     final buf = StringBuffer();
-
     for (int i = 0; i < digits.length; i++) {
       if (i > 0 && (digits.length - i) % 3 == 0) {
         buf.write(' ');
@@ -88,7 +93,7 @@ class PrinterService {
     0x0665: '5', 0x0666: '6', 0x0667: '7', 0x0668: '8', 0x0669: '9',
     0x06F0: '0', 0x06F1: '1', 0x06F2: '2', 0x06F3: '3', 0x06F4: '4',
     0x06F5: '5', 0x06F6: '6', 0x06F7: '7', 0x06F8: '8', 0x06F9: '9',
-    // ── Arabic letters ──
+    // ── Arabic letters (Transliteration) ──
     0x0627: 'a', 0x0623: 'a', 0x0625: 'i', 0x0622: 'a', 0x0671: 'a',
     0x0628: 'b', 0x062A: 't', 0x062B: 'th', 0x062C: 'j', 0x062D: 'h',
     0x062E: 'kh', 0x062F: 'd', 0x0630: 'dh', 0x0631: 'r', 0x0632: 'z',
@@ -118,7 +123,6 @@ class PrinterService {
   static String _clean(Object? input) {
     final s = input?.toString() ?? '';
     if (s.isEmpty) return '';
-
     final buf = StringBuffer();
     for (final r in s.runes) {
       if (_map.containsKey(r)) {
@@ -187,12 +191,10 @@ class PrinterService {
     try {
       final addr = getDeviceAddress(device);
       if (addr.isEmpty) return false;
-
       try {
         await PrintBluetoothThermal.disconnect;
         await Future.delayed(const Duration(milliseconds: 300));
       } catch (_) {}
-
       final ok = await PrintBluetoothThermal.connect(macPrinterAddress: addr);
       if (ok) {
         _connectedAddress = addr;
@@ -246,7 +248,7 @@ class PrinterService {
       debugPrint('⚠️ Full send failed: $e');
     }
 
-    // Fallback plan: chunked send
+    // Fallback: chunked send
     try {
       const size = 256;
       for (int i = 0; i < bytes.length; i += size) {
@@ -266,14 +268,11 @@ class PrinterService {
   }
 
   // ══════════════════════════════════════════════════════
-  //  Building the receipt
+  //  Building the receipt (Bluetooth ESC/POS)
   // ══════════════════════════════════════════════════════
   static const _line1 = '================================';
   static const _line2 = '--------------------------------';
   static const _dotLine = '  . . . . . . . . . . . . . . .';
-
-  // ✅ نص أكبر قليلاً: نرفع الارتفاع فقط (العرض يبقى عادياً) حتى لا
-  // ينكسر السطر على ورق 58mm كما يحدث مع size2/size2 الكامل
   static const _bigger = PosStyles(height: PosTextSize.size2);
 
   // ── Header ──
@@ -314,7 +313,6 @@ class PrinterService {
     final shortId = id.length > 6 ? id.substring(id.length - 6) : id;
     final name = _clean(customerName);
     final phone = _clean(customerPhone);
-
     b += _t(g, 'Date   : $date', styles: _bigger);
     b += _t(
       g,
@@ -346,18 +344,18 @@ class PrinterService {
     return b;
   }
 
-  // ── ✅ Products — grouped by name ──
+  // ── Products — grouped by name ──
   static List<int> _buildItems(Generator g, List items) {
     List<int> b = [];
-
-    // ✅ Group products by name
     final Map<String, Map<String, dynamic>> grouped = {};
     for (final it in items) {
       final name = it['productName']?.toString() ?? 'Unknown product';
       if (grouped.containsKey(name)) {
-        grouped[name]!['quantity'] = (grouped[name]!['quantity'] as num) + (it['quantity'] as num);
-        grouped[name]!['total'] = (grouped[name]!['total'] as num) + ((it['price'] as num) * (it['quantity'] as num));
-
+        grouped[name]!['quantity'] =
+            (grouped[name]!['quantity'] as num) + (it['quantity'] as num);
+        grouped[name]!['total'] =
+            (grouped[name]!['total'] as num) +
+                ((it['price'] as num) * (it['quantity'] as num));
         final flavor = it['flavor']?.toString() ?? '';
         if (flavor.isNotEmpty) {
           final flavors = grouped[name]!['flavors'] as List<String>;
@@ -385,15 +383,12 @@ class PrinterService {
         final type = data['isCarton'] == true ? 'Crt' : 'Unt';
         final flavorsList = data['flavors'] as List<String>;
 
-        // ✅ First line: number + name + type
         b += _t(
           g,
           '$idx. $name ($type)',
           styles: const PosStyles(
               bold: true, align: PosAlign.left, height: PosTextSize.size2),
         );
-
-        // ✅ Second line: quantity and total amount
         b += g.row([
           _c('   Qte: ${qty.toStringAsFixed(0)}', 6,
               const PosStyles(align: PosAlign.left, height: PosTextSize.size2)),
@@ -401,8 +396,6 @@ class PrinterService {
               const PosStyles(
                   align: PosAlign.right, bold: true, height: PosTextSize.size2)),
         ]);
-
-        // ✅ Show flavors grouped in one line below the product
         if (flavorsList.isNotEmpty) {
           b += _t(
             g,
@@ -411,14 +404,12 @@ class PrinterService {
                 fontType: PosFontType.fontB, height: PosTextSize.size2),
           );
         }
-
         b += _t(g, _dotLine);
         idx++;
       } catch (e) {
         debugPrint('⚠️ Error printing grouped product: $e');
       }
     });
-
     return b;
   }
 
@@ -462,20 +453,25 @@ class PrinterService {
 
   // ── Debt info ──
   static List<int> _buildDebtInfo(
-      Generator g, double orderTotal, double? amountPaid, double? newBalance, Order order, double? customerDebtBalance) {
+      Generator g,
+      double orderTotal,
+      double? amountPaid,
+      double? newBalance,
+      Order order,
+      double? customerDebtBalance,
+      ) {
     List<int> b = [];
-
     final paid = amountPaid ?? order.paidAmount;
     final remaining = orderTotal - paid;
     final prevDebt = customerDebtBalance ?? 0;
 
     b += _t(g, _line2, styles: const PosStyles(align: PosAlign.center));
-
-    b += _t(g, 'Total Facture : ${_money(orderTotal)} DA',
-        styles: const PosStyles(bold: true, height: PosTextSize.size2));
-
+    b += _t(
+      g,
+      'Total Facture : ${_money(orderTotal)} DA',
+      styles: const PosStyles(bold: true, height: PosTextSize.size2),
+    );
     b += _t(g, 'Montant Verse : ${_money(paid)} DA', styles: _bigger);
-
     if (remaining > 0) {
       b += _t(
         g,
@@ -485,7 +481,6 @@ class PrinterService {
     } else {
       b += _t(g, 'Facture Payee (Solder)', styles: _bigger);
     }
-
     if (prevDebt > 0) {
       b += _t(g, 'Ancien Solde  : ${_money(prevDebt)} DA', styles: _bigger);
       final totalDebt = prevDebt + (remaining > 0 ? remaining : 0);
@@ -496,7 +491,6 @@ class PrinterService {
             bold: true, underline: true, height: PosTextSize.size2),
       );
     }
-
     return b;
   }
 
@@ -535,26 +529,28 @@ class PrinterService {
     double? amountPaid,
     double? customerDebtBalance,
   }) async {
-    // 1. إذا كان التطبيق يعمل على نظام تشغيل الحاسوب، نستخدم حزمة Printing للـ USB
+    // 1. إذا كان التطبيق يعمل على نظام الحاسوب (Windows/macOS/Linux)
     if (isDesktop) {
-      return await _printDesktop(order, customerName, customerPhone, amountPaid, customerDebtBalance);
+      return await _printDesktop(
+        order,
+        customerName,
+        customerPhone,
+        amountPaid,
+        customerDebtBalance,
+      );
     }
 
-    // 2. إذا كان على الهاتف، نستخدم البلوتوث كما كان سابقاً
+    // 2. إذا كان على الهاتف المحمول (Android/iOS) عبر طابعة البلوتوث
     try {
       if (!await checkConnection()) {
         debugPrint('⚠️ No connection');
         return false;
       }
-
       final profile = await CapabilityProfile.load();
       final g = Generator(PaperSize.mm58, profile);
-
       final date =
       DateFormat('dd/MM/yyyy - HH:mm', 'en_US').format(DateTime.now());
-
       debugPrint('🖨️ Starting print — ${order.items.length} products');
-
       final orderTotal = _calcTotal(order);
 
       List<int> bytes = [];
@@ -569,7 +565,8 @@ class PrinterService {
       bytes += _buildTableHeader(g);
       bytes += _buildItems(g, order.items);
       bytes += _buildTotal(g, orderTotal);
-      bytes += _buildDebtInfo(g, orderTotal, amountPaid, null, order, customerDebtBalance);
+      bytes += _buildDebtInfo(
+          g, orderTotal, amountPaid, null, order, customerDebtBalance);
       bytes += _buildFooter(g);
 
       debugPrint('📦 Receipt size: ${bytes.length} bytes');
@@ -582,8 +579,16 @@ class PrinterService {
     }
   }
 
-  // 🖥️ دالة الطباعة الاحترافية للحاسوب (ترسم الفاتورة كـ PDF لدعم العربي والـ USB كاملاً)
-  static Future<bool> _printDesktop(Order order, String name, String phone, double? amountPaid, double? customerDebtBalance) async {
+  // ══════════════════════════════════════════════════════
+  //  🖥️ دالة الطباعة للحاسوب (LTR بالفرنسية عبر PDF و USB)
+  // ══════════════════════════════════════════════════════
+  static Future<bool> _printDesktop(
+      Order order,
+      String name,
+      String phone,
+      double? amountPaid,
+      double? customerDebtBalance,
+      ) async {
     try {
       final pdf = pw.Document();
       final dateStr = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
@@ -600,99 +605,207 @@ class PrinterService {
 
       pdf.addPage(
         pw.Page(
-          pageFormat: const PdfPageFormat(80 * PdfPageFormat.mm, double.infinity, marginAll: 4 * PdfPageFormat.mm),
+          pageFormat: const PdfPageFormat(
+            80 * PdfPageFormat.mm,
+            double.infinity,
+            marginAll: 4 * PdfPageFormat.mm,
+          ),
           build: (pw.Context context) {
             return pw.Directionality(
-              textDirection: pw.TextDirection.rtl,
+              textDirection: pw.TextDirection.ltr, // اتجاه من اليسار لليمين
               child: pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.center,
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
+                  // ── Header ──
                   if (logoImage != null) ...[
                     pw.Center(child: pw.Image(logoImage, width: 60, height: 60)),
                     pw.SizedBox(height: 4),
                   ],
-                  pw.Text('القناعة - AL QANAA', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14)),
-                  pw.Text('لبيع المواد الغذائية بالجملة', style: const pw.TextStyle(fontSize: 9)),
-                  pw.Divider(borderStyle: pw.BorderStyle.dashed),
-                  pw.Align(alignment: pw.Alignment.centerRight, child: pw.Text('التاريخ: $dateStr', style: const pw.TextStyle(fontSize: 8))),
-                  pw.Align(alignment: pw.Alignment.centerRight, child: pw.Text('رقم الطلب: #${order.id.length > 6 ? order.id.substring(order.id.length - 6) : order.id}', style: const pw.TextStyle(fontSize: 8))),
-                  pw.Align(alignment: pw.Alignment.centerRight, child: pw.Text('الزبون: ${name.isEmpty ? "عادي" : name}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9))),
-                  if (phone.isNotEmpty) pw.Align(alignment: pw.Alignment.centerRight, child: pw.Text('الهاتف: $phone', style: const pw.TextStyle(fontSize: 8))),
+                  pw.Center(
+                    child: pw.Text(
+                      'AL QANAA GROSSISTE',
+                      style: pw.TextStyle(
+                        fontWeight: pw.FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                  pw.Center(
+                    child: pw.Text(
+                      'Vente de produits alimentaires',
+                      style: const pw.TextStyle(fontSize: 8),
+                    ),
+                  ),
+                  pw.SizedBox(height: 4),
                   pw.Divider(borderStyle: pw.BorderStyle.dashed),
 
-                  // جدول المنتجات (سطرين لكل منتج)
+                  // ── Infos ──
+                  pw.Text('Date   : $dateStr',
+                      style: const pw.TextStyle(fontSize: 8)),
+                  pw.Text(
+                    'Order  : #${order.id.length > 6 ? order.id.substring(order.id.length - 6) : order.id}',
+                    style: const pw.TextStyle(fontSize: 8),
+                  ),
+                  pw.Text(
+                    'Client : ${name.isEmpty ? "-" : _clean(name)}',
+                    style: pw.TextStyle(
+                      fontWeight: pw.FontWeight.bold,
+                      fontSize: 9,
+                    ),
+                  ),
+                  if (phone.isNotEmpty)
+                    pw.Text('Tel    : $phone',
+                        style: const pw.TextStyle(fontSize: 8)),
+
+                  pw.Divider(borderStyle: pw.BorderStyle.dashed),
+
+                  // ── Products Table ──
                   ...order.items.asMap().entries.map((entry) {
                     final idx = entry.key + 1;
                     final it = entry.value;
-                    final itemTotal = (it['price'] as num) * (it['quantity'] as num);
+                    final itemTotal =
+                        (it['price'] as num) * (it['quantity'] as num);
                     final flavor = it['flavor']?.toString() ?? '';
+                    final pName = _clean(it['productName'] ?? 'Produit');
+
                     return pw.Padding(
                       padding: const pw.EdgeInsets.symmetric(vertical: 2),
                       child: pw.Column(
                         crossAxisAlignment: pw.CrossAxisAlignment.start,
                         children: [
-                          pw.Text('$idx. ${it['productName'] ?? 'منتج غير معروف'}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9)),
+                          pw.Text(
+                            '$idx. $pName',
+                            style: pw.TextStyle(
+                              fontWeight: pw.FontWeight.bold,
+                              fontSize: 9,
+                            ),
+                          ),
                           pw.Row(
-                            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                            mainAxisAlignment:
+                            pw.MainAxisAlignment.spaceBetween,
                             children: [
-                              pw.Text('   الكمية: ${it['quantity']} × ${_money(it['price'] as num)} DA', style: const pw.TextStyle(fontSize: 8)),
-                              pw.Text('${_money(itemTotal)} DA', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9)),
+                              pw.Text(
+                                '   Qte: ${it['quantity']} x ${_money(it['price'] as num)} DA',
+                                style: const pw.TextStyle(fontSize: 8),
+                              ),
+                              pw.Text(
+                                '${_money(itemTotal)} DA',
+                                style: pw.TextStyle(
+                                  fontWeight: pw.FontWeight.bold,
+                                  fontSize: 9,
+                                ),
+                              ),
                             ],
                           ),
                           if (flavor.isNotEmpty)
-                            pw.Text('   النكهة: $flavor', style: const pw.TextStyle(fontSize: 8)),
+                            pw.Text(
+                              '   Arome: ${_clean(flavor)}',
+                              style: const pw.TextStyle(fontSize: 7),
+                            ),
                         ],
                       ),
                     );
                   }).toList(),
 
                   pw.Divider(borderStyle: pw.BorderStyle.dashed),
+
+                  // ── Totals ──
                   pw.Row(
                     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                     children: [
-                      pw.Text('مجموع الفاتورة:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9)),
-                      pw.Text('${_money(total)} DA', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11)),
+                      pw.Text(
+                        'TOTAL A PAYER :',
+                        style: pw.TextStyle(
+                          fontWeight: pw.FontWeight.bold,
+                          fontSize: 10,
+                        ),
+                      ),
+                      pw.Text(
+                        '${_money(total)} DA',
+                        style: pw.TextStyle(
+                          fontWeight: pw.FontWeight.bold,
+                          fontSize: 11,
+                        ),
+                      ),
                     ],
                   ),
-
+                  pw.SizedBox(height: 2),
                   pw.Row(
                     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                     children: [
-                      pw.Text('المبلغ المدفوع:', style: const pw.TextStyle(fontSize: 8)),
-                      pw.Text('${_money(paid)} DA', style: const pw.TextStyle(fontSize: 8)),
+                      pw.Text('Montant Verse :',
+                          style: const pw.TextStyle(fontSize: 8)),
+                      pw.Text('${_money(paid)} DA',
+                          style: const pw.TextStyle(fontSize: 8)),
                     ],
                   ),
-
                   if (remaining > 0)
                     pw.Row(
                       mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                       children: [
-                        pw.Text('متبقي الفاتورة:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9)),
-                        pw.Text('${_money(remaining)} DA', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9)),
+                        pw.Text(
+                          'Reste Facture :',
+                          style: pw.TextStyle(
+                            fontWeight: pw.FontWeight.bold,
+                            fontSize: 9,
+                          ),
+                        ),
+                        pw.Text(
+                          '${_money(remaining)} DA',
+                          style: pw.TextStyle(
+                            fontWeight: pw.FontWeight.bold,
+                            fontSize: 9,
+                          ),
+                        ),
                       ],
                     ),
-
                   if (prevDebt > 0) ...[
                     pw.SizedBox(height: 2),
                     pw.Row(
                       mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                       children: [
-                        pw.Text('الدين السابق:', style: const pw.TextStyle(fontSize: 8)),
-                        pw.Text('${_money(prevDebt)} DA', style: const pw.TextStyle(fontSize: 8)),
+                        pw.Text('Ancien Solde  :',
+                            style: const pw.TextStyle(fontSize: 8)),
+                        pw.Text('${_money(prevDebt)} DA',
+                            style: const pw.TextStyle(fontSize: 8)),
                       ],
                     ),
                     pw.Row(
                       mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                       children: [
-                        pw.Text('إجمالي الدين الجديد:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9)),
-                        pw.Text('${_money(prevDebt + (remaining > 0 ? remaining : 0))} DA', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9)),
+                        pw.Text(
+                          'NOUVEAU SOLDE :',
+                          style: pw.TextStyle(
+                            fontWeight: pw.FontWeight.bold,
+                            fontSize: 9,
+                          ),
+                        ),
+                        pw.Text(
+                          '${_money(prevDebt + (remaining > 0 ? remaining : 0))} DA',
+                          style: pw.TextStyle(
+                            fontWeight: pw.FontWeight.bold,
+                            fontSize: 9,
+                          ),
+                        ),
                       ],
                     ),
                   ],
 
                   pw.Divider(borderStyle: pw.BorderStyle.dashed),
-                  pw.Text('شكراً لتعاملكم معنا و ثقتكم بنا', style: const pw.TextStyle(fontSize: 8)),
-                  pw.Text('الهاتف: 0666629473', style: const pw.TextStyle(fontSize: 8)),
+
+                  // ── Footer ──
+                  pw.Center(
+                    child: pw.Text(
+                      'Merci pour votre confiance !',
+                      style: const pw.TextStyle(fontSize: 8),
+                    ),
+                  ),
+                  pw.Center(
+                    child: pw.Text(
+                      'Tel: 0666629473',
+                      style: const pw.TextStyle(fontSize: 8),
+                    ),
+                  ),
                 ],
               ),
             );
@@ -700,10 +813,11 @@ class PrinterService {
         ),
       );
 
-      // إرسال لـ Windows Spooler مباشرة للطباعة الصامتة أو مع شاشة اختيار الطابعة الافتراضية
+      // إرسال الطباعة إلى طابعة النظام الافتراضية
       await Printing.layoutPdf(
         onLayout: (PdfPageFormat format) async => pdf.save(),
-        name: 'فاتورة_القناعة_${order.id.length > 4 ? order.id.substring(order.id.length - 4) : order.id}',
+        name:
+        'Facture_${order.id.length > 4 ? order.id.substring(order.id.length - 4) : order.id}',
       );
       return true;
     } catch (e) {
@@ -721,18 +835,34 @@ class PrinterService {
         final pdf = pw.Document();
         pdf.addPage(
           pw.Page(
-            pageFormat: const PdfPageFormat(80 * PdfPageFormat.mm, double.infinity, marginAll: 5 * PdfPageFormat.mm),
+            pageFormat: const PdfPageFormat(
+              80 * PdfPageFormat.mm,
+              double.infinity,
+              marginAll: 5 * PdfPageFormat.mm,
+            ),
             build: (pw.Context context) {
               return pw.Directionality(
-                textDirection: pw.TextDirection.rtl,
+                textDirection: pw.TextDirection.ltr,
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.center,
                   children: [
-                    pw.Text('القناعة - طباعة تجريبية', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14)),
+                    pw.Text(
+                      'AL QANAA - TEST D\'IMPRESSION',
+                      style: pw.TextStyle(
+                        fontWeight: pw.FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
                     pw.Divider(borderStyle: pw.BorderStyle.dashed),
-                    pw.Text('طابعة الـ USB تعمل بنجاح على نظامك!', style: const pw.TextStyle(fontSize: 10)),
+                    pw.Text(
+                      'Imprimante USB connectee avec succes !',
+                      style: const pw.TextStyle(fontSize: 9),
+                    ),
                     pw.SizedBox(height: 5),
-                    pw.Text(DateFormat('dd/MM/yyyy - HH:mm').format(DateTime.now()), style: const pw.TextStyle(fontSize: 9)),
+                    pw.Text(
+                      DateFormat('dd/MM/yyyy - HH:mm').format(DateTime.now()),
+                      style: const pw.TextStyle(fontSize: 8),
+                    ),
                     pw.Divider(borderStyle: pw.BorderStyle.dashed),
                   ],
                 ),
@@ -740,7 +870,10 @@ class PrinterService {
             },
           ),
         );
-        await Printing.layoutPdf(onLayout: (format) async => pdf.save(), name: 'اختبار_طابعة_القناعة');
+        await Printing.layoutPdf(
+          onLayout: (format) async => pdf.save(),
+          name: 'Test_Imprimante_AlQanaa',
+        );
         return true;
       } catch (e) {
         debugPrint('❌ Desktop Test error: $e');
@@ -752,7 +885,6 @@ class PrinterService {
       if (!await checkConnection()) return false;
       final profile = await CapabilityProfile.load();
       final g = Generator(PaperSize.mm58, profile);
-
       List<int> b = [];
       b += g.reset();
       b += _t(g, _line1, styles: const PosStyles(align: PosAlign.center));
@@ -784,7 +916,6 @@ class PrinterService {
       b += _t(g, _line1, styles: const PosStyles(align: PosAlign.center));
       b += g.feed(3);
       b += g.cut();
-
       return await _send(b);
     } catch (e) {
       debugPrint('❌ Test error: $e');

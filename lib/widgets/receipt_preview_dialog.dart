@@ -220,7 +220,7 @@ class _ReceiptPreviewDialogState extends State<ReceiptPreviewDialog> {
                               Text('رقم الطلب : #$shortId',
                                   style: const TextStyle(fontSize: 11)),
                               Text(
-                                'الزبون : ${widget.customerName.isEmpty ? "عادي" : widget.customerName}',
+                                'الزبون : ${widget.customerName.isEmpty ? "-" : widget.customerName}',
                                 style: const TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,

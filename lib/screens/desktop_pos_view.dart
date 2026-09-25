@@ -61,7 +61,7 @@ class _DesktopPosViewState extends State<DesktopPosView> {
   }
 
   void _onSearch() {
-    final q = searchController.text.toLowerCase();
+    final q = searchController.text.toLowerCase().trim();
     setState(() {
       filteredProducts = allProducts.where((p) => p.name.toLowerCase().contains(q) || p.id.contains(q)).toList();
     });
@@ -99,7 +99,10 @@ class _DesktopPosViewState extends State<DesktopPosView> {
     String? chosenFlavor;
     if (p.flavors.isNotEmpty) {
       chosenFlavor = await _selectFlavorDialog(p);
-      if (chosenFlavor == null) return;
+      if (chosenFlavor == null) {
+        _searchFocusNode.requestFocus();
+        return;
+      }
     }
 
     final existing = widget.cart.firstWhere(
@@ -113,6 +116,7 @@ class _DesktopPosViewState extends State<DesktopPosView> {
       setState(() => widget.cart.add(CartItem(product: p, quantity: 1, isCarton: isCarton, flavor: chosenFlavor)));
     }
     widget.onCartChanged();
+    _searchFocusNode.requestFocus();
   }
 
   // نافذة إضافة زبون جديد فورياً
@@ -409,8 +413,14 @@ class _DesktopPosViewState extends State<DesktopPosView> {
       focusNode: FocusNode(),
       autofocus: true,
       onKeyEvent: (event) {
-        if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.f10) {
-          _showCheckoutDialog();
+        if (event is KeyDownEvent) {
+          if (event.logicalKey == LogicalKeyboardKey.f1) {
+            _searchFocusNode.requestFocus();
+          } else if (event.logicalKey == LogicalKeyboardKey.f10 || event.logicalKey == LogicalKeyboardKey.f5) {
+            _showCheckoutDialog();
+          } else if (event.logicalKey == LogicalKeyboardKey.escape) {
+            FocusScope.of(context).unfocus();
+          }
         }
       },
       child: Row(
@@ -425,7 +435,7 @@ class _DesktopPosViewState extends State<DesktopPosView> {
                     controller: searchController,
                     focusNode: _searchFocusNode,
                     decoration: InputDecoration(
-                      hintText: 'بحث عن منتج (الاسم أو الباركود)...',
+                      hintText: 'بحث عن منتج (الاسم أو الباركود)... [F1]',
                       prefixIcon: const Icon(Icons.search),
                       filled: true,
                       fillColor: isDark ? Colors.white10 : Colors.white,
@@ -512,20 +522,21 @@ class _DesktopPosViewState extends State<DesktopPosView> {
                 if (showUnit) Text('${formatter.format(p.priceUnitNormal)} DA / حبة', style: TextStyle(color: Colors.blue.shade700, fontSize: 12, fontWeight: FontWeight.w500)),
               ],
             ),
-            const SizedBox(width: 24),
-            Row(
+            const SizedBox(width: 16),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
               children: [
                 if (showCarton)
                   ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2E7D32), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)), padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12)),
+                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2E7D32), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)), padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
                     onPressed: () => _addToCart(p, true),
                     icon: const Icon(Icons.add_shopping_cart, size: 16),
                     label: const Text('أضف كرتون', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                   ),
-                if (showCarton && showUnit) const SizedBox(width: 8),
                 if (showUnit)
                   ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.blue.shade700, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)), padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12)),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.blue.shade700, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)), padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
                     onPressed: () => _addToCart(p, false),
                     icon: const Icon(Icons.add_shopping_cart, size: 16),
                     label: const Text('أضف حبة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
@@ -554,76 +565,20 @@ class _DesktopPosViewState extends State<DesktopPosView> {
                 itemCount: widget.cart.length,
                 itemBuilder: (context, i) {
                   final it = widget.cart[i];
-                  final qtyController = TextEditingController(text: it.quantity.toString());
-                  qtyController.selection = TextSelection.fromPosition(TextPosition(offset: qtyController.text.length));
-
-                  return Card(
-                    margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    elevation: 1,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(child: Text(it.product.name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis)),
-                              Text('${formatter.format(it.totalPrice)} DA', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF2E7D32), fontSize: 13)),
-                            ],
-                          ),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text('${it.typeLabel} ${it.flavor != null ? "(${it.flavor})" : ""}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                              Row(
-                                children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.remove_circle, color: Colors.red, size: 22),
-                                    onPressed: () {
-                                      setState(() {
-                                        if (it.quantity > 1) {
-                                          it.quantity--;
-                                        } else {
-                                          widget.cart.removeAt(i);
-                                        }
-                                      });
-                                      widget.onCartChanged();
-                                    },
-                                  ),
-                                  SizedBox(
-                                    width: 50,
-                                    height: 30,
-                                    child: TextField(
-                                      controller: qtyController,
-                                      keyboardType: TextInputType.number,
-                                      textAlign: TextAlign.center,
-                                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                                      decoration: const InputDecoration(contentPadding: EdgeInsets.zero, border: OutlineInputBorder()),
-                                      onChanged: (value) {
-                                        final newQty = int.tryParse(value) ?? 1;
-                                        if (newQty > 0) {
-                                          it.quantity = newQty;
-                                          widget.onCartChanged();
-                                          Future.delayed(Duration.zero, () { if (mounted) setState(() {}); });
-                                        }
-                                      },
-                                    ),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.add_circle, color: Colors.green, size: 22),
-                                    onPressed: () {
-                                      setState(() => it.quantity++);
-                                      widget.onCartChanged();
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
+                  return _CartItemTileWidget(
+                    key: ValueKey('${it.product.id}_${it.isCarton}_${it.flavor}'),
+                    item: it,
+                    formatter: formatter,
+                    onChanged: () {
+                      setState(() {});
+                      widget.onCartChanged();
+                    },
+                    onRemove: () {
+                      setState(() {
+                        widget.cart.removeAt(i);
+                      });
+                      widget.onCartChanged();
+                    },
                   );
                 },
               ),
@@ -646,6 +601,136 @@ class _DesktopPosViewState extends State<DesktopPosView> {
           ]),
         ),
       ],
+    );
+  }
+}
+
+class _CartItemTileWidget extends StatefulWidget {
+  final CartItem item;
+  final NumberFormat formatter;
+  final VoidCallback onChanged;
+  final VoidCallback onRemove;
+
+  const _CartItemTileWidget({
+    super.key,
+    required this.item,
+    required this.formatter,
+    required this.onChanged,
+    required this.onRemove,
+  });
+
+  @override
+  State<_CartItemTileWidget> createState() => _CartItemTileWidgetState();
+}
+
+class _CartItemTileWidgetState extends State<_CartItemTileWidget> {
+  late TextEditingController _qtyController;
+  final FocusNode _focusNode = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _qtyController = TextEditingController(text: widget.item.quantity.toString());
+    _focusNode.addListener(() {
+      if (!_focusNode.hasFocus) {
+        if (_qtyController.text.trim().isEmpty || (int.tryParse(_qtyController.text) ?? 0) <= 0) {
+          widget.item.quantity = 1;
+          _qtyController.text = '1';
+          widget.onChanged();
+        }
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant _CartItemTileWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.item.quantity != widget.item.quantity) {
+      if (_qtyController.text != widget.item.quantity.toString()) {
+        _qtyController.text = widget.item.quantity.toString();
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _qtyController.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      elevation: 1,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(child: Text(widget.item.product.name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                Text('${widget.formatter.format(widget.item.totalPrice)} DA', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF2E7D32), fontSize: 13)),
+              ],
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('${widget.item.typeLabel} ${widget.item.flavor != null ? "(${widget.item.flavor})" : ""}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.remove_circle, color: Colors.red, size: 22),
+                      onPressed: () {
+                        if (widget.item.quantity > 1) {
+                          widget.item.quantity--;
+                          _qtyController.text = widget.item.quantity.toString();
+                          widget.onChanged();
+                        } else {
+                          widget.onRemove();
+                        }
+                      },
+                    ),
+                    SizedBox(
+                      width: 55,
+                      height: 32,
+                      child: TextField(
+                        controller: _qtyController,
+                        focusNode: _focusNode,
+                        keyboardType: TextInputType.number,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                        decoration: const InputDecoration(contentPadding: EdgeInsets.zero, border: OutlineInputBorder()),
+                        onChanged: (value) {
+                          if (value.trim().isEmpty) {
+                            return; // السماح بمسح الخانة بالكامل أثناء الكتابة
+                          }
+                          final newQty = int.tryParse(value);
+                          if (newQty != null && newQty > 0) {
+                            widget.item.quantity = newQty;
+                            widget.onChanged();
+                          }
+                        },
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.add_circle, color: Colors.green, size: 22),
+                      onPressed: () {
+                        widget.item.quantity++;
+                        _qtyController.text = widget.item.quantity.toString();
+                        widget.onChanged();
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
