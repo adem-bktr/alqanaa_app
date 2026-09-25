@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../models/models.dart';
 import '../services/data_service.dart';
 import '../services/printer_service.dart';
+import '../widgets/receipt_preview_dialog.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 
@@ -114,6 +115,48 @@ class _DesktopPosViewState extends State<DesktopPosView> {
     widget.onCartChanged();
   }
 
+  // نافذة إضافة زبون جديد فورياً
+  Future<CustomerModel?> _showAddCustomerDialog() async {
+    final nameCtrl = TextEditingController();
+    final phoneCtrl = TextEditingController();
+    
+    return await showDialog<CustomerModel>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [Icon(Icons.person_add, color: Color(0xFF2E7D32)), SizedBox(width: 8), Text('إضافة زبون جديد')],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'اسم الزبون الكامل', border: OutlineInputBorder())),
+            const SizedBox(height: 12),
+            TextField(controller: phoneCtrl, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'رقم الهاتف', border: OutlineInputBorder())),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2E7D32)),
+            onPressed: () async {
+              if (nameCtrl.text.isEmpty || phoneCtrl.text.isEmpty) return;
+              final newCustomer = CustomerModel(
+                id: DateTime.now().millisecondsSinceEpoch.toString(),
+                name: nameCtrl.text.trim(),
+                phone: phoneCtrl.text.trim(),
+                balance: 0,
+                createdAt: DateTime.now(),
+              );
+              await DataService.saveCustomer(newCustomer);
+              if (context.mounted) Navigator.pop(context, newCustomer);
+            },
+            child: const Text('حفظ الزبون', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
   // دايالوج تأكيد الحساب مع اختيار الزبون الحقيقي من الدليل (بحث متقدم)
   void _showCheckoutDialog() async {
     if (widget.cart.isEmpty) return;
@@ -155,52 +198,76 @@ class _DesktopPosViewState extends State<DesktopPosView> {
                     const Divider(height: 24),
                     
                     // البحث الذكي عن زبون
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFF2E7D32).withOpacity(0.3)),
-                      ),
-                      child: Column(
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            child: TextField(
-                              controller: customerSearchController,
-                              decoration: const InputDecoration(
-                                hintText: 'ابحث عن زبون (الاسم أو الهاتف)...',
-                                icon: Icon(Icons.person_search, color: Color(0xFF2E7D32)),
-                                border: InputBorder.none,
-                              ),
-                              onChanged: (v) => setSt(() {}),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: const Color(0xFF2E7D32).withOpacity(0.3)),
+                            ),
+                            child: Column(
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                                  child: TextField(
+                                    controller: customerSearchController,
+                                    decoration: const InputDecoration(
+                                      hintText: 'ابحث عن زبون (الاسم أو الهاتف)...',
+                                      icon: Icon(Icons.person_search, color: Color(0xFF2E7D32)),
+                                      border: InputBorder.none,
+                                    ),
+                                    onChanged: (v) => setSt(() {}),
+                                  ),
+                                ),
+                                if (customerSearchController.text.isNotEmpty && selectedCustomer == null)
+                                  Container(
+                                    constraints: const BoxConstraints(maxHeight: 200),
+                                    child: ListView.builder(
+                                      shrinkWrap: true,
+                                      itemCount: filteredCustomers.length,
+                                      itemBuilder: (context, i) {
+                                        final c = filteredCustomers[i];
+                                        return ListTile(
+                                          title: Text(c.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                          subtitle: Text(c.phone),
+                                          trailing: Text('${formatter.format(c.balance)} DA', style: const TextStyle(color: Colors.red, fontSize: 11)),
+                                          onTap: () {
+                                            setSt(() {
+                                              selectedCustomer = c;
+                                              customerNameController.text = c.name;
+                                              customerPhoneController.text = c.phone;
+                                              customerSearchController.text = c.name;
+                                            });
+                                          },
+                                        );
+                                      },
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
-                          if (customerSearchController.text.isNotEmpty && selectedCustomer == null)
-                            Container(
-                              constraints: const BoxConstraints(maxHeight: 200),
-                              child: ListView.builder(
-                                shrinkWrap: true,
-                                itemCount: filteredCustomers.length,
-                                itemBuilder: (context, i) {
-                                  final c = filteredCustomers[i];
-                                  return ListTile(
-                                    title: Text(c.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                                    subtitle: Text(c.phone),
-                                    trailing: Text('${formatter.format(c.balance)} DA', style: const TextStyle(color: Colors.red, fontSize: 11)),
-                                    onTap: () {
-                                      setSt(() {
-                                        selectedCustomer = c;
-                                        customerNameController.text = c.name;
-                                        customerPhoneController.text = c.phone;
-                                        customerSearchController.text = c.name;
-                                      });
-                                    },
-                                  );
-                                },
-                              ),
-                            ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton.filled(
+                          onPressed: () async {
+                            final newC = await _showAddCustomerDialog();
+                            if (newC != null) {
+                              setSt(() {
+                                allCustomers.add(newC); // تحديث القائمة المحلية
+                                selectedCustomer = newC;
+                                customerNameController.text = newC.name;
+                                customerPhoneController.text = newC.phone;
+                                customerSearchController.text = newC.name;
+                              });
+                            }
+                          },
+                          icon: const Icon(Icons.person_add),
+                          style: IconButton.styleFrom(backgroundColor: const Color(0xFF2E7D32)),
+                          tooltip: 'إضافة زبون جديد',
+                        ),
+                      ],
                     ),
                     
                     if (selectedCustomer != null)
@@ -313,7 +380,8 @@ class _DesktopPosViewState extends State<DesktopPosView> {
                     );
                   }
 
-                  await PrinterService.printReceipt(
+                  await ReceiptPreviewDialog.show(
+                    context,
                     order: order,
                     customerName: order.customerName,
                     customerPhone: order.customerPhone,

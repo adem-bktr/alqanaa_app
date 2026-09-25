@@ -41,6 +41,8 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen>
   @override
   void initState() {
     super.initState();
+    // على الحاسوب نبدأ بنظام القائمة List
+    isGridView = MediaQuery.of(context).size.width < 900;
     currentUser = widget.user;
     _shimmerController = AnimationController(
       vsync: this,
@@ -448,6 +450,92 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen>
         ? product.discountedPrice(product.priceCartonSpecial)
         : product.discountedPrice(product.priceCartonNormal);
     final maxReached = _isMaxQtyReached(product);
+
+    // التحقق هل نحن على الحاسوب لتغيير شكل السطر بالكامل
+    final isDesktop = MediaQuery.of(context).size.width >= 900;
+
+    if (isDesktop) {
+      return TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0.0, end: 1.0),
+        duration: Duration(milliseconds: 200 + (index * 40)),
+        builder: (_, value, child) => Opacity(opacity: value, child: child),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10)],
+          ),
+          child: InkWell(
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ProductDetailScreen(
+                  product: product,
+                  cart: widget.cart,
+                  isSpecialPrice: isSpecialPrice,
+                  currentUser: currentUser,
+                ),
+              ),
+            ).then((_) => setState(() {})),
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: SizedBox(
+                      width: 70, height: 70,
+                      child: product.imagePath.isNotEmpty
+                          ? Image.network(product.imagePath, fit: BoxFit.cover)
+                          : Container(color: Colors.grey.shade100, child: const Icon(Icons.inventory_2, color: Colors.grey)),
+                    ),
+                  ),
+                  const SizedBox(width: 20),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(product.name, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: textColor)),
+                        const SizedBox(height: 4),
+                        if (product.flavors.isNotEmpty)
+                          Text('الأذواق: ${product.flavors.map((f) => f.name).join(" - ")}',
+                              style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                      ],
+                    ),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      if (product.canSellCarton)
+                        Text('${price.toStringAsFixed(0)} DA',
+                            style: const TextStyle(color: Color(0xFF2E7D32), fontWeight: FontWeight.bold, fontSize: 15)),
+                      if (product.canSellUnit)
+                        Text('${product.priceUnitNormal.toStringAsFixed(0)} DA / حبة',
+                            style: TextStyle(color: Colors.blue.shade700, fontSize: 13)),
+                    ],
+                  ),
+                  const SizedBox(width: 30),
+                  ElevatedButton.icon(
+                    onPressed: product.isAvailable && !maxReached ? () => _addToCart(product) : null,
+                    icon: const Icon(Icons.add_shopping_cart, size: 18),
+                    label: const Text('أضف للسلة', style: TextStyle(fontWeight: FontWeight.bold)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2E7D32),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
 
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.0, end: 1.0),

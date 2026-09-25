@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import 'package:intl/intl.dart';
@@ -461,32 +462,39 @@ class PrinterService {
 
   // ── Debt info ──
   static List<int> _buildDebtInfo(
-      Generator g, double orderTotal, double? amountPaid, double? newBalance, Order order) {
+      Generator g, double orderTotal, double? amountPaid, double? newBalance, Order order, double? customerDebtBalance) {
     List<int> b = [];
 
-    // Priority given to the values saved on the order
-    final paid = order.paidAmount;
+    final paid = amountPaid ?? order.paidAmount;
     final remaining = orderTotal - paid;
+    final prevDebt = customerDebtBalance ?? 0;
 
     b += _t(g, _line2, styles: const PosStyles(align: PosAlign.center));
 
-    // 1. Grand total
     b += _t(g, 'Total Facture : ${_money(orderTotal)} DA',
         styles: const PosStyles(bold: true, height: PosTextSize.size2));
 
-    // 2. Amount paid
     b += _t(g, 'Montant Verse : ${_money(paid)} DA', styles: _bigger);
 
-    // 3. Remaining (debt resulting from this invoice)
     if (remaining > 0) {
       b += _t(
         g,
-        'Reste a Payer : ${_money(remaining)} DA',
-        styles: const PosStyles(
-            bold: true, underline: true, height: PosTextSize.size2),
+        'Reste Facture : ${_money(remaining)} DA',
+        styles: const PosStyles(bold: true, height: PosTextSize.size2),
       );
     } else {
       b += _t(g, 'Facture Payee (Solder)', styles: _bigger);
+    }
+
+    if (prevDebt > 0) {
+      b += _t(g, 'Ancien Solde  : ${_money(prevDebt)} DA', styles: _bigger);
+      final totalDebt = prevDebt + (remaining > 0 ? remaining : 0);
+      b += _t(
+        g,
+        'NOUVEAU SOLDE : ${_money(totalDebt)} DA',
+        styles: const PosStyles(
+            bold: true, underline: true, height: PosTextSize.size2),
+      );
     }
 
     return b;
@@ -561,7 +569,7 @@ class PrinterService {
       bytes += _buildTableHeader(g);
       bytes += _buildItems(g, order.items);
       bytes += _buildTotal(g, orderTotal);
-      bytes += _buildDebtInfo(g, orderTotal, amountPaid, customerDebtBalance, order);
+      bytes += _buildDebtInfo(g, orderTotal, amountPaid, null, order, customerDebtBalance);
       bytes += _buildFooter(g);
 
       debugPrint('📦 Receipt size: ${bytes.length} bytes');
@@ -580,7 +588,16 @@ class PrinterService {
       final pdf = pw.Document();
       final dateStr = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
       final total = _calcTotal(order);
-      
+      final paid = amountPaid ?? order.paidAmount;
+      final remaining = total - paid;
+      final prevDebt = customerDebtBalance ?? 0;
+
+      pw.MemoryImage? logoImage;
+      try {
+        final logoData = await rootBundle.load('assets/logo.png');
+        logoImage = pw.MemoryImage(logoData.buffer.asUint8List());
+      } catch (_) {}
+
       pdf.addPage(
         pw.Page(
           pageFormat: const PdfPageFormat(80 * PdfPageFormat.mm, double.infinity, marginAll: 4 * PdfPageFormat.mm),
@@ -590,70 +607,91 @@ class PrinterService {
               child: pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.center,
                 children: [
-                  pw.Text('القناعة - AL QANAA', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 15)),
-                  pw.Text('لبيع المواد الغذائية بالجملة', style: const pw.TextStyle(fontSize: 10)),
+                  if (logoImage != null) ...[
+                    pw.Center(child: pw.Image(logoImage, width: 60, height: 60)),
+                    pw.SizedBox(height: 4),
+                  ],
+                  pw.Text('القناعة - AL QANAA', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14)),
+                  pw.Text('لبيع المواد الغذائية بالجملة', style: const pw.TextStyle(fontSize: 9)),
                   pw.Divider(borderStyle: pw.BorderStyle.dashed),
-                  pw.Align(alignment: pw.Alignment.centerRight, child: pw.Text('التاريخ: $dateStr', style: const pw.TextStyle(fontSize: 9))),
-                  pw.Align(alignment: pw.Alignment.centerRight, child: pw.Text('الزبون: ${name.isEmpty ? "عادي" : name}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
-                  if (phone.isNotEmpty) pw.Align(alignment: pw.Alignment.centerRight, child: pw.Text('الهاتف: $phone', style: const pw.TextStyle(fontSize: 9))),
-                  pw.Align(alignment: pw.Alignment.centerRight, child: pw.Text('رقم الطلب: #${order.id.length > 6 ? order.id.substring(order.id.length - 6) : order.id}', style: const pw.TextStyle(fontSize: 9))),
+                  pw.Align(alignment: pw.Alignment.centerRight, child: pw.Text('التاريخ: $dateStr', style: const pw.TextStyle(fontSize: 8))),
+                  pw.Align(alignment: pw.Alignment.centerRight, child: pw.Text('رقم الطلب: #${order.id.length > 6 ? order.id.substring(order.id.length - 6) : order.id}', style: const pw.TextStyle(fontSize: 8))),
+                  pw.Align(alignment: pw.Alignment.centerRight, child: pw.Text('الزبون: ${name.isEmpty ? "عادي" : name}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9))),
+                  if (phone.isNotEmpty) pw.Align(alignment: pw.Alignment.centerRight, child: pw.Text('الهاتف: $phone', style: const pw.TextStyle(fontSize: 8))),
                   pw.Divider(borderStyle: pw.BorderStyle.dashed),
-                  
-                  // جدول المنتجات
-                  pw.Row(
-                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                    children: [
-                      pw.Expanded(flex: 3, child: pw.Text('المنتج', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9))),
-                      pw.Expanded(flex: 1, child: pw.Text('الكمية', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9), textAlign: pw.TextAlign.center)),
-                      pw.Expanded(flex: 2, child: pw.Text('السعر', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9), textAlign: pw.TextAlign.left)),
-                    ],
-                  ),
-                  pw.Divider(borderStyle: pw.BorderStyle.dashed),
-                  
-                  ...order.items.map((it) {
+
+                  // جدول المنتجات (سطرين لكل منتج)
+                  ...order.items.asMap().entries.map((entry) {
+                    final idx = entry.key + 1;
+                    final it = entry.value;
                     final itemTotal = (it['price'] as num) * (it['quantity'] as num);
+                    final flavor = it['flavor']?.toString() ?? '';
                     return pw.Padding(
                       padding: const pw.EdgeInsets.symmetric(vertical: 2),
-                      child: pw.Row(
-                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                      child: pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
                         children: [
-                          pw.Expanded(flex: 3, child: pw.Text(it['productName'] ?? 'منتج غير معروف', style: const pw.TextStyle(fontSize: 9))),
-                          pw.Expanded(flex: 1, child: pw.Text('${it['quantity']} ${it['isCarton'] == true ? "كرتون" : "حبة"}', style: const pw.TextStyle(fontSize: 8), textAlign: pw.TextAlign.center)),
-                          pw.Expanded(flex: 2, child: pw.Text('${_money(itemTotal)} DA', style: const pw.TextStyle(fontSize: 9), textAlign: pw.TextAlign.left)),
+                          pw.Text('$idx. ${it['productName'] ?? 'منتج غير معروف'}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9)),
+                          pw.Row(
+                            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                            children: [
+                              pw.Text('   الكمية: ${it['quantity']} × ${_money(it['price'] as num)} DA', style: const pw.TextStyle(fontSize: 8)),
+                              pw.Text('${_money(itemTotal)} DA', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9)),
+                            ],
+                          ),
+                          if (flavor.isNotEmpty)
+                            pw.Text('   النكهة: $flavor', style: const pw.TextStyle(fontSize: 8)),
                         ],
                       ),
                     );
                   }).toList(),
-                  
+
                   pw.Divider(borderStyle: pw.BorderStyle.dashed),
                   pw.Row(
                     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                     children: [
-                      pw.Text('المجموع الإجمالي:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10)),
-                      pw.Text('${_money(total)} DA', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 12)),
+                      pw.Text('مجموع الفاتورة:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9)),
+                      pw.Text('${_money(total)} DA', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11)),
                     ],
                   ),
-                  
-                  if (amountPaid != null && amountPaid > 0) ...[
+
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Text('المبلغ المدفوع:', style: const pw.TextStyle(fontSize: 8)),
+                      pw.Text('${_money(paid)} DA', style: const pw.TextStyle(fontSize: 8)),
+                    ],
+                  ),
+
+                  if (remaining > 0)
+                    pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                      children: [
+                        pw.Text('متبقي الفاتورة:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9)),
+                        pw.Text('${_money(remaining)} DA', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9)),
+                      ],
+                    ),
+
+                  if (prevDebt > 0) ...[
                     pw.SizedBox(height: 2),
                     pw.Row(
                       mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                       children: [
-                        pw.Text('المبلغ المدفوع:', style: const pw.TextStyle(fontSize: 9)),
-                        pw.Text('${_money(amountPaid)} DA', style: const pw.TextStyle(fontSize: 9)),
+                        pw.Text('الدين السابق:', style: const pw.TextStyle(fontSize: 8)),
+                        pw.Text('${_money(prevDebt)} DA', style: const pw.TextStyle(fontSize: 8)),
                       ],
                     ),
                     pw.Row(
                       mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                       children: [
-                        pw.Text('المتبقي:', style: const pw.TextStyle(fontSize: 9)),
-                        pw.Text('${_money(total - amountPaid)} DA', style: const pw.TextStyle(fontSize: 9)),
+                        pw.Text('إجمالي الدين الجديد:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9)),
+                        pw.Text('${_money(prevDebt + (remaining > 0 ? remaining : 0))} DA', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9)),
                       ],
                     ),
                   ],
-                  
+
                   pw.Divider(borderStyle: pw.BorderStyle.dashed),
-                  pw.Text('شكراً لتعاملكم معنا و ثقتكم بنا', style: const pw.TextStyle(fontSize: 9)),
+                  pw.Text('شكراً لتعاملكم معنا و ثقتكم بنا', style: const pw.TextStyle(fontSize: 8)),
                   pw.Text('الهاتف: 0666629473', style: const pw.TextStyle(fontSize: 8)),
                 ],
               ),

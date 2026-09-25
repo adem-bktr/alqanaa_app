@@ -6,6 +6,7 @@ import '../models/models.dart';
 import '../services/data_service.dart';
 import '../services/auth_service.dart';
 import '../services/printer_service.dart';
+import '../widgets/receipt_preview_dialog.dart';
 import '../utils/page_transitions.dart';
 import 'products_screen.dart';
 import 'cart_screen.dart';
@@ -180,18 +181,14 @@ class _MainScreenState extends State<MainScreen>
   }
 
   Future<void> _printOrder(Order order) async {
-    if (!PrinterService.isConnected) {
-      final connected = await Navigator.push<bool>(context, SlidePageRoute(page: const PrinterScreen()));
-      if (connected != true || !mounted) return;
-    }
-    final success = await PrinterService.printReceipt(order: order, customerName: order.customerName, customerPhone: order.customerPhone);
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(success ? '✅ تم الطباعة بنجاح' : '❌ فشلت الطباعة'),
-      backgroundColor: success ? const Color(0xFF2E7D32) : Colors.red,
-      behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-    ));
+    await ReceiptPreviewDialog.show(
+      context,
+      order: order,
+      customerName: order.customerName,
+      customerPhone: order.customerPhone,
+      amountPaid: order.paidAmount,
+      customerDebtBalance: order.remainingBalance,
+    );
   }
 
   // ══════════════════════════════════
@@ -263,7 +260,6 @@ class _MainScreenState extends State<MainScreen>
           child: TextField(controller: _storeSearchCtrl, onChanged: (_) => _applyStoreFilter(), decoration: InputDecoration(hintText: 'بحث سريع عن منتج...', prefixIcon: const Icon(Icons.search), filled: true, fillColor: isDark ? const Color(0xFF2A2A3E) : Colors.white, border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none)))),
       Container(height: 100, color: isDark ? const Color(0xFF161625) : Colors.white,
           child: ListView.builder(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 10), itemCount: brands.length + 1, itemBuilder: (context, i) {
-            // ✅ العنصر الأول = "الكل"
             final isAll = i == 0;
             final Brand? b = isAll ? null : brands[i - 1];
             final isSel = isAll ? _selectedBrandId.isEmpty : _selectedBrandId == b!.id;
@@ -274,12 +270,85 @@ class _MainScreenState extends State<MainScreen>
                       const SizedBox(height: 4), Text(isAll ? 'الكل' : b!.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, fontWeight: isSel ? FontWeight.bold : FontWeight.normal, color: isSel ? const Color(0xFF2E7D32) : textColor))
                     ])));
           })),
-      Expanded(child: crossAxisCount > 1
-          ? GridView.builder(padding: const EdgeInsets.all(12), gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: crossAxisCount, crossAxisSpacing: 10, mainAxisSpacing: 12, childAspectRatio: 0.70), itemCount: _storeFilteredProducts.length, itemBuilder: (context, i) => _buildAdvancedProductCard(_storeFilteredProducts[i], isDark, cardColor, textColor))
-          : ListView.builder(padding: const EdgeInsets.all(10), itemCount: _storeFilteredProducts.length, itemBuilder: (context, i) => _buildFastProductCard(_storeFilteredProducts[i], isDark, cardColor, textColor))),
+      Expanded(child: isDesktop 
+          ? ListView.builder(padding: const EdgeInsets.all(12), itemCount: _storeFilteredProducts.length, itemBuilder: (context, i) => _buildDesktopProductRow(_storeFilteredProducts[i], isDark, cardColor, textColor))
+          : (crossAxisCount > 1
+              ? GridView.builder(padding: const EdgeInsets.all(12), gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: crossAxisCount, crossAxisSpacing: 10, mainAxisSpacing: 12, childAspectRatio: 0.70), itemCount: _storeFilteredProducts.length, itemBuilder: (context, i) => _buildAdvancedProductCard(_storeFilteredProducts[i], isDark, cardColor, textColor))
+              : ListView.builder(padding: const EdgeInsets.all(10), itemCount: _storeFilteredProducts.length, itemBuilder: (context, i) => _buildFastProductCard(_storeFilteredProducts[i], isDark, cardColor, textColor)))),
       _buildFloatingCartBar(),
     ]);
   }
+
+  // ✅ سطر منتج عريض مخصص للحاسوب في "المتجر السريع"
+  Widget _buildDesktopProductRow(Product p, bool isDark, Color cardColor, Color textColor) {
+    final bool isCarton = _isCartonMode(p);
+    final price = _cardPrice(p, isCarton);
+    final sellable = p.isAvailable && (!p.hasFlavors || p.availableFlavors.isNotEmpty);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10)],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: SizedBox(
+                width: 60, height: 60,
+                child: p.imagePath.isNotEmpty
+                  ? CachedNetworkImage(imageUrl: p.imagePath, fit: BoxFit.cover)
+                  : Container(color: Colors.grey.shade100, child: const Icon(Icons.image, color: Colors.grey)),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(p.name, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: textColor)),
+                  const SizedBox(height: 4),
+                  if (p.hasFlavors)
+                    Text('الأذواق: ${p.flavors.map((f) => f.name).join(" - ")}', 
+                         style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                ],
+              ),
+            ),
+            // تبديل النوع (كرتون/حبة)
+            Row(
+              children: [
+                if (p.canSellCarton)
+                  GestureDetector(
+                    onTap: () => setState(() => _itemIsCartonMap[p.id] = true),
+                    child: _unitBadge('كرتون', isCarton, isDark),
+                  ),
+                const SizedBox(width: 4),
+                if (p.canSellUnit)
+                  GestureDetector(
+                    onTap: () => setState(() => _itemIsCartonMap[p.id] = false),
+                    child: _unitBadge('حبة', !isCarton, isDark),
+                  ),
+              ],
+            ),
+            const SizedBox(width: 20),
+            Text('${price.toStringAsFixed(0)} DA', 
+                 style: const TextStyle(color: Color(0xFF2E7D32), fontWeight: FontWeight.bold, fontSize: 16)),
+            const SizedBox(width: 20),
+            if (sellable)
+              _buildQtySelector(p, isCarton: isCarton)
+            else
+              const Text('غير متوفر', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 12)),
+          ],
+        ),
+      ),
+    );
+  }
+
 
   Widget _buildAdvancedProductCard(Product p, bool isDark, Color cardColor, Color textColor) {
     final bool isCarton = _isCartonMode(p); // ✅ يحترم نوع البيع
@@ -307,7 +376,6 @@ class _MainScreenState extends State<MainScreen>
                                     ? CachedNetworkImage(imageUrl: p.imagePath, fit: BoxFit.cover, errorWidget: (_,__,___) => const Icon(Icons.image, size: 50))
                                     : Container(color: Colors.grey.shade100, child: const Icon(Icons.image, size: 50))
                             ),
-                            Positioned(bottom: 10, right: 10, child: _buildStockPill(p)),
                           ]
                       )
                   ),
@@ -823,115 +891,225 @@ class _MainScreenState extends State<MainScreen>
   }
 
   Widget _buildAdminDrawer(bool isDark) {
-    final name = _adminUser?.name ?? 'مدير النظام';
-    final email = _adminUser?.email ?? 'admin@alqanaa.com';
+    final cardColor = isDark ? const Color(0xFF1E1E2E) : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final name = _adminUser?.name.isNotEmpty == true ? _adminUser!.name : 'مدير النظام';
+    final email = _adminUser?.email.isNotEmpty == true ? _adminUser!.email : 'admin@alqanaa.com';
+
     return Drawer(
-      backgroundColor: isDark ? const Color(0xFF1E1E2E) : Colors.white,
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.only(top: 50, bottom: 20, left: 16, right: 16),
-            width: double.infinity,
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFF1B5E20), Color(0xFF2E7D32)],
-                begin: Alignment.topRight,
-                end: Alignment.bottomLeft,
+      backgroundColor: cardColor,
+      child: SafeArea(
+        top: false,
+        child: Column(
+          children: [
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.fromLTRB(20, MediaQuery.of(context).padding.top + 20, 20, 24),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFF1B5E20), Color(0xFF2E7D32), Color(0xFF43A047)],
+                  begin: Alignment.topLeft, end: Alignment.bottomRight,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 70, height: 70,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2), shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white.withOpacity(0.5), width: 2),
+                    ),
+                    child: Center(
+                      child: Text(
+                        name.isNotEmpty ? name[0].toUpperCase() : 'A',
+                        style: const TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(name,
+                      style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Text(email,
+                      style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 13)),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.amber.withOpacity(0.6)),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.admin_panel_settings_rounded, color: Colors.amber, size: 14),
+                        SizedBox(width: 4),
+                        Text('إدارة النظام', style: TextStyle(color: Colors.amber, fontSize: 12, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                CircleAvatar(
-                  radius: 36,
-                  backgroundColor: Colors.white.withOpacity(0.25),
-                  child: Text(
-                    name.isNotEmpty ? name[0].toUpperCase() : 'A',
-                    style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                children: [
+                  _adminDrawerItem(
+                    icon: Icons.dashboard_rounded, label: 'الرئيسية', isDark: isDark, textColor: textColor,
+                    isSelected: _currentNavIndex == 0,
+                    onTap: () { Navigator.pop(context); setState(() => _currentNavIndex = 0); },
+                  ),
+                  _adminDrawerItem(
+                    icon: Icons.storefront_rounded, label: 'المتجر والأصناف', isDark: isDark, textColor: textColor,
+                    isSelected: _currentNavIndex == 1,
+                    onTap: () { Navigator.pop(context); setState(() => _currentNavIndex = 1); },
+                  ),
+                  _adminDrawerItem(
+                    icon: Icons.admin_panel_settings_rounded, label: 'لوحة التحكم والمبيعات', isDark: isDark, textColor: textColor,
+                    isSelected: _currentNavIndex == 2,
+                    onTap: () { Navigator.pop(context); setState(() => _currentNavIndex = 2); },
+                  ),
+                  if (isDesktop)
+                    _adminDrawerItem(
+                      icon: Icons.point_of_sale_rounded, label: 'نقطة بيع الكاشير (POS)', isDark: isDark, textColor: textColor,
+                      isSelected: _currentNavIndex == 3,
+                      onTap: () { Navigator.pop(context); setState(() => _currentNavIndex = 3); },
+                    ),
+                  Divider(color: isDark ? Colors.grey.shade800 : Colors.grey.shade200, height: 24),
+                  _adminDrawerItem(
+                    icon: Icons.print_rounded, label: 'إعدادات الطابعة والاتصال', isDark: isDark, textColor: textColor,
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const PrinterScreen())).then((_) => setState(() {}));
+                    },
+                  ),
+                  _adminDrawerItem(
+                    icon: Icons.visibility_rounded, label: 'معاينة كزبون عادي', isDark: isDark, textColor: textColor,
+                    onTap: () {
+                      Navigator.pop(context);
+                      _previewAsUser();
+                    },
+                  ),
+                  Divider(color: isDark ? Colors.grey.shade800 : Colors.grey.shade200, height: 24),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    child: MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: widget.onToggleDarkMode,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(borderRadius: BorderRadius.circular(12)),
+                          child: Row(children: [
+                            Container(
+                              width: 42, height: 42,
+                              decoration: BoxDecoration(
+                                color: isDark ? Colors.amber.withOpacity(0.15) : Colors.indigo.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(
+                                isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                                color: isDark ? Colors.amber : Colors.indigo, size: 22,
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Text(isDark ? 'الوضع النهاري' : 'الوضع الليلي',
+                                style: TextStyle(fontSize: 15, color: textColor, fontWeight: FontWeight.w500)),
+                          ]),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Divider(color: isDark ? Colors.grey.shade800 : Colors.grey.shade200, height: 1),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () { Navigator.pop(context); _logout(); },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.red.withOpacity(0.2)),
+                    ),
+                    child: Row(children: [
+                      Container(
+                        width: 42, height: 42,
+                        decoration: BoxDecoration(
+                          color: Colors.red.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.logout_rounded, color: Colors.red, size: 22),
+                      ),
+                      const SizedBox(width: 14),
+                      const Text('تسجيل الخروج',
+                          style: TextStyle(fontSize: 15, color: Colors.red, fontWeight: FontWeight.bold)),
+                    ]),
                   ),
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  name,
-                  style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _adminDrawerItem({
+    required IconData icon, required String label, required bool isDark,
+    required Color textColor, required VoidCallback onTap, bool isSelected = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: isSelected ? const Color(0xFF2E7D32).withOpacity(0.12) : Colors.transparent,
+              borderRadius: BorderRadius.circular(12),
+              border: isSelected ? Border.all(color: const Color(0xFF2E7D32).withOpacity(0.3)) : null,
+            ),
+            child: Row(children: [
+              Container(
+                width: 42, height: 42,
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? const Color(0xFF2E7D32).withOpacity(0.15)
+                      : isDark ? Colors.white.withOpacity(0.05) : Colors.grey.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                Text(
-                  email,
-                  style: const TextStyle(color: Colors.white70, fontSize: 12),
-                ),
+                child: Icon(icon,
+                    color: isSelected ? const Color(0xFF2E7D32) : textColor.withOpacity(0.7), size: 22),
+              ),
+              const SizedBox(width: 14),
+              Text(label, style: TextStyle(
+                fontSize: 15,
+                color: isSelected ? const Color(0xFF2E7D32) : textColor,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+              )),
+              if (isSelected) ...[
+                const Spacer(),
+                Container(width: 6, height: 6,
+                    decoration: const BoxDecoration(color: Color(0xFF2E7D32), shape: BoxShape.circle)),
               ],
-            ),
+            ]),
           ),
-          Expanded(
-            child: ListView(
-              padding: EdgeInsets.zero,
-              children: [
-                const SizedBox(height: 8),
-                ListTile(
-                  leading: const Icon(Icons.dashboard_outlined, color: Color(0xFF2E7D32)),
-                  title: const Text('لوحة التحكم الرئيسية', style: TextStyle(fontWeight: FontWeight.w600)),
-                  onTap: () {
-                    Navigator.pop(context);
-                    setState(() => _currentNavIndex = 0);
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.storefront_outlined, color: Color(0xFF2E7D32)),
-                  title: const Text('المتجر والأصناف', style: TextStyle(fontWeight: FontWeight.w600)),
-                  onTap: () {
-                    Navigator.pop(context);
-                    setState(() => _currentNavIndex = 1);
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.admin_panel_settings_outlined, color: Color(0xFF2E7D32)),
-                  title: const Text('لوحة التحكم المحمية', style: TextStyle(fontWeight: FontWeight.w600)),
-                  onTap: () {
-                    Navigator.pop(context);
-                    setState(() => _currentNavIndex = 2);
-                  },
-                ),
-                const Divider(),
-                ListTile(
-                  leading: const Icon(Icons.print_outlined, color: Colors.blueGrey),
-                  title: const Text('إعدادات الطابعة والاتصال', style: TextStyle(fontWeight: FontWeight.w600)),
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const PrinterScreen())).then((_) => setState(() {}));
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.visibility_outlined, color: Colors.purple),
-                  title: const Text('معاينة كزبون عادي', style: TextStyle(fontWeight: FontWeight.w600)),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _previewAsUser();
-                  },
-                ),
-                ListTile(
-                  leading: Icon(isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined, color: Colors.orange),
-                  title: Text(isDark ? 'تفعيل الوضع النهاري' : 'تفعيل الوضع الليلي', style: const TextStyle(fontWeight: FontWeight.w600)),
-                  onTap: () {
-                    Navigator.pop(context);
-                    widget.onToggleDarkMode();
-                  },
-                ),
-                const Divider(),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: ListTile(
-              leading: const Icon(Icons.logout_rounded, color: Colors.red),
-              title: const Text('تسجيل خروج آمن', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-              onTap: () {
-                Navigator.pop(context);
-                _logout();
-              },
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

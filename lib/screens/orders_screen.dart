@@ -1,17 +1,12 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:pdf/pdf.dart';
-import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
 
 import '../models/models.dart';
 import '../services/data_service.dart';
-import '../services/notification_service.dart';
 import '../services/printer_service.dart';
 import '../utils/converters.dart';
+import '../widgets/receipt_preview_dialog.dart';
 import 'edit_order_screen.dart';
 
 class OrdersScreen extends StatefulWidget {
@@ -28,10 +23,6 @@ class _OrdersScreenState extends State<OrdersScreen> {
   late String selectedFilter;
 
   bool _isDisposed = false;
-  bool _isActive = true;
-
-  double _d(dynamic v) => toDouble(v);
-  int _i(dynamic v) => toInt(v);
 
   bool get isDesktop => MediaQuery.of(context).size.width >= 900;
 
@@ -44,14 +35,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
   @override
   void dispose() {
     _isDisposed = true;
-    _isActive = false;
     searchController.dispose();
     super.dispose();
-  }
-
-  void _safeSetState(VoidCallback fn) {
-    if (!mounted || _isDisposed) return;
-    setState(fn);
   }
 
   List<Order> _filterOrders(List<Order> orders) {
@@ -261,18 +246,14 @@ class _OrdersScreenState extends State<OrdersScreen> {
   }
 
   Future<void> _printOrder(Order order) async {
-    final ok = await PrinterService.printReceipt(
+    await ReceiptPreviewDialog.show(
+      context,
       order: order,
       customerName: order.customerName,
       customerPhone: order.customerPhone,
       amountPaid: order.paidAmount,
       customerDebtBalance: order.remainingBalance,
     );
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(ok ? '✅ جاري الطباعة' : '❌ فشلت الطباعة'), backgroundColor: ok ? Colors.green : Colors.red),
-      );
-    }
   }
 
   Future<void> _showEditOrderItemsDialog(Order order) async {

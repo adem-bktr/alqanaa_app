@@ -10,6 +10,7 @@ import '../services/notification_service.dart';
 import '../services/location_service.dart';
 import '../services/cart_service.dart';
 import '../services/printer_service.dart';
+import '../widgets/receipt_preview_dialog.dart';
 import 'package:intl/intl.dart';
 
 class CartScreen extends StatefulWidget {
@@ -771,7 +772,8 @@ class _CartScreenState extends State<CartScreen> {
       // ✅ إذا اختار الأدمن "طباعة وتأكيد": نطبع أولاً، وإذا فشلت الطباعة
       // نوقف العملية بالكامل ولا نحفظ أي شيء — الطباعة الناجحة هي التأكيد.
       if (printThermal) {
-        final printed = await PrinterService.printReceipt(
+        final printed = await ReceiptPreviewDialog.show(
+          context,
           order: order,
           customerName: nameController.text.trim(),
           customerPhone: phoneController.text.trim(),
@@ -779,12 +781,12 @@ class _CartScreenState extends State<CartScreen> {
           customerDebtBalance: customerBalance,
         );
 
-        if (!printed) {
+        if (printed != true) {
           if (!mounted) return;
           setState(() => isLoading = false);
           _showSnackBar(
-              '❌ فشلت الطباعة — لم تُحفظ الطلبية، حاول مجددًا',
-              Colors.red);
+              '⚠️ تم إلغاء الطباعة والطلب',
+              Colors.orange);
           return;
         }
       }

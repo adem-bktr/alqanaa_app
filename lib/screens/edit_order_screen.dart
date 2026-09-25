@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/models.dart';
 import '../services/data_service.dart';
 import '../services/printer_service.dart';
+import '../widgets/receipt_preview_dialog.dart';
 import 'package:intl/intl.dart';
 
 class EditOrderScreen extends StatefulWidget {
@@ -118,16 +119,15 @@ class _EditOrderScreenState extends State<EditOrderScreen> {
       // 1. تحديث في Firestore
       await DataService.updateFullOrder(updatedOrder);
 
-      // 2. طباعة الوصل المحدث
-      if (PrinterService.isConnected) {
-        await PrinterService.printReceipt(
-          order: updatedOrder,
-          customerName: updatedOrder.customerName,
-          customerPhone: updatedOrder.customerPhone,
-          amountPaid: paid,
-          customerDebtBalance: updatedOrder.remainingBalance,
-        );
-      }
+      // 2. معاينة وطباعة الوصل المحدث
+      await ReceiptPreviewDialog.show(
+        context,
+        order: updatedOrder,
+        customerName: updatedOrder.customerName,
+        customerPhone: updatedOrder.customerPhone,
+        amountPaid: paid,
+        customerDebtBalance: updatedOrder.remainingBalance,
+      );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('✅ تم التعديل والحفظ بنجاح')));

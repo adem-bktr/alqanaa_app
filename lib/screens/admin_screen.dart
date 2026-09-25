@@ -9,6 +9,7 @@ import '../services/auth_service.dart';
 import '../services/data_service.dart';
 import '../services/printer_service.dart';
 import '../utils/converters.dart';
+import '../widgets/receipt_preview_dialog.dart';
 import 'stats_screen.dart';
 
 part 'admin_manage_tab.dart';
@@ -575,39 +576,14 @@ class _AdminScreenState extends State<AdminScreen>
           ElevatedButton.icon(
             onPressed: () async {
               Navigator.pop(context);
-              showDialog(
-                context: context,
-                barrierDismissible: false,
-                builder: (context) => const Center(
-                  child: Card(
-                    child: Padding(
-                      padding: EdgeInsets.all(20),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          CircularProgressIndicator(
-                              color: Color(0xFF2E7D32)),
-                          SizedBox(height: 16),
-                          Text('جاري الطباعة...'),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              );
-              final success = await PrinterService.printReceipt(
+              await ReceiptPreviewDialog.show(
+                context,
                 order: order,
                 customerName: order.customerName,
                 customerPhone: order.customerPhone,
+                amountPaid: order.paidAmount,
+                customerDebtBalance: order.remainingBalance,
               );
-              if (!mounted) return;
-              Navigator.pop(context);
-              if (success) {
-                _showSnackBar(
-                    '✅ تمت الطباعة بنجاح', const Color(0xFF2E7D32));
-              } else {
-                _showSnackBar('❌ فشلت الطباعة', Colors.red);
-              }
             },
             icon: const Icon(Icons.print, color: Colors.white),
             label:

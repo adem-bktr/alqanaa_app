@@ -929,33 +929,104 @@ class _UserMainScreenState extends State<UserMainScreen>
           ? _buildShimmerLoading(isDark)
           : filtered.isEmpty
           ? _buildEmptyProducts(isDark)
-          : GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: crossAxisCount,
-            crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 0.75),
-        itemCount: filtered.length,
-        itemBuilder: (context, index) {
-          final product = filtered[index];
-          return _ProductMiniCard(
-            product: product, index: index, isDark: isDark,
-            cardBg: cardBg, textColor: textColor,
-            onTap: () => Navigator.push(context,
-              SlidePageRoute(page: ProductDetailScreen(
-                product: product, cart: cart,
-                isSpecialPrice: widget.user.isSpecial, currentUser: widget.user,
-              )),
-            ).then((_) async {
-              setState(() {});
-              if (!widget.isPreviewMode) await CartService.saveCart(cart);
-            }),
-          );
-        },
-      ),
+          : isDesktop
+            ? ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: filtered.length,
+                itemBuilder: (context, index) => _buildDesktopProductRow(filtered[index], isDark, textColor),
+              )
+            : GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: crossAxisCount,
+                    crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 0.75),
+                itemCount: filtered.length,
+                itemBuilder: (context, index) {
+                  final product = filtered[index];
+                  return _ProductMiniCard(
+                    product: product, index: index, isDark: isDark,
+                    cardBg: cardBg, textColor: textColor,
+                    onTap: () => Navigator.push(context,
+                      SlidePageRoute(page: ProductDetailScreen(
+                        product: product, cart: cart,
+                        isSpecialPrice: widget.user.isSpecial, currentUser: widget.user,
+                      )),
+                    ).then((_) async {
+                      setState(() {});
+                      if (!widget.isPreviewMode) await CartService.saveCart(cart);
+                    }),
+                  );
+                },
+              ),
     ]);
   }
+
+  // ✅ سطر منتج عريض للحاسوب في واجهة المستخدم
+  Widget _buildDesktopProductRow(Product p, bool isDark, Color textColor) {
+    final price = widget.user.isSpecial 
+        ? p.discountedPrice(p.priceCartonSpecial) 
+        : p.discountedPrice(p.priceCartonNormal);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10)],
+        border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
+      ),
+      child: InkWell(
+        onTap: () => Navigator.push(context,
+          SlidePageRoute(page: ProductDetailScreen(
+            product: p, cart: cart,
+            isSpecialPrice: widget.user.isSpecial, currentUser: widget.user,
+          )),
+        ).then((_) async {
+          setState(() {});
+          if (!widget.isPreviewMode) await CartService.saveCart(cart);
+        }),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: SizedBox(
+                  width: 60, height: 60,
+                  child: p.imagePath.isNotEmpty
+                      ? Image.network(p.imagePath, fit: BoxFit.cover)
+                      : Container(color: Colors.grey.shade100, child: const Icon(Icons.image, color: Colors.grey)),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(p.name, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: textColor)),
+                    const SizedBox(height: 4),
+                    if (p.hasFlavors)
+                      Text('الأذواق: ${p.flavors.map((f) => f.name).join(" - ")}', 
+                           style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                  ],
+                ),
+              ),
+              Text('${price.toStringAsFixed(0)} DA', 
+                   style: const TextStyle(color: Color(0xFF2E7D32), fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(width: 30),
+              const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
 
   Widget _buildEmptyProducts(bool isDark) => Center(
     child: Padding(

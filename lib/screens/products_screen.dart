@@ -1118,12 +1118,6 @@ class _AnimatedProductCardState extends State<_AnimatedProductCard>
                             ),
                           ),
                         ),
-                      // ✅ مؤشر المخزون المطور (Stock Pill)
-                      Positioned(
-                        bottom: 8,
-                        right: 8,
-                        child: _buildStockPill(widget.product),
-                      ),
                     ],
                   ),
                 ),
