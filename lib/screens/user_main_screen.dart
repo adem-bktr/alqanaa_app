@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shimmer/shimmer.dart';
 
@@ -48,6 +49,7 @@ class _UserMainScreenState extends State<UserMainScreen>
   final searchController = TextEditingController();
   bool isLoading         = true;
   bool isProductsLoading = true;
+  int webDisplayLimit    = 30;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   late AnimationController _headerController;
@@ -102,11 +104,15 @@ class _UserMainScreenState extends State<UserMainScreen>
     super.initState();
     _setupAnimations();
     _startAnimations();
-    loadBrands();
-    loadCategories();
-    loadAllProducts();
-    loadBanners();
-    if (!widget.isPreviewMode) _loadSavedCart();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      loadCategories();
+      loadBanners();
+      loadBrands();
+      loadAllProducts();
+      if (!widget.isPreviewMode) _loadSavedCart();
+    });
+
     searchController.addListener(_onSearch);
     _scrollController.addListener(_onScroll);
     _bannerController = PageController();
@@ -900,6 +906,14 @@ class _UserMainScreenState extends State<UserMainScreen>
     final textColor = isDark ? Colors.white : Colors.black87;
     final q         = searchController.text.toLowerCase();
     final filtered  = q.isEmpty ? allProducts : allProducts.where((p) => p.name.toLowerCase().contains(q)).toList();
+    
+    int displayLimit = filtered.length;
+    bool hasMore = false;
+    if (kIsWeb && q.isEmpty && filtered.length > webDisplayLimit) {
+      displayLimit = webDisplayLimit;
+      hasMore = true;
+    }
+    final displayedProducts = filtered.take(displayLimit).toList();
     final crossAxisCount = _getCrossAxisCount(context);
 
     return Column(children: [
@@ -925,15 +939,15 @@ class _UserMainScreenState extends State<UserMainScreen>
       ),
       isProductsLoading
           ? _buildShimmerLoading(isDark)
-          : filtered.isEmpty
+          : displayedProducts.isEmpty
           ? _buildEmptyProducts(isDark)
           : isDesktop
             ? ListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: filtered.length,
-                itemBuilder: (context, index) => _buildDesktopProductRow(filtered[index], isDark, textColor),
+                itemCount: displayedProducts.length,
+                itemBuilder: (context, index) => _buildDesktopProductRow(displayedProducts[index], isDark, textColor),
               )
             : GridView.builder(
                 shrinkWrap: true,
@@ -942,9 +956,9 @@ class _UserMainScreenState extends State<UserMainScreen>
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: crossAxisCount,
                     crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 0.75),
-                itemCount: filtered.length,
+                itemCount: displayedProducts.length,
                 itemBuilder: (context, index) {
-                  final product = filtered[index];
+                  final product = displayedProducts[index];
                   return _ProductMiniCard(
                     product: product, index: index, isDark: isDark,
                     cardBg: cardBg, textColor: textColor,
@@ -960,6 +974,24 @@ class _UserMainScreenState extends State<UserMainScreen>
                   );
                 },
               ),
+      if (hasMore)
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: ElevatedButton(
+            onPressed: () {
+              setState(() {
+                webDisplayLimit += 30;
+              });
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF2E7D32),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: Text('عرض المزيد (${filtered.length - webDisplayLimit > 0 ? filtered.length - webDisplayLimit : 0} منتج آخر)'),
+          ),
+        ),
     ]);
   }
 

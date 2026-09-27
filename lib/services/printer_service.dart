@@ -659,53 +659,86 @@ class PrinterService {
 
                   pw.Divider(borderStyle: pw.BorderStyle.dashed),
 
-                  // ── Products Table ──
-                  ...order.items.asMap().entries.map((entry) {
-                    final idx = entry.key + 1;
-                    final it = entry.value;
-                    final itemTotal =
-                        (it['price'] as num) * (it['quantity'] as num);
-                    final flavor = it['flavor']?.toString() ?? '';
-                    final pName = _clean(it['productName'] ?? 'Produit');
+                  // ── Products Table (Grouped) ──
+                  ...(() {
+                    final Map<String, Map<String, dynamic>> grouped = {};
+                    for (final it in order.items) {
+                      final pName = _clean(it['productName'] ?? 'Produit');
+                      final isCarton = it['isCarton'] == true;
+                      final key = '$pName-$isCarton';
+                      final price = (it['price'] as num? ?? 0).toDouble();
+                      final qty = (it['quantity'] as num? ?? 0).toDouble();
 
-                    return pw.Padding(
-                      padding: const pw.EdgeInsets.symmetric(vertical: 2),
-                      child: pw.Column(
-                        crossAxisAlignment: pw.CrossAxisAlignment.start,
-                        children: [
-                          pw.Text(
-                            '$idx. $pName',
-                            style: pw.TextStyle(
-                              fontWeight: pw.FontWeight.bold,
-                              fontSize: 9,
-                            ),
-                          ),
-                          pw.Row(
-                            mainAxisAlignment:
-                            pw.MainAxisAlignment.spaceBetween,
-                            children: [
-                              pw.Text(
-                                '   Qte: ${it['quantity']} x ${_money(it['price'] as num)} DA',
-                                style: const pw.TextStyle(fontSize: 8),
-                              ),
-                              pw.Text(
-                                '${_money(itemTotal)} DA',
-                                style: pw.TextStyle(
-                                  fontWeight: pw.FontWeight.bold,
-                                  fontSize: 9,
-                                ),
-                              ),
-                            ],
-                          ),
-                          if (flavor.isNotEmpty)
+                      if (grouped.containsKey(key)) {
+                        grouped[key]!['quantity'] = (grouped[key]!['quantity'] as double) + qty;
+                        grouped[key]!['total'] = (grouped[key]!['total'] as double) + (qty * price);
+                        final flavor = it['flavor']?.toString() ?? '';
+                        if (flavor.isNotEmpty) {
+                          final flavors = grouped[key]!['flavors'] as List<String>;
+                          flavors.add('$flavor (${qty.toStringAsFixed(0)})');
+                        }
+                      } else {
+                        final flavor = it['flavor']?.toString() ?? '';
+                        grouped[key] = {
+                          'productName': pName,
+                          'quantity': qty,
+                          'total': qty * price,
+                          'isCarton': isCarton,
+                          'flavors': flavor.isNotEmpty
+                              ? ['$flavor (${qty.toStringAsFixed(0)})']
+                              : <String>[],
+                        };
+                      }
+                    }
+
+                    int idx = 1;
+                    return grouped.values.map((data) {
+                      final name = data['productName'] as String;
+                      final qty = data['quantity'] as double;
+                      final totalItem = data['total'] as double;
+                      final isCarton = data['isCarton'] == true;
+                      final type = isCarton ? 'Crt' : 'Unt';
+                      final flavorsList = data['flavors'] as List<String>;
+                      final currentIdx = idx++;
+
+                      return pw.Padding(
+                        padding: const pw.EdgeInsets.symmetric(vertical: 2),
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
                             pw.Text(
-                              '   Arome: ${_clean(flavor)}',
-                              style: const pw.TextStyle(fontSize: 7),
+                              '$currentIdx. $name ($type)',
+                              style: pw.TextStyle(
+                                fontWeight: pw.FontWeight.bold,
+                                fontSize: 9,
+                              ),
                             ),
-                        ],
-                      ),
-                    );
-                  }).toList(),
+                            pw.Row(
+                              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                              children: [
+                                pw.Text(
+                                  '   Qte: ${qty.toStringAsFixed(0)}',
+                                  style: const pw.TextStyle(fontSize: 8),
+                                ),
+                                pw.Text(
+                                  '${_money(totalItem)} DA',
+                                  style: pw.TextStyle(
+                                    fontWeight: pw.FontWeight.bold,
+                                    fontSize: 9,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (flavorsList.isNotEmpty)
+                              pw.Text(
+                                '   Aromes: ${flavorsList.join(", ")}',
+                                style: const pw.TextStyle(fontSize: 7),
+                              ),
+                          ],
+                        ),
+                      );
+                    }).toList();
+                  }()),
 
                   pw.Divider(borderStyle: pw.BorderStyle.dashed),
 

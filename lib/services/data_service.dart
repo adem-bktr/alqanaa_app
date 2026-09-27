@@ -648,11 +648,58 @@ class DataService {
   }
 
   static Future<void> updateFullOrder(app_models.Order order) async {
+    // 1) جلب الطلب القديم لإعادة الكميات السابقة للمخزن
+    final oldDoc = await _db.collection('orders').doc(order.id).get();
+    if (oldDoc.exists) {
+      final oldData = oldDoc.data();
+      if (oldData != null && oldData['items'] is List) {
+        final oldItems = oldData['items'] as List;
+        final refundBatch = _db.batch();
+        for (final it in oldItems) {
+          final pid = it['productId']?.toString() ?? '';
+          if (pid.isNotEmpty) {
+            final qtySold = toInt(it['quantity']);
+            final isCarton = it['isCarton'] == true;
+            final pDoc = await _db.collection('products').doc(pid).get();
+            if (pDoc.exists) {
+              final upc = toInt(pDoc.data()?['unitsPerCarton'] ?? 1);
+              final piecesToAdd = isCarton ? (qtySold * upc) : qtySold;
+              refundBatch.update(_db.collection('products').doc(pid), {
+                'stockQuantity': FieldValue.increment(piecesToAdd),
+              });
+            }
+          }
+        }
+        await refundBatch.commit();
+      }
+    }
+
+    // 2) حفظ الطلب المحدث
     await _db.collection('orders').doc(order.id).set(
       {...order.toJson(), 'updatedAt': FieldValue.serverTimestamp()},
       SetOptions(merge: true),
     );
-    debugPrint('📝 تم تحديث بيانات الطلب بالكامل: ${order.id}');
+
+    // 3) خصم الكميات الجديدة من المخزن
+    final deductBatch = _db.batch();
+    for (final it in order.items) {
+      final pid = it['productId']?.toString() ?? '';
+      if (pid.isNotEmpty) {
+        final qtySold = toInt(it['quantity']);
+        final isCarton = it['isCarton'] == true;
+        final pDoc = await _db.collection('products').doc(pid).get();
+        if (pDoc.exists) {
+          final upc = toInt(pDoc.data()?['unitsPerCarton'] ?? 1);
+          final piecesToSubtract = isCarton ? (qtySold * upc) : qtySold;
+          deductBatch.update(_db.collection('products').doc(pid), {
+            'stockQuantity': FieldValue.increment(-piecesToSubtract),
+          });
+        }
+      }
+    }
+    await deductBatch.commit();
+
+    debugPrint('📝 تم تحديث بيانات الطلب بالكامل وتحديث المخزن: ${order.id}');
   }
 
   static Future<void> updateOrderLocation(
