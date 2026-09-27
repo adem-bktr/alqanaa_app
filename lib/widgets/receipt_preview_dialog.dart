@@ -176,45 +176,28 @@ class _ReceiptPreviewDialogState extends State<ReceiptPreviewDialog> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // الشعار
-                        Center(
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: Image.asset(
-                              'assets/logo.png',
-                              height: 90,
-                              width: 90,
-                              fit: BoxFit.contain,
-                              errorBuilder: (_, __, ___) => const Icon(
-                                Icons.store_rounded,
-                                size: 75,
-                                color: Colors.blueAccent,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 6),
+                        // العنوان (بدون لوغو وأسود فاقع للوضوح)
                         const Center(
                           child: Text(
                             'AL QANAA GROSSISTE',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 15,
-                              color: Colors.black87,
+                              color: Colors.black,
                             ),
                           ),
                         ),
                         const Center(
                           child: Text(
                             'Vente de produits alimentaires',
-                            style: TextStyle(fontSize: 10, color: Colors.grey),
+                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black),
                           ),
                         ),
                         const SizedBox(height: 6),
                         const Center(
                           child: Text(
                             '--------------------------------------------',
-                            style: TextStyle(color: Colors.grey, fontSize: 10),
+                            style: TextStyle(color: Colors.black, fontSize: 10, fontWeight: FontWeight.bold),
                           ),
                         ),
 

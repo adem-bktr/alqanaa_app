@@ -344,43 +344,47 @@ class PrinterService {
     return b;
   }
 
-  // ── Products — grouped by name ──
+  // ── Products — grouped by name & carton type ──
   static List<int> _buildItems(Generator g, List items) {
     List<int> b = [];
     final Map<String, Map<String, dynamic>> grouped = {};
     for (final it in items) {
       final name = it['productName']?.toString() ?? 'Unknown product';
-      if (grouped.containsKey(name)) {
-        grouped[name]!['quantity'] =
-            (grouped[name]!['quantity'] as num) + (it['quantity'] as num);
-        grouped[name]!['total'] =
-            (grouped[name]!['total'] as num) +
-                ((it['price'] as num) * (it['quantity'] as num));
+      final isCarton = it['isCarton'] == true;
+      final key = '$name-$isCarton';
+      final price = (it['price'] as num? ?? 0).toDouble();
+      final qty = (it['quantity'] as num? ?? 0).toDouble();
+
+      if (grouped.containsKey(key)) {
+        grouped[key]!['quantity'] = (grouped[key]!['quantity'] as double) + qty;
+        grouped[key]!['total'] = (grouped[key]!['total'] as double) + (qty * price);
         final flavor = it['flavor']?.toString() ?? '';
         if (flavor.isNotEmpty) {
-          final flavors = grouped[name]!['flavors'] as List<String>;
-          flavors.add('$flavor (${it['quantity']})');
+          final flavors = grouped[key]!['flavors'] as List<String>;
+          flavors.add('$flavor (${qty.toStringAsFixed(0)})');
         }
       } else {
         final flavor = it['flavor']?.toString() ?? '';
-        grouped[name] = {
+        grouped[key] = {
           'productName': name,
-          'quantity': it['quantity'] as num,
-          'total': (it['price'] as num) * (it['quantity'] as num),
-          'isCarton': it['isCarton'],
+          'quantity': qty,
+          'total': qty * price,
+          'isCarton': isCarton,
           'flavors': flavor.isNotEmpty
-              ? ['$flavor (${it['quantity']})']
+              ? ['$flavor (${qty.toStringAsFixed(0)})']
               : <String>[],
         };
       }
     }
 
     int idx = 1;
-    grouped.forEach((name, data) {
+    grouped.forEach((key, data) {
       try {
+        final name = data['productName'] as String;
         final qty = (data['quantity'] as num).toDouble();
         final total = (data['total'] as num).toDouble();
-        final type = data['isCarton'] == true ? 'Crt' : 'Unt';
+        final isCarton = data['isCarton'] == true;
+        final type = isCarton ? 'Crt' : 'Unt';
         final flavorsList = data['flavors'] as List<String>;
 
         b += _t(
@@ -597,18 +601,12 @@ class PrinterService {
       final remaining = total - paid;
       final prevDebt = customerDebtBalance ?? 0;
 
-      pw.MemoryImage? logoImage;
-      try {
-        final logoData = await rootBundle.load('assets/logo.png');
-        logoImage = pw.MemoryImage(logoData.buffer.asUint8List());
-      } catch (_) {}
-
       pdf.addPage(
         pw.Page(
           pageFormat: const PdfPageFormat(
             80 * PdfPageFormat.mm,
             double.infinity,
-            marginAll: 4 * PdfPageFormat.mm,
+            marginAll: 1.5 * PdfPageFormat.mm, // هوامش ضيقة جداً لتفادي القص من اليمين واليسار
           ),
           build: (pw.Context context) {
             return pw.Directionality(
@@ -616,24 +614,21 @@ class PrinterService {
               child: pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
-                  // ── Header ──
-                  if (logoImage != null) ...[
-                    pw.Center(child: pw.Image(logoImage, width: 90, height: 90)),
-                    pw.SizedBox(height: 4),
-                  ],
+                  // ── Header (بدون لوغو وأسود فاقع للطباعة الحرارية) ──
                   pw.Center(
                     child: pw.Text(
                       'AL QANAA GROSSISTE',
                       style: pw.TextStyle(
                         fontWeight: pw.FontWeight.bold,
-                        fontSize: 13,
+                        fontSize: 14,
+                        color: PdfColors.black,
                       ),
                     ),
                   ),
                   pw.Center(
                     child: pw.Text(
                       'Vente de produits alimentaires',
-                      style: const pw.TextStyle(fontSize: 8),
+                      style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColors.black),
                     ),
                   ),
                   pw.SizedBox(height: 4),
@@ -641,10 +636,10 @@ class PrinterService {
 
                   // ── Infos ──
                   pw.Text('Date   : $dateStr',
-                      style: const pw.TextStyle(fontSize: 8)),
+                      style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColors.black)),
                   pw.Text(
                     'Order  : #${order.id.length > 6 ? order.id.substring(order.id.length - 6) : order.id}',
-                    style: const pw.TextStyle(fontSize: 8),
+                    style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColors.black),
                   ),
                   pw.Text(
                     'Client : ${name.isEmpty ? "-" : _clean(name)}',

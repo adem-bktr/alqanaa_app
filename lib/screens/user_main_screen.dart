@@ -1173,29 +1173,139 @@ class _UserMainScreenState extends State<UserMainScreen>
         ),
       ),
       Expanded(
-        child: RefreshIndicator(
-          color: const Color(0xFF2E7D32),
-          onRefresh: () async {
-            await loadAllProducts();
-            await loadBanners();
-            await loadCategories();
-          },
-          child: Scrollbar(
-            controller: _scrollController,
-            thumbVisibility: true,
-            child: SingleChildScrollView(
-              controller: _scrollController,
-              physics: const AlwaysScrollableScrollPhysics(),
-              child: Column(children: [
-                _buildAnnouncementBanner(),
-                _buildBannerSlider(),
-                _buildCategoriesRow(isDark),
-                _buildAllProductsSection(isDark),
-                const SizedBox(height: 80),
-              ]),
-            ),
-          ),
-        ),
+        child: kIsWeb
+            ? Scrollbar(
+                controller: _scrollController,
+                thumbVisibility: true,
+                child: CustomScrollView(
+                  controller: _scrollController,
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  slivers: [
+                    SliverToBoxAdapter(child: _buildAnnouncementBanner()),
+                    SliverToBoxAdapter(child: _buildBannerSlider()),
+                    SliverToBoxAdapter(child: _buildCategoriesRow(isDark)),
+                    ...(() {
+                      final isDark = Theme.of(context).brightness == Brightness.dark;
+                      final cardBg = isDark ? const Color(0xFF1E1E2E) : Colors.white;
+                      final textColor = isDark ? Colors.white : Colors.black87;
+                      final q = searchController.text.toLowerCase();
+                      final filtered = q.isEmpty ? allProducts : allProducts.where((p) => p.name.toLowerCase().contains(q)).toList();
+                      int displayLimit = filtered.length;
+                      bool hasMore = false;
+                      if (q.isEmpty && filtered.length > webDisplayLimit) {
+                        displayLimit = webDisplayLimit;
+                        hasMore = true;
+                      }
+                      final displayedProducts = filtered.take(displayLimit).toList();
+                      final crossAxisCount = _getCrossAxisCount(context);
+
+                      return [
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
+                            child: Row(
+                              textDirection: TextDirection.rtl,
+                              children: [
+                                const Icon(Icons.inventory_2_rounded, color: Color(0xFF2E7D32), size: 22),
+                                const SizedBox(width: 8),
+                                Text('جميع المنتجات', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor)),
+                                const Spacer(),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(color: const Color(0xFF2E7D32).withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
+                                  child: Text('${filtered.length} منتج', style: const TextStyle(color: Color(0xFF2E7D32), fontSize: 12, fontWeight: FontWeight.bold)),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        isProductsLoading
+                            ? SliverToBoxAdapter(child: _buildShimmerLoading(isDark))
+                            : displayedProducts.isEmpty
+                            ? SliverToBoxAdapter(child: _buildEmptyProducts(isDark))
+                            : isDesktop
+                              ? SliverList(
+                                  delegate: SliverChildBuilderDelegate(
+                                    (context, index) => _buildDesktopProductRow(displayedProducts[index], isDark, textColor),
+                                    childCount: displayedProducts.length,
+                                  ),
+                                )
+                              : SliverPadding(
+                                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                                  sliver: SliverGrid(
+                                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: crossAxisCount,
+                                        crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 0.75),
+                                    delegate: SliverChildBuilderDelegate(
+                                      (context, index) {
+                                        final product = displayedProducts[index];
+                                        return _ProductMiniCard(
+                                          product: product, index: index, isDark: isDark,
+                                          cardBg: cardBg, textColor: textColor,
+                                          onTap: () => Navigator.push(context,
+                                            SlidePageRoute(page: ProductDetailScreen(
+                                              product: product, cart: cart,
+                                              isSpecialPrice: widget.user.isSpecial, currentUser: widget.user,
+                                            )),
+                                          ).then((_) async {
+                                            setState(() {});
+                                            if (!widget.isPreviewMode) await CartService.saveCart(cart);
+                                          }),
+                                        );
+                                      },
+                                      childCount: displayedProducts.length,
+                                    ),
+                                  ),
+                                ),
+                        if (hasMore)
+                          SliverToBoxAdapter(
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  setState(() {
+                                    webDisplayLimit += 30;
+                                  });
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF2E7D32),
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                                child: Text('عرض المزيد (${filtered.length - webDisplayLimit > 0 ? filtered.length - webDisplayLimit : 0} منتج آخر)'),
+                              ),
+                            ),
+                          ),
+                      ];
+                    }()),
+                    const SliverToBoxAdapter(child: SizedBox(height: 80)),
+                  ],
+                ),
+              )
+            : RefreshIndicator(
+                color: const Color(0xFF2E7D32),
+                onRefresh: () async {
+                  await loadAllProducts();
+                  await loadBanners();
+                  await loadCategories();
+                },
+                child: Scrollbar(
+                  controller: _scrollController,
+                  thumbVisibility: true,
+                  child: SingleChildScrollView(
+                    controller: _scrollController,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    child: Column(children: [
+                      _buildAnnouncementBanner(),
+                      _buildBannerSlider(),
+                      _buildCategoriesRow(isDark),
+                      _buildAllProductsSection(isDark),
+                      const SizedBox(height: 80),
+                    ]),
+                  ),
+                ),
+              ),
       ),
     ]);
   }
