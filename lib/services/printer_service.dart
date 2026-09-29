@@ -292,7 +292,7 @@ class PrinterService {
     );
     b += _t(
       g,
-      'Bienvenue chez nous',
+      'Vente de produits alimentaires',
       styles: const PosStyles(align: PosAlign.center, bold: true),
     );
     b += _t(g, _line1, styles: const PosStyles(align: PosAlign.center));
@@ -511,11 +511,6 @@ class PrinterService {
     b += _t(
       g,
       'Tel: 0666629473',
-      styles: const PosStyles(align: PosAlign.center, height: PosTextSize.size2),
-    );
-    b += _t(
-      g,
-      'AL QANAA GROSSISTE',
       styles: const PosStyles(align: PosAlign.center, height: PosTextSize.size2),
     );
     b += g.feed(3);

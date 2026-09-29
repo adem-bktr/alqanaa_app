@@ -74,7 +74,7 @@ class DataService {
             return '';
           }
         }
-        
+
         if (bytes != null && bytes.isNotEmpty) {
           final uploadTask = ref.putData(bytes, metadata);
           final snapshot = await uploadTask;
@@ -414,6 +414,7 @@ class DataService {
     'isFeatured': p.isFeatured,
     'purchasePrice': p.purchasePrice,
     'stockQuantity': p.stockQuantity,
+    'unitsPerCarton': p.unitsPerCarton, // ✅ إصلاح 1: كان غير محفوظ
   };
 
   static Future<void> saveProduct(app_models.Product product,
@@ -595,7 +596,7 @@ class DataService {
   /// ✅ يحفظ كل الحقول + خصم المخزن
   static Future<void> saveOrder(app_models.Order order) async {
     final batch = _db.batch();
-    
+
     // 1) حفظ الطلب
     batch.set(_db.collection('orders').doc(order.id), {
       'customerName': order.customerName,
@@ -621,7 +622,7 @@ class DataService {
       if (pid.isNotEmpty) {
         final qtySold = toInt(it['quantity']);
         final isCarton = it['isCarton'] == true;
-        
+
         // جلب بيانات المنتج لمعرفة عدد الحبات في الكرتون
         final pDoc = await _db.collection('products').doc(pid).get();
         if (pDoc.exists) {
@@ -639,11 +640,59 @@ class DataService {
     debugPrint('✅ الطلب محفوظ وتم تحديث المخزن: ${order.id}');
   }
 
+  /// ✅ إصلاح 3: دالة مساعدة لإرجاع/خصم المخزن ضمن batch
+  /// restore = true  → إرجاع الكميات للمخزن
+  /// restore = false → خصم الكميات من المخزن
+  static Future<void> _applyStockChange(
+      WriteBatch batch,
+      List items, {
+        required bool restore,
+      }) async {
+    for (final it in items) {
+      if (it is! Map) continue;
+      final pid = it['productId']?.toString() ?? '';
+      if (pid.isEmpty) continue;
+
+      final qty = toInt(it['quantity']);
+      final isCarton = it['isCarton'] == true;
+
+      final pRef = _db.collection('products').doc(pid);
+      final pDoc = await pRef.get();
+      if (!pDoc.exists) continue;
+
+      final upc = toInt(pDoc.data()?['unitsPerCarton'] ?? 1);
+      final pieces = isCarton ? (qty * (upc > 0 ? upc : 1)) : qty;
+
+      batch.update(pRef, {
+        'stockQuantity': FieldValue.increment(restore ? pieces : -pieces),
+      });
+    }
+  }
+
+  /// ✅ إصلاح 3: عند الرفض يُرجع المخزن، وعند التراجع عن الرفض يُخصم من جديد
   static Future<void> updateOrderStatus(String orderId, String status) async {
-    await _db.collection('orders').doc(orderId).update({
+    final orderRef = _db.collection('orders').doc(orderId);
+    final doc = await orderRef.get();
+    final data = doc.data();
+    final oldStatus = (data?['status'] ?? 'pending').toString();
+    final items = (data?['items'] is List) ? data!['items'] as List : const [];
+
+    final batch = _db.batch();
+
+    if (oldStatus != 'rejected' && status == 'rejected') {
+      // رُفض الآن → أرجع المخزن
+      await _applyStockChange(batch, items, restore: true);
+    } else if (oldStatus == 'rejected' && status != 'rejected') {
+      // تراجع عن الرفض → اخصم المخزن مجدداً
+      await _applyStockChange(batch, items, restore: false);
+    }
+
+    batch.update(orderRef, {
       'status': status,
       'updatedAt': FieldValue.serverTimestamp(),
     });
+
+    await batch.commit();
     debugPrint('🔄 حالة الطلب $orderId → $status');
   }
 
@@ -717,9 +766,27 @@ class DataService {
     debugPrint('📍 تم تحديث موقع الطلب: $orderId');
   }
 
+  /// ✅ إصلاح 3: عند الحذف يُرجع المخزن (إلا إذا كان الطلب مرفوضاً لأنه أُرجع سابقاً)
   static Future<void> deleteOrder(String orderId) async {
-    await _db.collection('orders').doc(orderId).delete();
-    debugPrint('🗑️ تم حذف الطلب: $orderId');
+    final orderRef = _db.collection('orders').doc(orderId);
+    final doc = await orderRef.get();
+
+    final batch = _db.batch();
+
+    if (doc.exists) {
+      final data = doc.data();
+      final oldStatus = (data?['status'] ?? 'pending').toString();
+      final items =
+      (data?['items'] is List) ? data!['items'] as List : const [];
+
+      if (oldStatus != 'rejected') {
+        await _applyStockChange(batch, items, restore: true);
+      }
+    }
+
+    batch.delete(orderRef);
+    await batch.commit();
+    debugPrint('🗑️ تم حذف الطلب وإرجاع المخزن: $orderId');
   }
 
   static Stream<int> getPendingOrdersCount() {
@@ -840,10 +907,15 @@ class DataService {
     try {
       final orders = await getAllOrders();
       final productsList = await getAllProducts();
-      
-      // خريطة أسعار الشراء لتسهيل الحساب
+
+      // خريطة أسعار الشراء (للحبة) لتسهيل الحساب
       final Map<String, double> buyPrices = {
         for (var p in productsList) p.id: p.purchasePrice
+      };
+
+      // ✅ إصلاح 2: خريطة عدد الحبات في الكرتون
+      final Map<String, int> unitsPerCartonMap = {
+        for (var p in productsList) p.id: p.unitsPerCarton
       };
 
       final now = DateTime.now();
@@ -860,10 +932,10 @@ class DataService {
       for (final o in orders) {
         final d = o.createdAt ?? o.dateTime;
         if (d == null) continue;
-        
+
         if (sameDay(d, now)) todayOrdersList.add(o);
         if (sameDay(d, targetDate)) targetDayOrders.add(o);
-        
+
         if (now.difference(d).inDays <= 7) week.add(o);
         if (d.year == now.year && d.month == now.month) month.add(o);
       }
@@ -879,14 +951,18 @@ class DataService {
           final name = it['productName']?.toString() ?? 'منتج';
           final sellPrice = toDouble(it['price']);
           final qty = toInt(it['quantity']);
-          
+
           targetDayItemsQty[name] = (targetDayItemsQty[name] ?? 0) + qty;
           targetDayItemsRevenue[name] = (targetDayItemsRevenue[name] ?? 0) + (sellPrice * qty);
 
           if (pid.isNotEmpty && buyPrices.containsKey(pid)) {
             final buyPrice = buyPrices[pid]!;
             if (buyPrice > 0) {
-              targetDayProfit += (sellPrice - buyPrice) * qty;
+              // ✅ إصلاح 2: تكلفة الكرتون = سعر الحبة × عدد الحبات في الكرتون
+              final isCarton = it['isCarton'] == true;
+              final upc = unitsPerCartonMap[pid] ?? 1;
+              final unitCost = isCarton ? (buyPrice * upc) : buyPrice;
+              targetDayProfit += (sellPrice - unitCost) * qty;
             }
           }
         }
@@ -929,7 +1005,7 @@ class DataService {
         'weekSales': sum(week),
         'monthSales': sum(month),
         'topProducts': topProducts,
-        
+
         // بيانات اليوم المختار (للبحث التاريخي)
         'targetDaySales': sum(targetDayOrders),
         'targetDayOrdersCount': targetDayOrders.length,

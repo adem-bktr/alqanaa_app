@@ -778,7 +778,7 @@ class _CartScreenState extends State<CartScreen> {
           customerName: nameController.text.trim(),
           customerPhone: phoneController.text.trim(),
           amountPaid: paid,
-          customerDebtBalance: customerBalance,
+          customerDebtBalance: _selectedCustomer?.balance ?? 0.0,
         );
 
         if (printed != true) {

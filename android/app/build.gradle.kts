@@ -16,7 +16,7 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "com.alqanaa.grossiste"
-    compileSdk = 37
+    compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -47,7 +47,7 @@ android {
     defaultConfig {
         applicationId = "com.alqanaaapp.grossiste"
         minSdk = flutter.minSdkVersion
-        targetSdk = 37
+        targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }

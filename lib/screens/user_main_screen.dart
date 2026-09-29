@@ -906,7 +906,7 @@ class _UserMainScreenState extends State<UserMainScreen>
     final textColor = isDark ? Colors.white : Colors.black87;
     final q         = searchController.text.toLowerCase();
     final filtered  = q.isEmpty ? allProducts : allProducts.where((p) => p.name.toLowerCase().contains(q)).toList();
-    
+
     int displayLimit = filtered.length;
     bool hasMore = false;
     if (kIsWeb && q.isEmpty && filtered.length > webDisplayLimit) {
@@ -942,38 +942,38 @@ class _UserMainScreenState extends State<UserMainScreen>
           : displayedProducts.isEmpty
           ? _buildEmptyProducts(isDark)
           : isDesktop
-            ? ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: displayedProducts.length,
-                itemBuilder: (context, index) => _buildDesktopProductRow(displayedProducts[index], isDark, textColor),
-              )
-            : GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: crossAxisCount,
-                    crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 0.75),
-                itemCount: displayedProducts.length,
-                itemBuilder: (context, index) {
-                  final product = displayedProducts[index];
-                  return _ProductMiniCard(
-                    product: product, index: index, isDark: isDark,
-                    cardBg: cardBg, textColor: textColor,
-                    onTap: () => Navigator.push(context,
-                      SlidePageRoute(page: ProductDetailScreen(
-                        product: product, cart: cart,
-                        isSpecialPrice: widget.user.isSpecial, currentUser: widget.user,
-                      )),
-                    ).then((_) async {
-                      setState(() {});
-                      if (!widget.isPreviewMode) await CartService.saveCart(cart);
-                    }),
-                  );
-                },
-              ),
+          ? ListView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: displayedProducts.length,
+        itemBuilder: (context, index) => _buildDesktopProductRow(displayedProducts[index], isDark, textColor),
+      )
+          : GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 0.75),
+        itemCount: displayedProducts.length,
+        itemBuilder: (context, index) {
+          final product = displayedProducts[index];
+          return _ProductMiniCard(
+            product: product, index: index, isDark: isDark,
+            cardBg: cardBg, textColor: textColor,
+            onTap: () => Navigator.push(context,
+              SlidePageRoute(page: ProductDetailScreen(
+                product: product, cart: cart,
+                isSpecialPrice: widget.user.isSpecial, currentUser: widget.user,
+              )),
+            ).then((_) async {
+              setState(() {});
+              if (!widget.isPreviewMode) await CartService.saveCart(cart);
+            }),
+          );
+        },
+      ),
       if (hasMore)
         Padding(
           padding: const EdgeInsets.all(16.0),
@@ -997,9 +997,11 @@ class _UserMainScreenState extends State<UserMainScreen>
 
   // ✅ سطر منتج عريض للحاسوب في واجهة المستخدم
   Widget _buildDesktopProductRow(Product p, bool isDark, Color textColor) {
-    final price = widget.user.isSpecial 
-        ? p.discountedPrice(p.priceCartonSpecial) 
-        : p.discountedPrice(p.priceCartonNormal);
+    // ✅ إذا كان البيع بالحبة فقط نعرض سعر الحبة، وإلا سعر الكرتون
+    final isUnitOnly = p.sellType == SellType.unitOnly;
+    final price = widget.user.isSpecial
+        ? p.discountedPrice(isUnitOnly ? p.priceUnitSpecial : p.priceCartonSpecial)
+        : p.discountedPrice(isUnitOnly ? p.priceUnitNormal : p.priceCartonNormal);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -1030,18 +1032,18 @@ class _UserMainScreenState extends State<UserMainScreen>
                   width: 60, height: 60,
                   child: p.imagePath.isNotEmpty
                       ? CachedNetworkImage(
-                          imageUrl: p.imagePath,
-                          fit: BoxFit.cover,
-                          placeholder: (context, url) => Shimmer.fromColors(
-                            baseColor: Colors.grey[300]!,
-                            highlightColor: Colors.grey[100]!,
-                            child: Container(color: Colors.white),
-                          ),
-                          errorWidget: (context, url, error) => Container(
-                            color: Colors.grey.shade100,
-                            child: const Icon(Icons.image, color: Colors.grey),
-                          ),
-                        )
+                    imageUrl: p.imagePath,
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => Shimmer.fromColors(
+                      baseColor: Colors.grey[300]!,
+                      highlightColor: Colors.grey[100]!,
+                      child: Container(color: Colors.white),
+                    ),
+                    errorWidget: (context, url, error) => Container(
+                      color: Colors.grey.shade100,
+                      child: const Icon(Icons.image, color: Colors.grey),
+                    ),
+                  )
                       : Container(color: Colors.grey.shade100, child: const Icon(Icons.image, color: Colors.grey)),
                 ),
               ),
@@ -1053,13 +1055,13 @@ class _UserMainScreenState extends State<UserMainScreen>
                     Text(p.name, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: textColor)),
                     const SizedBox(height: 4),
                     if (p.hasFlavors)
-                      Text('الأذواق: ${p.flavors.map((f) => f.name).join(" - ")}', 
-                           style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                      Text('الأذواق: ${p.flavors.map((f) => f.name).join(" - ")}',
+                          style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
                   ],
                 ),
               ),
-              Text('${price.toStringAsFixed(0)} DA', 
-                   style: const TextStyle(color: Color(0xFF2E7D32), fontWeight: FontWeight.bold, fontSize: 16)),
+              Text('${price.toStringAsFixed(0)} DA',
+                  style: const TextStyle(color: Color(0xFF2E7D32), fontWeight: FontWeight.bold, fontSize: 16)),
               const SizedBox(width: 30),
               const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
             ],
@@ -1175,137 +1177,137 @@ class _UserMainScreenState extends State<UserMainScreen>
       Expanded(
         child: kIsWeb
             ? Scrollbar(
-                controller: _scrollController,
-                thumbVisibility: true,
-                child: CustomScrollView(
-                  controller: _scrollController,
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  slivers: [
-                    SliverToBoxAdapter(child: _buildAnnouncementBanner()),
-                    SliverToBoxAdapter(child: _buildBannerSlider()),
-                    SliverToBoxAdapter(child: _buildCategoriesRow(isDark)),
-                    ...(() {
-                      final isDark = Theme.of(context).brightness == Brightness.dark;
-                      final cardBg = isDark ? const Color(0xFF1E1E2E) : Colors.white;
-                      final textColor = isDark ? Colors.white : Colors.black87;
-                      final q = searchController.text.toLowerCase();
-                      final filtered = q.isEmpty ? allProducts : allProducts.where((p) => p.name.toLowerCase().contains(q)).toList();
-                      int displayLimit = filtered.length;
-                      bool hasMore = false;
-                      if (q.isEmpty && filtered.length > webDisplayLimit) {
-                        displayLimit = webDisplayLimit;
-                        hasMore = true;
-                      }
-                      final displayedProducts = filtered.take(displayLimit).toList();
-                      final crossAxisCount = _getCrossAxisCount(context);
+          controller: _scrollController,
+          thumbVisibility: true,
+          child: CustomScrollView(
+            controller: _scrollController,
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverToBoxAdapter(child: _buildAnnouncementBanner()),
+              SliverToBoxAdapter(child: _buildBannerSlider()),
+              SliverToBoxAdapter(child: _buildCategoriesRow(isDark)),
+              ...(() {
+                final isDark = Theme.of(context).brightness == Brightness.dark;
+                final cardBg = isDark ? const Color(0xFF1E1E2E) : Colors.white;
+                final textColor = isDark ? Colors.white : Colors.black87;
+                final q = searchController.text.toLowerCase();
+                final filtered = q.isEmpty ? allProducts : allProducts.where((p) => p.name.toLowerCase().contains(q)).toList();
+                int displayLimit = filtered.length;
+                bool hasMore = false;
+                if (q.isEmpty && filtered.length > webDisplayLimit) {
+                  displayLimit = webDisplayLimit;
+                  hasMore = true;
+                }
+                final displayedProducts = filtered.take(displayLimit).toList();
+                final crossAxisCount = _getCrossAxisCount(context);
 
-                      return [
-                        SliverToBoxAdapter(
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
-                            child: Row(
-                              textDirection: TextDirection.rtl,
-                              children: [
-                                const Icon(Icons.inventory_2_rounded, color: Color(0xFF2E7D32), size: 22),
-                                const SizedBox(width: 8),
-                                Text('جميع المنتجات', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor)),
-                                const Spacer(),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                  decoration: BoxDecoration(color: const Color(0xFF2E7D32).withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
-                                  child: Text('${filtered.length} منتج', style: const TextStyle(color: Color(0xFF2E7D32), fontSize: 12, fontWeight: FontWeight.bold)),
-                                ),
-                              ],
-                            ),
+                return [
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
+                      child: Row(
+                        textDirection: TextDirection.rtl,
+                        children: [
+                          const Icon(Icons.inventory_2_rounded, color: Color(0xFF2E7D32), size: 22),
+                          const SizedBox(width: 8),
+                          Text('جميع المنتجات', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor)),
+                          const Spacer(),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(color: const Color(0xFF2E7D32).withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
+                            child: Text('${filtered.length} منتج', style: const TextStyle(color: Color(0xFF2E7D32), fontSize: 12, fontWeight: FontWeight.bold)),
                           ),
-                        ),
-                        isProductsLoading
-                            ? SliverToBoxAdapter(child: _buildShimmerLoading(isDark))
-                            : displayedProducts.isEmpty
-                            ? SliverToBoxAdapter(child: _buildEmptyProducts(isDark))
-                            : isDesktop
-                              ? SliverList(
-                                  delegate: SliverChildBuilderDelegate(
-                                    (context, index) => _buildDesktopProductRow(displayedProducts[index], isDark, textColor),
-                                    childCount: displayedProducts.length,
-                                  ),
-                                )
-                              : SliverPadding(
-                                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                                  sliver: SliverGrid(
-                                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                        crossAxisCount: crossAxisCount,
-                                        crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 0.75),
-                                    delegate: SliverChildBuilderDelegate(
-                                      (context, index) {
-                                        final product = displayedProducts[index];
-                                        return _ProductMiniCard(
-                                          product: product, index: index, isDark: isDark,
-                                          cardBg: cardBg, textColor: textColor,
-                                          onTap: () => Navigator.push(context,
-                                            SlidePageRoute(page: ProductDetailScreen(
-                                              product: product, cart: cart,
-                                              isSpecialPrice: widget.user.isSpecial, currentUser: widget.user,
-                                            )),
-                                          ).then((_) async {
-                                            setState(() {});
-                                            if (!widget.isPreviewMode) await CartService.saveCart(cart);
-                                          }),
-                                        );
-                                      },
-                                      childCount: displayedProducts.length,
-                                    ),
-                                  ),
-                                ),
-                        if (hasMore)
-                          SliverToBoxAdapter(
-                            child: Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: ElevatedButton(
-                                onPressed: () {
-                                  setState(() {
-                                    webDisplayLimit += 30;
-                                  });
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF2E7D32),
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                ),
-                                child: Text('عرض المزيد (${filtered.length - webDisplayLimit > 0 ? filtered.length - webDisplayLimit : 0} منتج آخر)'),
-                              ),
-                            ),
-                          ),
-                      ];
-                    }()),
-                    const SliverToBoxAdapter(child: SizedBox(height: 80)),
-                  ],
-                ),
-              )
-            : RefreshIndicator(
-                color: const Color(0xFF2E7D32),
-                onRefresh: () async {
-                  await loadAllProducts();
-                  await loadBanners();
-                  await loadCategories();
-                },
-                child: Scrollbar(
-                  controller: _scrollController,
-                  thumbVisibility: true,
-                  child: SingleChildScrollView(
-                    controller: _scrollController,
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    child: Column(children: [
-                      _buildAnnouncementBanner(),
-                      _buildBannerSlider(),
-                      _buildCategoriesRow(isDark),
-                      _buildAllProductsSection(isDark),
-                      const SizedBox(height: 80),
-                    ]),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
-              ),
+                  isProductsLoading
+                      ? SliverToBoxAdapter(child: _buildShimmerLoading(isDark))
+                      : displayedProducts.isEmpty
+                      ? SliverToBoxAdapter(child: _buildEmptyProducts(isDark))
+                      : isDesktop
+                      ? SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                          (context, index) => _buildDesktopProductRow(displayedProducts[index], isDark, textColor),
+                      childCount: displayedProducts.length,
+                    ),
+                  )
+                      : SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    sliver: SliverGrid(
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: crossAxisCount,
+                          crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 0.75),
+                      delegate: SliverChildBuilderDelegate(
+                            (context, index) {
+                          final product = displayedProducts[index];
+                          return _ProductMiniCard(
+                            product: product, index: index, isDark: isDark,
+                            cardBg: cardBg, textColor: textColor,
+                            onTap: () => Navigator.push(context,
+                              SlidePageRoute(page: ProductDetailScreen(
+                                product: product, cart: cart,
+                                isSpecialPrice: widget.user.isSpecial, currentUser: widget.user,
+                              )),
+                            ).then((_) async {
+                              setState(() {});
+                              if (!widget.isPreviewMode) await CartService.saveCart(cart);
+                            }),
+                          );
+                        },
+                        childCount: displayedProducts.length,
+                      ),
+                    ),
+                  ),
+                  if (hasMore)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: ElevatedButton(
+                          onPressed: () {
+                            setState(() {
+                              webDisplayLimit += 30;
+                            });
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF2E7D32),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: Text('عرض المزيد (${filtered.length - webDisplayLimit > 0 ? filtered.length - webDisplayLimit : 0} منتج آخر)'),
+                        ),
+                      ),
+                    ),
+                ];
+              }()),
+              const SliverToBoxAdapter(child: SizedBox(height: 80)),
+            ],
+          ),
+        )
+            : RefreshIndicator(
+          color: const Color(0xFF2E7D32),
+          onRefresh: () async {
+            await loadAllProducts();
+            await loadBanners();
+            await loadCategories();
+          },
+          child: Scrollbar(
+            controller: _scrollController,
+            thumbVisibility: true,
+            child: SingleChildScrollView(
+              controller: _scrollController,
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: Column(children: [
+                _buildAnnouncementBanner(),
+                _buildBannerSlider(),
+                _buildCategoriesRow(isDark),
+                _buildAllProductsSection(isDark),
+                const SizedBox(height: 80),
+              ]),
+            ),
+          ),
+        ),
       ),
     ]);
   }
@@ -1423,192 +1425,192 @@ class _UserMainScreenState extends State<UserMainScreen>
         autofocus: true,
         child: Scaffold(
           key: _scaffoldKey,
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        drawer: _buildDrawer(isDark),
-        appBar: PreferredSize(
-          preferredSize: const Size.fromHeight(60),
-          child: SlideTransition(
-            position: _headerSlide,
-            child: FadeTransition(
-              opacity: _headerFade,
-              child: AppBar(
-                backgroundColor: widget.isPreviewMode
-                    ? Colors.orange.shade700 : const Color(0xFF2E7D32),
-                automaticallyImplyLeading: false,
-                leading: widget.isPreviewMode
-                    ? MouseRegion(
-                  cursor: SystemMouseCursors.click,
-                  child: IconButton(
-                    icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                )
-                    : _AppBarBtn(
-                  icon: Icons.menu_rounded,
-                  onTap: () => _scaffoldKey.currentState?.openDrawer(),
-                ),
-                title: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (!widget.isPreviewMode) ...[
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.asset('assets/logo.png', width: 32, height: 32, fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) =>
-                            const Icon(Icons.store_rounded, color: Colors.white, size: 28)),
-                      ),
-                      const SizedBox(width: 8),
-                    ],
-                    Text(
-                      widget.isPreviewMode ? '👁️ وضع المعاينة' : 'القناعة',
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          drawer: _buildDrawer(isDark),
+          appBar: PreferredSize(
+            preferredSize: const Size.fromHeight(60),
+            child: SlideTransition(
+              position: _headerSlide,
+              child: FadeTransition(
+                opacity: _headerFade,
+                child: AppBar(
+                  backgroundColor: widget.isPreviewMode
+                      ? Colors.orange.shade700 : const Color(0xFF2E7D32),
+                  automaticallyImplyLeading: false,
+                  leading: widget.isPreviewMode
+                      ? MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: IconButton(
+                      icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+                      onPressed: () => Navigator.pop(context),
                     ),
-                  ],
-                ),
-                centerTitle: true,
-                actions: [
-                  if (!widget.isPreviewMode)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 8, right: 4),
-                      child: MouseRegion(
-                        cursor: SystemMouseCursors.click,
-                        child: badges.Badge(
-                          position: badges.BadgePosition.topEnd(top: 2, end: 2),
-                          badgeContent: Text('$cartCount',
-                              style: const TextStyle(color: Colors.white, fontSize: 10)),
-                          showBadge: cart.isNotEmpty,
-                          badgeStyle: const badges.BadgeStyle(badgeColor: Colors.red),
-                          child: IconButton(
-                            icon: const Icon(Icons.shopping_cart_outlined, color: Colors.white, size: 26),
-                            onPressed: () => Navigator.push(context,
-                              SlidePageRoute(
-                                page: CartScreen(cart: cart, isAdmin: false, user: widget.user),
-                                direction: SlideDirection.fromBottom,
-                              ),
-                            ).then((_) => setState(() {})),
+                  )
+                      : _AppBarBtn(
+                    icon: Icons.menu_rounded,
+                    onTap: () => _scaffoldKey.currentState?.openDrawer(),
+                  ),
+                  title: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (!widget.isPreviewMode) ...[
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.asset('assets/logo.png', width: 32, height: 32, fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) =>
+                              const Icon(Icons.store_rounded, color: Colors.white, size: 28)),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+                      Text(
+                        widget.isPreviewMode ? '👁️ وضع المعاينة' : 'القناعة',
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20),
+                      ),
+                    ],
+                  ),
+                  centerTitle: true,
+                  actions: [
+                    if (!widget.isPreviewMode)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 8, right: 4),
+                        child: MouseRegion(
+                          cursor: SystemMouseCursors.click,
+                          child: badges.Badge(
+                            position: badges.BadgePosition.topEnd(top: 2, end: 2),
+                            badgeContent: Text('$cartCount',
+                                style: const TextStyle(color: Colors.white, fontSize: 10)),
+                            showBadge: cart.isNotEmpty,
+                            badgeStyle: const badges.BadgeStyle(badgeColor: Colors.red),
+                            child: IconButton(
+                              icon: const Icon(Icons.shopping_cart_outlined, color: Colors.white, size: 26),
+                              onPressed: () => Navigator.push(context,
+                                SlidePageRoute(
+                                  page: CartScreen(cart: cart, isAdmin: false, user: widget.user),
+                                  direction: SlideDirection.fromBottom,
+                                ),
+                              ).then((_) => setState(() {})),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ),
-        floatingActionButton: widget.isPreviewMode
-            ? null
-            : Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            FadeTransition(
-              opacity: _scrollToTopFade,
-              child: _showScrollToTop
-                  ? MouseRegion(
-                cursor: SystemMouseCursors.click,
-                child: GestureDetector(
-                  onTap: _scrollToTop,
-                  child: Container(
-                    width: 42, height: 42,
-                    margin: const EdgeInsets.only(bottom: 10),
-                    decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF2A2A3E) : Colors.white,
-                      shape: BoxShape.circle,
-                      boxShadow: [BoxShadow(
-                          color: Colors.black.withOpacity(0.15),
-                          blurRadius: 8, offset: const Offset(0, 3))],
-                    ),
-                    child: const Icon(Icons.keyboard_arrow_up_rounded,
-                        color: Color(0xFF2E7D32), size: 26),
-                  ),
-                ),
-              )
-                  : const SizedBox.shrink(),
-            ),
-            ScaleTransition(
-              scale: _fabPulse,
-              child: MouseRegion(
-                cursor: SystemMouseCursors.click,
-                child: FloatingActionButton(
-                  onPressed: _makeCall,
-                  backgroundColor: const Color(0xFF2E7D32),
-                  elevation: 8,
-                  child: const Icon(Icons.phone_in_talk_rounded, color: Colors.white),
-                ),
-              ),
-            ),
-          ],
-        ),
-        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-        bottomNavigationBar: Container(
-          decoration: BoxDecoration(
-            boxShadow: [BoxShadow(
-                color: Colors.black.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, -2))],
-          ),
-          child: NavigationBar(
-            selectedIndex: _currentNavIndex,
-            onDestinationSelected: (index) => setState(() => _currentNavIndex = index),
-            backgroundColor: isDark ? const Color(0xFF1E1E2E) : Colors.white,
-            indicatorColor: widget.isPreviewMode
-                ? Colors.orange.withOpacity(0.15) : const Color(0xFF2E7D32).withOpacity(0.15),
-            surfaceTintColor: Colors.transparent,
-            shadowColor: Colors.transparent,
-            elevation: 0, height: 65,
-            labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-            animationDuration: const Duration(milliseconds: 400),
-            destinations: [
-              NavigationDestination(
-                icon: Icon(Icons.home_outlined,
-                    color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
-                selectedIcon: Icon(Icons.home_rounded,
-                    color: widget.isPreviewMode ? Colors.orange : const Color(0xFF2E7D32)),
-                label: 'الرئيسية',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.store_outlined,
-                    color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
-                selectedIcon: Icon(Icons.store_rounded,
-                    color: widget.isPreviewMode ? Colors.orange : const Color(0xFF2E7D32)),
-                label: 'العلامات',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.receipt_long_outlined,
-                    color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
-                selectedIcon: Icon(Icons.receipt_long_rounded,
-                    color: widget.isPreviewMode ? Colors.orange : const Color(0xFF2E7D32)),
-                label: 'طلباتي',
-              ),
-            ],
-          ),
-        ),
-        body: SafeArea(
-          child: IndexedStack(
-            index: _currentNavIndex,
-            children: [
-              _buildHomeTab(),
-              _buildBrandsTab(),
-              widget.isPreviewMode
-                  ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.visibility_off_rounded, size: 80,
-                        color: isDark ? Colors.grey.shade700 : Colors.grey.shade400),
-                    const SizedBox(height: 16),
-                    Text('طلباتي غير متاحة في وضع المعاينة',
-                        style: TextStyle(
-                            color: isDark ? Colors.grey.shade500 : Colors.grey.shade600,
-                            fontSize: 15)),
                   ],
                 ),
-              )
-                  : _KeepAliveWrapper(child: UserOrdersScreen(userId: widget.user.id)),
+              ),
+            ),
+          ),
+          floatingActionButton: widget.isPreviewMode
+              ? null
+              : Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              FadeTransition(
+                opacity: _scrollToTopFade,
+                child: _showScrollToTop
+                    ? MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: GestureDetector(
+                    onTap: _scrollToTop,
+                    child: Container(
+                      width: 42, height: 42,
+                      margin: const EdgeInsets.only(bottom: 10),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF2A2A3E) : Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [BoxShadow(
+                            color: Colors.black.withOpacity(0.15),
+                            blurRadius: 8, offset: const Offset(0, 3))],
+                      ),
+                      child: const Icon(Icons.keyboard_arrow_up_rounded,
+                          color: Color(0xFF2E7D32), size: 26),
+                    ),
+                  ),
+                )
+                    : const SizedBox.shrink(),
+              ),
+              ScaleTransition(
+                scale: _fabPulse,
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: FloatingActionButton(
+                    onPressed: _makeCall,
+                    backgroundColor: const Color(0xFF2E7D32),
+                    elevation: 8,
+                    child: const Icon(Icons.phone_in_talk_rounded, color: Colors.white),
+                  ),
+                ),
+              ),
             ],
+          ),
+          floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+          bottomNavigationBar: Container(
+            decoration: BoxDecoration(
+              boxShadow: [BoxShadow(
+                  color: Colors.black.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, -2))],
+            ),
+            child: NavigationBar(
+              selectedIndex: _currentNavIndex,
+              onDestinationSelected: (index) => setState(() => _currentNavIndex = index),
+              backgroundColor: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+              indicatorColor: widget.isPreviewMode
+                  ? Colors.orange.withOpacity(0.15) : const Color(0xFF2E7D32).withOpacity(0.15),
+              surfaceTintColor: Colors.transparent,
+              shadowColor: Colors.transparent,
+              elevation: 0, height: 65,
+              labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+              animationDuration: const Duration(milliseconds: 400),
+              destinations: [
+                NavigationDestination(
+                  icon: Icon(Icons.home_outlined,
+                      color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
+                  selectedIcon: Icon(Icons.home_rounded,
+                      color: widget.isPreviewMode ? Colors.orange : const Color(0xFF2E7D32)),
+                  label: 'الرئيسية',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.store_outlined,
+                      color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
+                  selectedIcon: Icon(Icons.store_rounded,
+                      color: widget.isPreviewMode ? Colors.orange : const Color(0xFF2E7D32)),
+                  label: 'العلامات',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.receipt_long_outlined,
+                      color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
+                  selectedIcon: Icon(Icons.receipt_long_rounded,
+                      color: widget.isPreviewMode ? Colors.orange : const Color(0xFF2E7D32)),
+                  label: 'طلباتي',
+                ),
+              ],
+            ),
+          ),
+          body: SafeArea(
+            child: IndexedStack(
+              index: _currentNavIndex,
+              children: [
+                _buildHomeTab(),
+                _buildBrandsTab(),
+                widget.isPreviewMode
+                    ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.visibility_off_rounded, size: 80,
+                          color: isDark ? Colors.grey.shade700 : Colors.grey.shade400),
+                      const SizedBox(height: 16),
+                      Text('طلباتي غير متاحة في وضع المعاينة',
+                          style: TextStyle(
+                              color: isDark ? Colors.grey.shade500 : Colors.grey.shade600,
+                              fontSize: 15)),
+                    ],
+                  ),
+                )
+                    : _KeepAliveWrapper(child: UserOrdersScreen(userId: widget.user.id)),
+              ],
+            ),
           ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Widget _buildShimmerLoading(bool isDark) {
     final baseColor      = isDark ? const Color(0xFF2A2A3E) : Colors.grey.shade200;
@@ -1730,6 +1732,11 @@ class _ProductMiniCardState extends State<_ProductMiniCard> {
 
   @override
   Widget build(BuildContext context) {
+    // ✅ إذا كان البيع بالحبة فقط نعرض سعر الحبة، وإلا سعر الكرتون
+    final displayPrice = widget.product.sellType == SellType.unitOnly
+        ? widget.product.priceUnitNormal
+        : widget.product.priceCartonNormal;
+
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.0, end: 1.0),
       duration: Duration(milliseconds: 250 + (widget.index % 10) * 40),
@@ -1825,7 +1832,7 @@ class _ProductMiniCardState extends State<_ProductMiniCard> {
                             maxLines: 2, overflow: TextOverflow.ellipsis,
                             textAlign: TextAlign.right, textDirection: TextDirection.rtl),
                         const SizedBox(height: 3),
-                        Text('${widget.product.priceCartonNormal.toStringAsFixed(0)} DA',
+                        Text('${displayPrice.toStringAsFixed(0)} DA',
                             style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF2E7D32)),
                             textDirection: TextDirection.rtl),
                       ],

@@ -25,7 +25,7 @@ class AdminScreen extends StatefulWidget {
 
 class _AdminScreenState extends State<AdminScreen>
     with TickerProviderStateMixin, WidgetsBindingObserver {
-  
+
   double _d(dynamic v) => toDouble(v);
   int _i(dynamic v) => toInt(v);
 
@@ -107,6 +107,16 @@ class _AdminScreenState extends State<AdminScreen>
     if (mounted) setState(() {});
   }
 
+  /// ✅ تنسيق رقم بدون أصفار زائدة (مثلاً 400.00 → 400 ، 33.5 → 33.5)
+  String _trimNum(double v, [int decimals = 2]) {
+    var s = v.toStringAsFixed(decimals);
+    if (s.contains('.')) {
+      s = s.replaceFirst(RegExp(r'0+$'), '');
+      s = s.replaceFirst(RegExp(r'\.$'), '');
+    }
+    return s;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -125,7 +135,7 @@ class _AdminScreenState extends State<AdminScreen>
     // ✅ مراقبة تغييرات الأسعار لحساب الربح والتحويل التلقائي
     purchasePriceCartonController.addListener(_onCartonPriceChanged);
     unitsPerCartonController.addListener(_onCartonPriceChanged);
-    
+
     // مستمعين لتحديث واجهة الربح عند تغيير أسعار البيع
     cartonNormalController.addListener(refresh);
     unitNormalController.addListener(refresh);
@@ -195,6 +205,162 @@ class _AdminScreenState extends State<AdminScreen>
     } else {
       setState(() => _passwordError = 'كلمة السر غير صحيحة');
     }
+  }
+
+  /// ✅ جديد: تغيير كلمة سر الإدارة من داخل لوحة الإدارة
+  Future<void> _showChangePasswordDialog() async {
+    final currentCtrl = TextEditingController();
+    final newCtrl = TextEditingController();
+    final confirmCtrl = TextEditingController();
+    bool obscure = true;
+    bool saving = false;
+    String? error;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setSt) {
+          Future<void> submit() async {
+            final current = currentCtrl.text.trim();
+            final next = newCtrl.text.trim();
+            final confirm = confirmCtrl.text.trim();
+
+            if (current.isEmpty || next.isEmpty || confirm.isEmpty) {
+              setSt(() => error = 'املأ جميع الحقول');
+              return;
+            }
+            if (next.length < 4) {
+              setSt(() => error = 'كلمة السر الجديدة قصيرة (4 أحرف على الأقل)');
+              return;
+            }
+            if (next != confirm) {
+              setSt(() => error = 'كلمتا السر الجديدتان غير متطابقتين');
+              return;
+            }
+            if (next == current) {
+              setSt(() => error = 'كلمة السر الجديدة مطابقة للحالية');
+              return;
+            }
+
+            setSt(() {
+              saving = true;
+              error = null;
+            });
+
+            final stored = await DataService.getAdminPassword();
+            if (!context.mounted) return;
+            if (stored != null && stored.isNotEmpty && current != stored) {
+              setSt(() {
+                saving = false;
+                error = 'كلمة السر الحالية غير صحيحة';
+              });
+              return;
+            }
+
+            try {
+              await DataService.setAdminPassword(next);
+            } catch (e) {
+              if (!context.mounted) return;
+              setSt(() {
+                saving = false;
+                error = 'فشل الحفظ، تحقق من الاتصال';
+              });
+              return;
+            }
+
+            if (!context.mounted) return;
+            Navigator.pop(dialogContext);
+            _showSnackBar(
+                '✅ تم تغيير كلمة السر', const Color(0xFF2E7D32));
+          }
+
+          Widget passField(TextEditingController c, String hint) {
+            return TextField(
+              controller: c,
+              obscureText: obscure,
+              style: const TextStyle(color: Colors.black87),
+              decoration: InputDecoration(
+                hintText: hint,
+                filled: true,
+                fillColor: Colors.white,
+                prefixIcon:
+                const Icon(Icons.key, color: Color(0xFF2E7D32)),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12, vertical: 10),
+              ),
+            );
+          }
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16)),
+            title: Row(
+              children: [
+                const Icon(Icons.lock_reset, color: Color(0xFF2E7D32)),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text('تغيير كلمة السر',
+                      style: TextStyle(
+                          color: Color(0xFF2E7D32), fontSize: 17)),
+                ),
+                IconButton(
+                  icon: Icon(
+                    obscure ? Icons.visibility_off : Icons.visibility,
+                    color: Colors.grey,
+                    size: 20,
+                  ),
+                  onPressed: () => setSt(() => obscure = !obscure),
+                ),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  passField(currentCtrl, 'كلمة السر الحالية'),
+                  const SizedBox(height: 10),
+                  passField(newCtrl, 'كلمة السر الجديدة'),
+                  const SizedBox(height: 10),
+                  passField(confirmCtrl, 'تأكيد كلمة السر الجديدة'),
+                  if (error != null) ...[
+                    const SizedBox(height: 10),
+                    Text(error!,
+                        style: const TextStyle(
+                            color: Colors.red, fontSize: 12)),
+                  ],
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed:
+                saving ? null : () => Navigator.pop(dialogContext),
+                child: const Text('إلغاء',
+                    style: TextStyle(color: Colors.grey)),
+              ),
+              ElevatedButton(
+                onPressed: saving ? null : submit,
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2E7D32)),
+                child: saving
+                    ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                        color: Colors.white, strokeWidth: 2))
+                    : const Text('حفظ',
+                    style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          );
+        },
+      ),
+    );
   }
 
   @override
@@ -726,10 +892,10 @@ class _AdminScreenState extends State<AdminScreen>
         logoPath: '',
         categoryId: selectedCategoryForBrand?.id ?? '',
       );
-      
+
       debugPrint('📸 رفع الصورة للعلامة...');
       await DataService.saveBrand(brand, logoPath: brandLogoPath);
-      
+
       debugPrint('✅ تم حفظ العلامة في Firestore');
       brandNameController.clear();
       setState(() {
@@ -780,10 +946,10 @@ class _AdminScreenState extends State<AdminScreen>
         stockQuantity: int.tryParse(stockQuantityController.text) ?? 0,
         unitsPerCarton: int.tryParse(unitsPerCartonController.text) ?? 1,
       );
-      
+
       debugPrint('📸 رفع الصورة للمنتج...');
       await DataService.saveProduct(product, imagePath: productImagePath);
-      
+
       debugPrint('✅ تم حفظ المنتج في Firestore');
       productNameController.clear();
       purchasePriceCartonController.clear(); // ✅ جديد
@@ -1100,8 +1266,9 @@ class _AdminScreenState extends State<AdminScreen>
     final maxSCtrl =
     TextEditingController(text: product.maxQtySpecial.toString());
     final buyPriceCtrl = TextEditingController(text: product.purchasePrice.toString());
-    final upcCtrl = TextEditingController(text: product.unitsPerCarton.toString()); 
-    final buyPriceCartonCtrl = TextEditingController(text: (product.purchasePrice * product.unitsPerCarton).toStringAsFixed(0)); // ✅ جديد
+    final upcCtrl = TextEditingController(text: product.unitsPerCarton.toString());
+    // ✅ إصلاح 7: لا نقرّب سعر الكرتون لرقم صحيح (حتى لا تضيع الدقة)
+    final buyPriceCartonCtrl = TextEditingController(text: _trimNum(product.purchasePrice * product.unitsPerCarton));
     final stockCtrl = TextEditingController(text: product.stockQuantity.toString());
 
     Category? editCategory = _categoryById(product.categoryId);
@@ -1117,7 +1284,11 @@ class _AdminScreenState extends State<AdminScreen>
       final pC = double.tryParse(buyPriceCartonCtrl.text.replaceAll(',', '.')) ?? 0;
       final u = double.tryParse(upcCtrl.text) ?? 1;
       if (pC > 0 && u > 0) {
-        buyPriceCtrl.text = (pC / u).toStringAsFixed(2);
+        // ✅ إصلاح 7: 4 خانات عشرية بدل 2 للحفاظ على الدقة
+        final newUnit = _trimNum(pC / u, 4);
+        if (buyPriceCtrl.text != newUnit) {
+          buyPriceCtrl.text = newUnit;
+        }
       }
     }
     buyPriceCartonCtrl.addListener(onEditCartonPriceChanged);
@@ -1145,338 +1316,338 @@ class _AdminScreenState extends State<AdminScreen>
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                Center(
-                  child: GestureDetector(
-                    onTap: () async {
-                      final path = await _pickAndCropImage();
-                      if (path != null)
-                        setSt(() => newImagePath = path);
-                    },
-                    child: Container(
-                      width: 100,
-                      height: 100,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE8F5E9),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                            color: const Color(0xFF2E7D32)),
+                  Center(
+                    child: GestureDetector(
+                      onTap: () async {
+                        final path = await _pickAndCropImage();
+                        if (path != null)
+                          setSt(() => newImagePath = path);
+                      },
+                      child: Container(
+                        width: 100,
+                        height: 100,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE8F5E9),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                              color: const Color(0xFF2E7D32)),
+                        ),
+                        child: newImagePath != null
+                            ? ClipRRect(
+                            borderRadius:
+                            BorderRadius.circular(12),
+                            child: kIsWeb
+                                ? Image.network(newImagePath!, fit: BoxFit.cover)
+                                : Image.file(File(newImagePath!), fit: BoxFit.cover))
+                            : const Icon(Icons.add_a_photo,
+                            color: Color(0xFF2E7D32), size: 35),
                       ),
-                      child: newImagePath != null
-                          ? ClipRRect(
-                          borderRadius:
-                          BorderRadius.circular(12),
-                          child: kIsWeb
-                              ? Image.network(newImagePath!, fit: BoxFit.cover)
-                              : Image.file(File(newImagePath!), fit: BoxFit.cover))
-                          : const Icon(Icons.add_a_photo,
-                          color: Color(0xFF2E7D32), size: 35),
                     ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                _dialogField(nameCtrl, 'اسم المنتج'),
-                const SizedBox(height: 10),
-                DropdownButtonFormField<Category>(
-                  value: _safeCategoryValue(editCategory),
-                  hint: const Text('اختر الفئة'),
-                  style: const TextStyle(color: Colors.black87),
-                  items: categories
-                      .map((c) => DropdownMenuItem(
-                      value: c,
-                      child: Text('${c.icon} ${c.name}',
-                          style: const TextStyle(color: Colors.black87))))
-                      .toList(),
-                  onChanged: (v) => setSt(() => editCategory = v),
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor: const Color(0xFFF5F5F5),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide.none,
+                  const SizedBox(height: 12),
+                  _dialogField(nameCtrl, 'اسم المنتج'),
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<Category>(
+                    value: _safeCategoryValue(editCategory),
+                    hint: const Text('اختر الفئة'),
+                    style: const TextStyle(color: Colors.black87),
+                    items: categories
+                        .map((c) => DropdownMenuItem(
+                        value: c,
+                        child: Text('${c.icon} ${c.name}',
+                            style: const TextStyle(color: Colors.black87))))
+                        .toList(),
+                    onChanged: (v) => setSt(() => editCategory = v),
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: const Color(0xFFF5F5F5),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide.none,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 10),
-                _buildSection(
-                  color: Colors.blue.shade50,
-                  border: Border.all(color: Colors.blue.shade200),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('إدارة المخزن وتكلفة الشراء',
-                          style: TextStyle(
-                              color: Colors.blue,
-                              fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 8),
-                      Row(children: [
-                        Expanded(
-                            child: _dialogField(
-                                buyPriceCartonCtrl, 'سعر الكرتون',
-                                type: TextInputType.number)),
-                        const SizedBox(width: 8),
-                        Expanded(
-                            child: _dialogField(
-                                upcCtrl, 'حبة/كرتون',
-                                type: TextInputType.number)),
-                      ]),
-                      const SizedBox(height: 8),
-                      Row(children: [
-                        Expanded(
-                            child: _dialogField(
-                                buyPriceCtrl, 'سعر الحبة',
-                                type: TextInputType.number)),
-                        const SizedBox(width: 8),
-                        Expanded(
-                            child: _dialogField(
-                                stockCtrl, 'الكمية (حبة)',
-                                type: TextInputType.number)),
-                      ]),
-                      _buildProfitIndicator(isDark,
-                        pUnitCtrl: buyPriceCtrl,
-                        upcCtrl: upcCtrl,
-                        sellCCtrl: cartonNCtrl,
-                        sellUCtrl: unitNCtrl,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 10),
-                _buildSection(
-                  color: const Color(0xFFE8F5E9),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('نوع البيع',
-                          style: TextStyle(
-                              color: Color(0xFF2E7D32),
-                              fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 8),
-                      _sellTypeSelector(editSellType,
-                              (v) => setSt(() => editSellType = v)),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 10),
-                _buildSection(
-                  color: const Color(0xFFE8F5E9),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('السعر العادي',
-                          style: TextStyle(
-                              color: Color(0xFF2E7D32),
-                              fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 8),
-                      Row(children: [
-                        Expanded(
-                            child: _dialogField(
-                                cartonNCtrl, 'سعر الكرتون',
-                                type: TextInputType.number)),
-                        const SizedBox(width: 8),
-                        Expanded(
-                            child: _dialogField(
-                                unitNCtrl, 'سعر الحبة',
-                                type: TextInputType.number)),
-                      ]),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 10),
-                _buildSection(
-                  color: const Color(0xFFFFF8E1),
-                  border:
-                  Border.all(color: const Color(0xFFFFC107)),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('السعر الخاص',
-                          style: TextStyle(
-                              color: Color(0xFFF57F17),
-                              fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 8),
-                      Row(children: [
-                        Expanded(
-                            child: _dialogField(
-                                cartonSCtrl, 'سعر الكرتون',
-                                type: TextInputType.number)),
-                        const SizedBox(width: 8),
-                        Expanded(
-                            child: _dialogField(
-                                unitSCtrl, 'سعر الحبة',
-                                type: TextInputType.number)),
-                      ]),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 10),
-                _buildSection(
-                  color: const Color(0xFFFFEBEE),
-                  border: Border.all(color: Colors.red.shade200),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('الخصم (%)',
-                          style: TextStyle(
-                              color: Colors.red,
-                              fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 4),
-                      const Text('0 = بدون خصم',
-                          style: TextStyle(
-                              color: Colors.grey, fontSize: 11)),
-                      const SizedBox(height: 8),
-                      _dialogField(discountCtrl, '0',
-                          type: TextInputType.number),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 10),
-                _buildSection(
-                  color: const Color(0xFFFFF3E0),
-                  border:
-                  Border.all(color: Colors.orange.shade300),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('حد الطلب الأقصى (اختياري)',
-                          style: TextStyle(
-                              color: Colors.orange,
-                              fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 4),
-                      const Text('0 = بدون حد',
-                          style: TextStyle(
-                              color: Colors.grey, fontSize: 11)),
-                      const SizedBox(height: 8),
-                      Row(children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment:
-                            CrossAxisAlignment.start,
-                            children: [
-                              const Text('زبون عادي',
-                                  style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.blue,
-                                      fontWeight:
-                                      FontWeight.bold)),
-                              const SizedBox(height: 4),
-                              _dialogField(maxNCtrl, '0',
-                                  type: TextInputType.number),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment:
-                            CrossAxisAlignment.start,
-                            children: [
-                              const Text('زبون مميز',
-                                  style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.amber,
-                                      fontWeight:
-                                      FontWeight.bold)),
-                              const SizedBox(height: 4),
-                              _dialogField(maxSCtrl, '0',
-                                  type: TextInputType.number),
-                            ],
-                          ),
-                        ),
-                      ]),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 10),
-                _buildSection(
-                  color: Colors.purple.shade50,
-                  border:
-                  Border.all(color: Colors.purple.shade200),
-                  child: Row(children: [
-                    const Icon(Icons.star, color: Colors.purple),
-                    const SizedBox(width: 8),
-                    const Expanded(
-                        child: Text('منتج مميز',
+                  const SizedBox(height: 10),
+                  _buildSection(
+                    color: Colors.blue.shade50,
+                    border: Border.all(color: Colors.blue.shade200),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('إدارة المخزن وتكلفة الشراء',
                             style: TextStyle(
-                                fontWeight: FontWeight.bold))),
-                    Switch(
-                      value: editIsFeatured,
-                      activeColor: Colors.purple,
-                      onChanged: (v) =>
-                          setSt(() => editIsFeatured = v),
+                                color: Colors.blue,
+                                fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 8),
+                        Row(children: [
+                          Expanded(
+                              child: _dialogField(
+                                  buyPriceCartonCtrl, 'سعر الكرتون',
+                                  type: TextInputType.number)),
+                          const SizedBox(width: 8),
+                          Expanded(
+                              child: _dialogField(
+                                  upcCtrl, 'حبة/كرتون',
+                                  type: TextInputType.number)),
+                        ]),
+                        const SizedBox(height: 8),
+                        Row(children: [
+                          Expanded(
+                              child: _dialogField(
+                                  buyPriceCtrl, 'سعر الحبة',
+                                  type: TextInputType.number)),
+                          const SizedBox(width: 8),
+                          Expanded(
+                              child: _dialogField(
+                                  stockCtrl, 'الكمية (حبة)',
+                                  type: TextInputType.number)),
+                        ]),
+                        _buildProfitIndicator(isDark,
+                          pUnitCtrl: buyPriceCtrl,
+                          upcCtrl: upcCtrl,
+                          sellCCtrl: cartonNCtrl,
+                          sellUCtrl: unitNCtrl,
+                        ),
+                      ],
                     ),
-                  ]),
-                ),
-                const SizedBox(height: 10),
-                _buildFlavorsManager(
-                  flavors: editFlavors,
-                  controller: editFlavorController,
-                  onAdd: (f) => setSt(() => editFlavors
-                      .add(FlavorModel(name: f, isAvailable: true))),
-                  onRemove: (i) =>
-                      setSt(() => editFlavors.removeAt(i)),
-                  onToggle: (i) => setSt(() => editFlavors[i] =
-                      editFlavors[i].copyWith(
-                          isAvailable: !editFlavors[i].isAvailable)),
-                ),
-              ],
+                  ),
+                  const SizedBox(height: 10),
+                  _buildSection(
+                    color: const Color(0xFFE8F5E9),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('نوع البيع',
+                            style: TextStyle(
+                                color: Color(0xFF2E7D32),
+                                fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 8),
+                        _sellTypeSelector(editSellType,
+                                (v) => setSt(() => editSellType = v)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _buildSection(
+                    color: const Color(0xFFE8F5E9),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('السعر العادي',
+                            style: TextStyle(
+                                color: Color(0xFF2E7D32),
+                                fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 8),
+                        Row(children: [
+                          Expanded(
+                              child: _dialogField(
+                                  cartonNCtrl, 'سعر الكرتون',
+                                  type: TextInputType.number)),
+                          const SizedBox(width: 8),
+                          Expanded(
+                              child: _dialogField(
+                                  unitNCtrl, 'سعر الحبة',
+                                  type: TextInputType.number)),
+                        ]),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _buildSection(
+                    color: const Color(0xFFFFF8E1),
+                    border:
+                    Border.all(color: const Color(0xFFFFC107)),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('السعر الخاص',
+                            style: TextStyle(
+                                color: Color(0xFFF57F17),
+                                fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 8),
+                        Row(children: [
+                          Expanded(
+                              child: _dialogField(
+                                  cartonSCtrl, 'سعر الكرتون',
+                                  type: TextInputType.number)),
+                          const SizedBox(width: 8),
+                          Expanded(
+                              child: _dialogField(
+                                  unitSCtrl, 'سعر الحبة',
+                                  type: TextInputType.number)),
+                        ]),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _buildSection(
+                    color: const Color(0xFFFFEBEE),
+                    border: Border.all(color: Colors.red.shade200),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('الخصم (%)',
+                            style: TextStyle(
+                                color: Colors.red,
+                                fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 4),
+                        const Text('0 = بدون خصم',
+                            style: TextStyle(
+                                color: Colors.grey, fontSize: 11)),
+                        const SizedBox(height: 8),
+                        _dialogField(discountCtrl, '0',
+                            type: TextInputType.number),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _buildSection(
+                    color: const Color(0xFFFFF3E0),
+                    border:
+                    Border.all(color: Colors.orange.shade300),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('حد الطلب الأقصى (اختياري)',
+                            style: TextStyle(
+                                color: Colors.orange,
+                                fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 4),
+                        const Text('0 = بدون حد',
+                            style: TextStyle(
+                                color: Colors.grey, fontSize: 11)),
+                        const SizedBox(height: 8),
+                        Row(children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment:
+                              CrossAxisAlignment.start,
+                              children: [
+                                const Text('زبون عادي',
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.blue,
+                                        fontWeight:
+                                        FontWeight.bold)),
+                                const SizedBox(height: 4),
+                                _dialogField(maxNCtrl, '0',
+                                    type: TextInputType.number),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment:
+                              CrossAxisAlignment.start,
+                              children: [
+                                const Text('زبون مميز',
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.amber,
+                                        fontWeight:
+                                        FontWeight.bold)),
+                                const SizedBox(height: 4),
+                                _dialogField(maxSCtrl, '0',
+                                    type: TextInputType.number),
+                              ],
+                            ),
+                          ),
+                        ]),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _buildSection(
+                    color: Colors.purple.shade50,
+                    border:
+                    Border.all(color: Colors.purple.shade200),
+                    child: Row(children: [
+                      const Icon(Icons.star, color: Colors.purple),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                          child: Text('منتج مميز',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold))),
+                      Switch(
+                        value: editIsFeatured,
+                        activeColor: Colors.purple,
+                        onChanged: (v) =>
+                            setSt(() => editIsFeatured = v),
+                      ),
+                    ]),
+                  ),
+                  const SizedBox(height: 10),
+                  _buildFlavorsManager(
+                    flavors: editFlavors,
+                    controller: editFlavorController,
+                    onAdd: (f) => setSt(() => editFlavors
+                        .add(FlavorModel(name: f, isAvailable: true))),
+                    onRemove: (i) =>
+                        setSt(() => editFlavors.removeAt(i)),
+                    onToggle: (i) => setSt(() => editFlavors[i] =
+                        editFlavors[i].copyWith(
+                            isAvailable: !editFlavors[i].isAvailable)),
+                  ),
+                ],
+              ),
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('إلغاء',
-                  style: TextStyle(color: Colors.grey)),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final updated = Product(
-                  id: product.id,
-                  brandId: product.brandId,
-                  categoryId: editCategory?.id ?? '',
-                  name: nameCtrl.text,
-                  priceCartonNormal:
-                  double.tryParse(cartonNCtrl.text) ?? 0,
-                  priceUnitNormal:
-                  double.tryParse(unitNCtrl.text) ?? 0,
-                  priceCartonSpecial:
-                  double.tryParse(cartonSCtrl.text) ?? 0,
-                  priceUnitSpecial:
-                  double.tryParse(unitSCtrl.text) ?? 0,
-                  imagePath: product.imagePath,
-                  isAvailable: product.isAvailable,
-                  discount:
-                  double.tryParse(discountCtrl.text) ?? 0,
-                  sellType: editSellType,
-                  maxQtyNormal:
-                  int.tryParse(maxNCtrl.text) ?? 0,
-                  maxQtySpecial:
-                  int.tryParse(maxSCtrl.text) ?? 0,
-                  flavors: editFlavors,
-                  isFeatured: editIsFeatured,
-                  purchasePrice: double.tryParse(buyPriceCtrl.text) ?? 0,
-                  unitsPerCarton: int.tryParse(upcCtrl.text) ?? 1,
-                  stockQuantity: int.tryParse(stockCtrl.text) ?? 0,
-                );
-                await DataService.updateProduct(updated,
-                    imagePath: newImagePath);
-                if (selectedBrandForProducts != null) {
-                  await loadProducts(
-                      selectedBrandForProducts!.id);
-                }
-                if (!mounted) return;
-                Navigator.pop(context);
-                _showSnackBar(
-                    '✅ تم تعديل المنتج', const Color(0xFF2E7D32));
-              },
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2E7D32)),
-              child: const Text('حفظ',
-                  style: TextStyle(color: Colors.white)),
-            ),
-          ],
-        );
-      },
-    ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('إلغاء',
+                    style: TextStyle(color: Colors.grey)),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  final updated = Product(
+                    id: product.id,
+                    brandId: product.brandId,
+                    categoryId: editCategory?.id ?? '',
+                    name: nameCtrl.text,
+                    priceCartonNormal:
+                    double.tryParse(cartonNCtrl.text) ?? 0,
+                    priceUnitNormal:
+                    double.tryParse(unitNCtrl.text) ?? 0,
+                    priceCartonSpecial:
+                    double.tryParse(cartonSCtrl.text) ?? 0,
+                    priceUnitSpecial:
+                    double.tryParse(unitSCtrl.text) ?? 0,
+                    imagePath: product.imagePath,
+                    isAvailable: product.isAvailable,
+                    discount:
+                    double.tryParse(discountCtrl.text) ?? 0,
+                    sellType: editSellType,
+                    maxQtyNormal:
+                    int.tryParse(maxNCtrl.text) ?? 0,
+                    maxQtySpecial:
+                    int.tryParse(maxSCtrl.text) ?? 0,
+                    flavors: editFlavors,
+                    isFeatured: editIsFeatured,
+                    purchasePrice: double.tryParse(buyPriceCtrl.text) ?? 0,
+                    unitsPerCarton: int.tryParse(upcCtrl.text) ?? 1,
+                    stockQuantity: int.tryParse(stockCtrl.text) ?? 0,
+                  );
+                  await DataService.updateProduct(updated,
+                      imagePath: newImagePath);
+                  if (selectedBrandForProducts != null) {
+                    await loadProducts(
+                        selectedBrandForProducts!.id);
+                  }
+                  if (!mounted) return;
+                  Navigator.pop(context);
+                  _showSnackBar(
+                      '✅ تم تعديل المنتج', const Color(0xFF2E7D32));
+                },
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2E7D32)),
+                child: const Text('حفظ',
+                    style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 
@@ -1738,9 +1909,9 @@ class _AdminScreenState extends State<AdminScreen>
       return _buildPasswordGate(isDark);
     }
 
-    // ✅ حماية الشاشة من الخروج المفاجئ (الرجوع للخلف) المسبب للشاشة البيضاء
+    // ✅ إصلاح 6: في الهاتف يعمل زر الرجوع، وفي الويب يبقى الحظر لمنع الشاشة البيضاء
     return PopScope(
-      canPop: false,
+      canPop: !kIsWeb,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
         // منطق إضافي للرجوع في الأدمين إذا لزم الأمر
@@ -1799,6 +1970,11 @@ class _AdminScreenState extends State<AdminScreen>
           },
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.lock_reset, color: Colors.white),
+            tooltip: 'تغيير كلمة السر',
+            onPressed: _showChangePasswordDialog,
+          ),
           IconButton(
             icon: const Icon(Icons.bluetooth, color: Colors.white),
             onPressed: _showPrinterStatus,
@@ -2012,6 +2188,13 @@ class _AdminScreenState extends State<AdminScreen>
             padding: const EdgeInsets.all(12),
             child: Column(
               children: [
+                _sidebarAction(
+                  Icons.lock_reset_rounded,
+                  'تغيير كلمة السر',
+                  _showChangePasswordDialog,
+                  isDark,
+                ),
+                const SizedBox(height: 6),
                 _sidebarAction(
                   Icons.bluetooth,
                   'حالة الطابعة',
@@ -2441,10 +2624,10 @@ class _AdminScreenState extends State<AdminScreen>
         Column(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Text('${profit.toStringAsFixed(0)} DA', 
-              style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 14)),
-            Text('${percent.toStringAsFixed(1)}%', 
-              style: TextStyle(color: color.withOpacity(0.8), fontSize: 11, fontWeight: FontWeight.w500)),
+            Text('${profit.toStringAsFixed(0)} DA',
+                style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 14)),
+            Text('${percent.toStringAsFixed(1)}%',
+                style: TextStyle(color: color.withOpacity(0.8), fontSize: 11, fontWeight: FontWeight.w500)),
           ],
         ),
       ],
