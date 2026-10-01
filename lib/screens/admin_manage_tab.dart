@@ -548,7 +548,7 @@ extension AdminManageTabX on _AdminScreenState {
                   : Colors.grey.shade200),
           itemBuilder: (context, index) {
             final product = products[index];
-            
+
             // ✅ حساب المخزن المفهوم (كرتون + حبة)
             String stockLabel = 'المخزن: ';
             if (product.unitsPerCarton > 1) {
@@ -1149,7 +1149,7 @@ extension AdminManageTabX on _AdminScreenState {
   Future<void> _showEditOrderDialogFromManage(Order order) async {
     List<Map<String, dynamic>> editedItems = List.from(
         order.items.map((it) => Map<String, dynamic>.from(it)));
-    
+
     final paidCtrl = TextEditingController(text: order.paidAmount.toStringAsFixed(0));
 
     double calculateNewTotal() {
@@ -1178,7 +1178,9 @@ extension AdminManageTabX on _AdminScreenState {
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   child: ElevatedButton.icon(
                     onPressed: () async {
-                      final newItem = await _showSelectProductForOrder();
+                      // ✅ المنتج يُضاف بالحبة أو بالكرتون حسب نوع بيعه، وبسعر الزبون (عادي/خاص) مع الخصم
+                      final newItem = await _showSelectProductForOrder(
+                          useSpecial: order.isSpecialPrice);
                       if (newItem != null) {
                         setSt(() => editedItems.add(newItem));
                       }
@@ -1203,25 +1205,44 @@ extension AdminManageTabX on _AdminScreenState {
                       final name = item['productName'] ?? 'منتج';
                       final qty = _i(item['quantity']);
                       final price = _d(item['price']);
-                      final type = item['typeLabel'] ?? 'كرتون';
+                      final type = (item['typeLabel'] ?? 'كرتون').toString();
+                      final isCartonType = type == 'كرتون';
 
                       return ListTile(
                         title: Text(name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                        subtitle: InkWell(
-                          onTap: () async {
-                            final newPrice = await _showEditSinglePriceDialog(price, name);
-                            if (newPrice != null) {
-                              setSt(() => item['price'] = newPrice);
-                            }
-                          },
-                          child: Row(
-                            children: [
-                              Text('السعر: ${price.toStringAsFixed(0)} DA', 
-                                style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
-                              const SizedBox(width: 4),
-                              const Icon(Icons.edit, size: 12, color: Colors.blue),
-                            ],
-                          ),
+                        subtitle: Row(
+                          children: [
+                            InkWell(
+                              onTap: () async {
+                                final newPrice = await _showEditSinglePriceDialog(price, name);
+                                if (newPrice != null) {
+                                  setSt(() => item['price'] = newPrice);
+                                }
+                              },
+                              child: Row(
+                                children: [
+                                  Text('السعر: ${price.toStringAsFixed(0)} DA',
+                                      style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
+                                  const SizedBox(width: 4),
+                                  const Icon(Icons.edit, size: 12, color: Colors.blue),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            // ✅ نوع البيع (كرتون / حبة)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: isCartonType ? const Color(0xFFE8F5E9) : const Color(0xFFE3F2FD),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(type,
+                                  style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: isCartonType ? const Color(0xFF2E7D32) : Colors.blue)),
+                            ),
+                          ],
                         ),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -1259,7 +1280,8 @@ extension AdminManageTabX on _AdminScreenState {
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   child: TextField(
                     controller: paidCtrl,
-                    keyboardType: TextInputType.number,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    onChanged: (_) => setSt(() {}),
                     decoration: const InputDecoration(
                       labelText: 'المبلغ المسدد الآن',
                       suffixText: 'DA',
@@ -1278,6 +1300,23 @@ extension AdminManageTabX on _AdminScreenState {
                     ],
                   ),
                 ),
+                // ✅ المتبقي (دين) بعد التعديل
+                Builder(builder: (_) {
+                  final paid = double.tryParse(paidCtrl.text.trim().replaceAll(',', '.')) ?? 0;
+                  final rem = calculateNewTotal() - paid;
+                  if (rem <= 0.05) return const SizedBox.shrink();
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('المتبقي (دين):', style: TextStyle(fontWeight: FontWeight.bold)),
+                        Text('${rem.toStringAsFixed(0)} DA',
+                            style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 15)),
+                      ],
+                    ),
+                  );
+                }),
               ],
             ),
           ),
@@ -1296,15 +1335,28 @@ extension AdminManageTabX on _AdminScreenState {
     if (result == true) {
       try {
         final newTotal = calculateNewTotal();
-        final newPaid = double.tryParse(paidCtrl.text) ?? order.paidAmount;
+        final newPaid = double.tryParse(paidCtrl.text.trim().replaceAll(',', '.')) ?? order.paidAmount;
+        final newRemaining = (newTotal - newPaid) > 0 ? (newTotal - newPaid) : 0.0;
+
+        // ✅ إصلاح 4: مزامنة دين الزبون (إن كانت الطلبية مسجّلة على زبون)
+        final customerBalance = await DataService.syncOrderDebt(
+          orderId: order.id,
+          newRemaining: newRemaining,
+        );
+
         final updatedOrder = order.copyWith(
           items: editedItems,
           total: newTotal,
           paidAmount: newPaid,
+          remainingBalance: customerBalance ?? order.remainingBalance,
         );
         await DataService.updateFullOrder(updatedOrder);
         await loadOrders();
-        _showSnackBar('✅ تم تحديث الطلب', Colors.green);
+        _showSnackBar(
+            customerBalance != null
+                ? '✅ تم تحديث الطلب ودين الزبون'
+                : '✅ تم تحديث الطلب',
+            Colors.green);
       } catch (e) {
         _showSnackBar('❌ خطأ: $e', Colors.red);
       }

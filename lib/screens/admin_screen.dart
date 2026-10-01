@@ -11,6 +11,7 @@ import '../services/printer_service.dart';
 import '../utils/converters.dart';
 import '../widgets/receipt_preview_dialog.dart';
 import 'stats_screen.dart';
+import 'inventory_screen.dart';
 
 part 'admin_manage_tab.dart';
 part 'admin_users_tab.dart';
@@ -633,9 +634,80 @@ class _AdminScreenState extends State<AdminScreen>
     );
   }
 
-  Future<Map<String, dynamic>?> _showSelectProductForOrder() async {
-    final products = await DataService.getAllProducts();
-    if (products.isEmpty) return null;
+  // ✅ سعر المنتج داخل الطلبية حسب النوع (حبة/كرتون) ونوع الزبون (عادي/خاص) مع الخصم
+  double _orderPriceFor(Product p, bool isCarton, bool useSpecial) {
+    final base = isCarton
+        ? (useSpecial ? p.priceCartonSpecial : p.priceCartonNormal)
+        : (useSpecial ? p.priceUnitSpecial : p.priceUnitNormal);
+    return p.discountedPrice(base);
+  }
+
+  String _productPriceHint(Product p, bool useSpecial) {
+    final c = '${_orderPriceFor(p, true, useSpecial).toStringAsFixed(0)} DA';
+    final u = '${_orderPriceFor(p, false, useSpecial).toStringAsFixed(0)} DA';
+    switch (p.sellType) {
+      case SellType.cartonOnly:
+        return 'كرتون: $c';
+      case SellType.unitOnly:
+        return 'حبة: $u';
+      case SellType.both:
+        return 'كرتون: $c  |  حبة: $u';
+    }
+  }
+
+  Map<String, dynamic> _orderItemFromProduct(
+      Product p, bool isCarton, bool useSpecial) {
+    final price = _orderPriceFor(p, isCarton, useSpecial);
+    return {
+      'productId': p.id,
+      'productName': p.name,
+      'quantity': 1,
+      'price': price,
+      'unitPrice': price,
+      'isCarton': isCarton,
+      'typeLabel': isCarton ? 'كرتون' : 'حبة',
+      'flavor': '',
+    };
+  }
+
+  /// يرجع true = كرتون، false = حبة، null = إلغاء.
+  /// إذا كان المنتج يُباع بنوع واحد فقط يُختار تلقائياً.
+  Future<bool?> _askCartonOrUnit(Product p) async {
+    if (p.sellType == SellType.cartonOnly) return true;
+    if (p.sellType == SellType.unitOnly) return false;
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape:
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(p.name, style: const TextStyle(fontSize: 16)),
+        content: const Text('كيف تريد إضافة هذا المنتج؟'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('إلغاء'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+            child: const Text('حبة', style: TextStyle(color: Colors.white)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2E7D32)),
+            child:
+            const Text('كرتون', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<Map<String, dynamic>?> _showSelectProductForOrder(
+      {bool useSpecial = false}) async {
+    final allProducts = await DataService.getAllProducts();
+    if (allProducts.isEmpty || !mounted) return null;
 
     String query = '';
     return await showDialog<Map<String, dynamic>>(
@@ -654,24 +726,18 @@ class _AdminScreenState extends State<AdminScreen>
                 ),
                 Expanded(
                   child: ListView.builder(
-                    itemCount: products.length,
+                    itemCount: allProducts.length,
                     itemBuilder: (context, i) {
-                      final p = products[i];
+                      final p = allProducts[i];
                       if (query.isNotEmpty && !p.name.toLowerCase().contains(query)) return const SizedBox.shrink();
                       return ListTile(
                         title: Text(p.name),
-                        subtitle: Text('${p.priceCartonNormal.toStringAsFixed(0)} DA'),
-                        onTap: () {
-                          Navigator.pop(context, {
-                            'productId': p.id,
-                            'productName': p.name,
-                            'quantity': 1,
-                            'price': p.priceCartonNormal,
-                            'unitPrice': p.priceCartonNormal,
-                            'isCarton': true,
-                            'typeLabel': 'كرتون',
-                            'flavor': '',
-                          });
+                        subtitle: Text(_productPriceHint(p, useSpecial)),
+                        onTap: () async {
+                          final isCarton = await _askCartonOrUnit(p);
+                          if (isCarton == null || !context.mounted) return;
+                          Navigator.pop(context,
+                              _orderItemFromProduct(p, isCarton, useSpecial));
                         },
                       );
                     },
@@ -1250,6 +1316,11 @@ class _AdminScreenState extends State<AdminScreen>
   }
 
   Future<void> _showEditProductDialog(Product product) async {
+    // ✅ إصلاح 1: نقرأ المنتج من Firestore قبل فتح النافذة حتى لا نكتب مخزوناً قديماً فوق المخزون الحقيقي
+    final fresh = await DataService.getProductById(product.id);
+    if (fresh != null) product = fresh;
+    if (!mounted) return;
+
     final nameCtrl = TextEditingController(text: product.name);
     final cartonNCtrl = TextEditingController(
         text: product.priceCartonNormal.toString());
@@ -1600,6 +1671,12 @@ class _AdminScreenState extends State<AdminScreen>
               ),
               ElevatedButton(
                 onPressed: () async {
+                  // ✅ إصلاح 1: إذا لم تغيّر حقل المخزون، لا نكتب فوقه (قد تكون طلبات جديدة خصمت منه)
+                  int stockToSave = int.tryParse(stockCtrl.text) ?? 0;
+                  if (stockCtrl.text == product.stockQuantity.toString()) {
+                    final latest = await DataService.getProductById(product.id);
+                    if (latest != null) stockToSave = latest.stockQuantity;
+                  }
                   final updated = Product(
                     id: product.id,
                     brandId: product.brandId,
@@ -1626,7 +1703,7 @@ class _AdminScreenState extends State<AdminScreen>
                     isFeatured: editIsFeatured,
                     purchasePrice: double.tryParse(buyPriceCtrl.text) ?? 0,
                     unitsPerCarton: int.tryParse(upcCtrl.text) ?? 1,
-                    stockQuantity: int.tryParse(stockCtrl.text) ?? 0,
+                    stockQuantity: stockToSave,
                   );
                   await DataService.updateProduct(updated,
                       imagePath: newImagePath);
@@ -1944,6 +2021,7 @@ class _AdminScreenState extends State<AdminScreen>
                       ),
                       const StatsScreen(),
                       _buildUsersTab(isDark),
+                      const InventoryScreen(),
                     ],
                   ),
                 ),
@@ -2000,6 +2078,7 @@ class _AdminScreenState extends State<AdminScreen>
             ),
             const StatsScreen(),
             _buildUsersTab(isDark),
+            const InventoryScreen(),
           ],
         ),
       ),
@@ -2035,6 +2114,11 @@ class _AdminScreenState extends State<AdminScreen>
             activeIcon: Icon(Icons.people),
             label: 'مستخدمون',
           ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.inventory_outlined),
+            activeIcon: Icon(Icons.inventory_rounded),
+            label: 'المخزون',
+          ),
         ],
       ),
     );
@@ -2052,6 +2136,7 @@ class _AdminScreenState extends State<AdminScreen>
       {'icon': Icons.receipt_long_rounded, 'label': 'سجل الطلبات', 'index': 2},
       {'icon': Icons.bar_chart_rounded, 'label': 'تقارير المبيعات', 'index': 3},
       {'icon': Icons.people_rounded, 'label': 'المستخدمون', 'index': 4},
+      {'icon': Icons.inventory_rounded, 'label': 'المخزون', 'index': 5},
     ];
     return Container(
       width: 220,
@@ -2258,7 +2343,8 @@ class _AdminScreenState extends State<AdminScreen>
       'إدارة المحتوى',
       'سجل الطلبات',
       'تقارير المبيعات',
-      'إدارة المستخدمين'
+      'إدارة المستخدمين',
+      'المخزون'
     ];
     return Container(
       height: 56,

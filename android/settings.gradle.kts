@@ -1,3 +1,19 @@
+System.clearProperty("ANDROID_PREFS_ROOT")
+System.clearProperty("android.prefs.root")
+
+try {
+    val peClass = Class.forName("java.lang.ProcessEnvironment")
+
+    listOf("theEnvironment", "theCaseInsensitiveEnvironment", "theUnmodifiableEnvironment").forEach { fieldName ->
+        try {
+            val field = peClass.getDeclaredField(fieldName)
+            field.isAccessible = true
+            val map = field.get(null) as? MutableMap<*, *>
+            map?.keys?.removeAll { key -> key.toString().equals("ANDROID_PREFS_ROOT", ignoreCase = true) }
+        } catch (ignored: Throwable) {}
+    }
+} catch (ignored: Throwable) {}
+
 pluginManagement {
     val flutterSdkPath =
         run {
@@ -23,7 +39,7 @@ plugins {
     // START: FlutterFire Configuration
     id("com.google.gms.google-services") version "4.4.2" apply false
     // END: FlutterFire Configuration
-    id("org.jetbrains.kotlin.android") version "2.1.0" apply false
+    id("org.jetbrains.kotlin.android") version "2.2.20" apply false
 }
 
 include(":app")

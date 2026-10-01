@@ -696,59 +696,77 @@ class DataService {
     debugPrint('🔄 حالة الطلب $orderId → $status');
   }
 
+  /// ✅ إصلاح 4: تعديل الطلب بشكل ذرّي
+  /// نحسب الفرق الصافي لكل منتج (القديم − الجديد) ونطبّقه مع حفظ الطلب في batch واحدة،
+  /// فإما ينجح كل شيء أو لا يتغير شيء. الطلب المرفوض لا يُحتسب (مخزونه أُرجع مسبقاً).
   static Future<void> updateFullOrder(app_models.Order order) async {
-    // 1) جلب الطلب القديم لإعادة الكميات السابقة للمخزن
-    final oldDoc = await _db.collection('orders').doc(order.id).get();
+    final orderRef = _db.collection('orders').doc(order.id);
+    final oldDoc = await orderRef.get();
+
+    List oldItems = const [];
+    bool oldCounted = false;
     if (oldDoc.exists) {
       final oldData = oldDoc.data();
-      if (oldData != null && oldData['items'] is List) {
-        final oldItems = oldData['items'] as List;
-        final refundBatch = _db.batch();
-        for (final it in oldItems) {
-          final pid = it['productId']?.toString() ?? '';
-          if (pid.isNotEmpty) {
-            final qtySold = toInt(it['quantity']);
-            final isCarton = it['isCarton'] == true;
-            final pDoc = await _db.collection('products').doc(pid).get();
-            if (pDoc.exists) {
-              final upc = toInt(pDoc.data()?['unitsPerCarton'] ?? 1);
-              final piecesToAdd = isCarton ? (qtySold * upc) : qtySold;
-              refundBatch.update(_db.collection('products').doc(pid), {
-                'stockQuantity': FieldValue.increment(piecesToAdd),
-              });
-            }
-          }
-        }
-        await refundBatch.commit();
+      oldItems = (oldData?['items'] is List) ? oldData!['items'] as List : const [];
+      oldCounted = (oldData?['status'] ?? 'pending').toString() != 'rejected';
+    }
+    final newCounted = order.status != 'rejected';
+
+    // 1) جمع معرفات المنتجات المعنية
+    final pids = <String>{};
+    void collect(List items) {
+      for (final it in items) {
+        if (it is! Map) continue;
+        final pid = it['productId']?.toString() ?? '';
+        if (pid.isNotEmpty) pids.add(pid);
+      }
+    }
+    if (oldCounted) collect(oldItems);
+    if (newCounted) collect(order.items);
+
+    // 2) جلب عدد الحبات في الكرتون لكل منتج (مرة واحدة)
+    final upcMap = <String, int>{};
+    for (final pid in pids) {
+      final pDoc = await _db.collection('products').doc(pid).get();
+      if (pDoc.exists) {
+        final upc = toInt(pDoc.data()?['unitsPerCarton'] ?? 1);
+        upcMap[pid] = upc > 0 ? upc : 1;
       }
     }
 
-    // 2) حفظ الطلب المحدث
-    await _db.collection('orders').doc(order.id).set(
+    // 3) حساب الفرق الصافي لكل منتج (+ إرجاع، − خصم)
+    final net = <String, int>{};
+    void accumulate(List items, int sign) {
+      for (final it in items) {
+        if (it is! Map) continue;
+        final pid = it['productId']?.toString() ?? '';
+        if (!upcMap.containsKey(pid)) continue;
+        final qty = toInt(it['quantity']);
+        final isCarton = it['isCarton'] == true;
+        final pieces = isCarton ? qty * upcMap[pid]! : qty;
+        net[pid] = (net[pid] ?? 0) + sign * pieces;
+      }
+    }
+    if (oldCounted) accumulate(oldItems, 1);
+    if (newCounted) accumulate(order.items, -1);
+
+    // 4) حفظ الطلب + تحديث المخزن في batch واحدة
+    final batch = _db.batch();
+    batch.set(
+      orderRef,
       {...order.toJson(), 'updatedAt': FieldValue.serverTimestamp()},
       SetOptions(merge: true),
     );
-
-    // 3) خصم الكميات الجديدة من المخزن
-    final deductBatch = _db.batch();
-    for (final it in order.items) {
-      final pid = it['productId']?.toString() ?? '';
-      if (pid.isNotEmpty) {
-        final qtySold = toInt(it['quantity']);
-        final isCarton = it['isCarton'] == true;
-        final pDoc = await _db.collection('products').doc(pid).get();
-        if (pDoc.exists) {
-          final upc = toInt(pDoc.data()?['unitsPerCarton'] ?? 1);
-          final piecesToSubtract = isCarton ? (qtySold * upc) : qtySold;
-          deductBatch.update(_db.collection('products').doc(pid), {
-            'stockQuantity': FieldValue.increment(-piecesToSubtract),
-          });
-        }
+    net.forEach((pid, delta) {
+      if (delta != 0) {
+        batch.update(_db.collection('products').doc(pid), {
+          'stockQuantity': FieldValue.increment(delta),
+        });
       }
-    }
-    await deductBatch.commit();
+    });
+    await batch.commit();
 
-    debugPrint('📝 تم تحديث بيانات الطلب بالكامل وتحديث المخزن: ${order.id}');
+    debugPrint('📝 تم تحديث الطلب والمخزن بشكل ذرّي: ${order.id}');
   }
 
   static Future<void> updateOrderLocation(
@@ -905,7 +923,9 @@ class DataService {
   // ══════════════════════════════════════════════════════
   static Future<Map<String, dynamic>> getStats({DateTime? specificDate}) async {
     try {
-      final orders = await getAllOrders();
+      // ✅ إصلاح 2: الطلبات المرفوضة لا تُحتسب في المبيعات والأرباح
+      final allOrders = await getAllOrders();
+      final orders = allOrders.where((o) => !o.isRejected).toList();
       final productsList = await getAllProducts();
 
       // خريطة أسعار الشراء (للحبة) لتسهيل الحساب
@@ -1298,6 +1318,7 @@ class DataService {
     required String type, // 'charge' (إضافة دين) أو 'payment' (تسديد)
     required double amount,
     String note = '',
+    String? orderId, // ✅ إصلاح 4: ربط الحركة بالطلبية
   }) async {
     final txnId = DateTime.now().millisecondsSinceEpoch.toString();
     final customerRef = _db.collection('customers').doc(customerId);
@@ -1314,6 +1335,7 @@ class DataService {
         'type': type,
         'amount': amount,
         'note': note,
+        if (orderId != null && orderId.isNotEmpty) 'orderId': orderId,
         'createdAt': FieldValue.serverTimestamp(),
       });
       transaction.update(customerRef, {
@@ -1322,6 +1344,51 @@ class DataService {
       });
     });
     debugPrint('✅ معاملة دين مسجّلة: $type $amount للزبون $customerId');
+  }
+
+  /// ✅ إصلاح 4: مزامنة دين الزبون عند تعديل الطلبية.
+  /// تقارن الدين المسجّل فعلاً لهذه الطلبية في سجل الحركات بالدين الجديد
+  /// وتسجّل الفرق فقط (إضافة دين أو تسديد). آمنة عند التكرار (لا تُسجّل شيئاً إن لم يتغير الدين).
+  /// ترجع رصيد الزبون بعد المزامنة، أو null إذا لم تكن الطلبية مسجّلة على زبون.
+  static Future<double?> syncOrderDebt({
+    required String orderId,
+    required double newRemaining,
+  }) async {
+    try {
+      final snap = await _db
+          .collection('debt_transactions')
+          .where('orderId', isEqualTo: orderId)
+          .get();
+      if (snap.docs.isEmpty) return null;
+
+      String customerId = '';
+      double recorded = 0;
+      for (final d in snap.docs) {
+        final data = d.data();
+        final cid = data['customerId']?.toString() ?? '';
+        if (cid.isNotEmpty) customerId = cid;
+        final amount = _d(data['amount']);
+        recorded += data['type'] == 'payment' ? -amount : amount;
+      }
+      if (customerId.isEmpty) return null;
+
+      final delta = newRemaining - recorded;
+      if (delta.abs() > 0.05) {
+        await addDebtTransaction(
+          customerId: customerId,
+          type: delta > 0 ? 'charge' : 'payment',
+          amount: delta.abs(),
+          note: 'تعديل فاتورة رقم #$orderId',
+          orderId: orderId,
+        );
+      }
+
+      final customer = await getCustomerById(customerId);
+      return customer?.balance;
+    } catch (e) {
+      debugPrint('❌ syncOrderDebt: $e');
+      rethrow;
+    }
   }
 
   static Future<List<app_models.DebtTransactionModel>>

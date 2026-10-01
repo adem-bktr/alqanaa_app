@@ -617,8 +617,8 @@ class _CartScreenState extends State<CartScreen> {
                                 if (group.any((i) => i.flavor != null && i.flavor!.isNotEmpty))
                                   Text(
                                     group.where((i) => i.flavor != null && i.flavor!.isNotEmpty)
-                                         .map((i) => "${i.flavor} (${i.quantity})")
-                                         .join(", "),
+                                        .map((i) => "${i.flavor} (${i.quantity})")
+                                        .join(", "),
                                     style: const TextStyle(
                                         fontSize: 11,
                                         color: Colors.purple,
@@ -749,6 +749,8 @@ class _CartScreenState extends State<CartScreen> {
         customerPhone: phoneController.text.trim(),
         items: widget.cart
             .map((i) => {
+          // ✅ إصلاح المخزون: بدون productId لا يستطيع saveOrder خصم الكمية من المخزن
+          'productId': i.product.id,
           'productName': i.product.name,
           'quantity': i.quantity,
           // ✅ i.unitPrice يأخذ بالحسبان السعر المعدّل (overridePrice) إن وُجد
@@ -803,6 +805,7 @@ class _CartScreenState extends State<CartScreen> {
               type: 'charge',
               amount: remaining,
               note: 'دين من فاتورة هاتف رقم #$orderId',
+              orderId: orderId, // ✅ ربط الدين بالطلبية (لمزامنته عند تعديل الطلبية)
             );
             debugPrint('💳 دين مسجّل بنجاح: $remaining على ${_selectedCustomer!.name}');
           } catch (e) {
@@ -1843,7 +1846,7 @@ class _CartScreenState extends State<CartScreen> {
               ],
             ),
             const SizedBox(height: 12),
-            
+
             // ── قائمة الأذواق والكميات ──
             ...items.map((item) {
               return Padding(
