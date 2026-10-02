@@ -29,7 +29,8 @@ class ReceiptPreviewDialog extends StatefulWidget {
       }) {
     return showDialog<bool>(
       context: context,
-      barrierDismissible: true,
+      // ✅ إصلاح 5: لا تُغلق النافذة بلمسة خارجها (كانت تُرجع null أثناء الطباعة فيُعتبر الطلب ملغى)
+      barrierDismissible: false,
       builder: (ctx) => ReceiptPreviewDialog(
         order: order,
         customerName: customerName,
@@ -87,8 +88,9 @@ class _ReceiptPreviewDialogState extends State<ReceiptPreviewDialog> {
         Navigator.of(context).pop(true);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('⚠️ تعذر إرسال الوصل. يرجى التحقق من اتصال الطابعة.'),
+          SnackBar(
+            content: Text(
+                '⚠️ ${PrinterService.lastError ?? 'تعذر إرسال الوصل. يرجى التحقق من اتصال الطابعة.'}'),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
           ),
@@ -146,7 +148,9 @@ class _ReceiptPreviewDialogState extends State<ReceiptPreviewDialog> {
                 const Spacer(),
                 IconButton(
                   icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.of(context).pop(false),
+                  onPressed: _isPrinting
+                      ? null
+                      : () => Navigator.of(context).pop(false),
                 ),
               ],
             ),

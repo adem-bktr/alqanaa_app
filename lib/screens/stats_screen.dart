@@ -102,7 +102,7 @@ class _StatsScreenState extends State<StatsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (isDesktop) _buildDesktopHeader(isDark, textColor),
-              
+
               // بطاقة التاريخ المختار (موبايل)
               if (!isDesktop) ...[
                 Container(
@@ -171,7 +171,7 @@ class _StatsScreenState extends State<StatsScreen> {
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             const Text('صافي الربح التقديري', style: TextStyle(color: Colors.white60, fontSize: 11)),
-                            Text('${formatter.format(stats['targetDayProfit'] ?? 0.0)} DA', 
+                            Text('${formatter.format(stats['targetDayProfit'] ?? 0.0)} DA',
                                 style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 16)),
                           ],
                         ),
@@ -272,6 +272,10 @@ class _StatsScreenState extends State<StatsScreen> {
   }
 
   Widget _buildTopProductsSection(bool isDark, Color cardColor, Color textColor) {
+    // ✅ قائمتان منفصلتان: بالكرتون وبالحبة (لا يُخلط بينهما)
+    final topCarton = (stats['topCartonProducts'] as List?) ?? [];
+    final topUnit = (stats['topUnitProducts'] as List?) ?? [];
+
     return Container(
       decoration: BoxDecoration(
         color: cardColor,
@@ -303,12 +307,37 @@ class _StatsScreenState extends State<StatsScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          if (stats['topProducts'] == null || (stats['topProducts'] as List).isEmpty)
+          if (topCarton.isEmpty && topUnit.isEmpty)
             const Center(child: Text('لا توجد بيانات بعد'))
-          else
-            ..._buildTopProducts(isDark, textColor),
+          else ...[
+            if (topCarton.isNotEmpty) ...[
+              _topSubHeader('📦 بالكرتون', const Color(0xFF2E7D32)),
+              const SizedBox(height: 10),
+              ..._buildTopProducts(topCarton, 'كرتون', isDark, textColor),
+            ],
+            if (topCarton.isNotEmpty && topUnit.isNotEmpty)
+              const SizedBox(height: 8),
+            if (topUnit.isNotEmpty) ...[
+              _topSubHeader('🔹 بالحبة', Colors.blue),
+              const SizedBox(height: 10),
+              ..._buildTopProducts(topUnit, 'حبة', isDark, textColor),
+            ],
+          ],
         ],
       ),
+    );
+  }
+
+  Widget _topSubHeader(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(label,
+          style: TextStyle(
+              color: color, fontWeight: FontWeight.bold, fontSize: 13)),
     );
   }
 
@@ -363,7 +392,7 @@ class _StatsScreenState extends State<StatsScreen> {
               ),
               columnWidths: const {
                 0: FlexColumnWidth(3),
-                1: FlexColumnWidth(1),
+                1: FlexColumnWidth(1.8),
                 2: FlexColumnWidth(2),
               },
               children: [
@@ -374,15 +403,23 @@ class _StatsScreenState extends State<StatsScreen> {
                     _tableHeader('الإجمالي', isDark),
                   ],
                 ),
-                ...products.map((p) => TableRow(
-                  children: [
-                    _tableCell(p['name']?.toString() ?? '', textColor),
-                    _tableCell(p['quantity']?.toString() ?? '0', textColor),
-                    _tableCell('${formatter.format(p['revenue'] ?? 0)} DA',
-                        const Color(0xFF2E7D32),
-                        bold: true),
-                  ],
-                )),
+                ...products.map((p) {
+                  // ✅ الكمية مع نوعها (كرتون / حبة) حتى لا يُخلط بينهما
+                  final type = p['type']?.toString() ?? '';
+                  final isCartonType = type == 'كرتون';
+                  return TableRow(
+                    children: [
+                      _tableCell(p['name']?.toString() ?? '', textColor),
+                      _tableCell(
+                          '${p['quantity'] ?? 0} $type',
+                          isCartonType ? const Color(0xFF2E7D32) : Colors.blue,
+                          bold: true),
+                      _tableCell('${formatter.format(p['revenue'] ?? 0)} DA',
+                          const Color(0xFF2E7D32),
+                          bold: true),
+                    ],
+                  );
+                }),
               ],
             ),
         ],
@@ -393,11 +430,14 @@ class _StatsScreenState extends State<StatsScreen> {
   // ══════════════════════════════════
   //  أكثر المنتجات مبيعاً - Mobile
   // ══════════════════════════════════
-  List<Widget> _buildTopProducts(bool isDark, Color textColor) {
-    final topProducts = stats['topProducts'] as List;
+  List<Widget> _buildTopProducts(
+      List topProducts, String unitLabel, bool isDark, Color textColor) {
+    if (topProducts.isEmpty) return [];
     final firstProduct =
     topProducts.first as Map<String, dynamic>;
     final firstQty = (firstProduct['quantity'] ?? 1) as int;
+    final barColor =
+    unitLabel == 'كرتون' ? const Color(0xFF2E7D32) : Colors.blue;
 
     return topProducts.asMap().entries.map((entry) {
       final index = entry.key;
@@ -413,7 +453,7 @@ class _StatsScreenState extends State<StatsScreen> {
       } else if (index == 2) {
         medalColor = Colors.brown;
       } else {
-        medalColor = const Color(0xFF2E7D32);
+        medalColor = barColor;
       }
 
       return Padding(
@@ -424,47 +464,53 @@ class _StatsScreenState extends State<StatsScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 26,
-                      height: 26,
-                      decoration: BoxDecoration(
-                        color: medalColor,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Center(
-                        child: Text(
-                          '${index + 1}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
+                Expanded(
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 26,
+                        height: 26,
+                        decoration: BoxDecoration(
+                          color: medalColor,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Text(
+                            '${index + 1}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      name,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: textColor,
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          name,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: textColor,
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(
                       horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFE8F5E9),
+                    color: barColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    '$qty وحدة',
-                    style: const TextStyle(
-                      color: Color(0xFF2E7D32),
+                    '$qty $unitLabel',
+                    style: TextStyle(
+                      color: barColor,
                       fontWeight: FontWeight.bold,
                       fontSize: 12,
                     ),
@@ -479,9 +525,7 @@ class _StatsScreenState extends State<StatsScreen> {
                   ? Colors.grey.shade800
                   : Colors.grey.shade200,
               valueColor: AlwaysStoppedAnimation<Color>(
-                index == 0
-                    ? Colors.amber
-                    : const Color(0xFF2E7D32),
+                index == 0 ? Colors.amber : barColor,
               ),
               borderRadius: BorderRadius.circular(4),
               minHeight: 8,

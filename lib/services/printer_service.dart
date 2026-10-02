@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:flutter/services.dart' show rootBundle;
 import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import 'package:intl/intl.dart';
@@ -16,9 +15,18 @@ class PrinterService {
   static String? _connectedName;
   static bool _isConnected = false;
 
+  // ✅ هل توجد طابعة محفوظة/مستخدمة سابقاً (لإعادة الاتصال بها تلقائياً عند الطباعة)
+  static bool _hasSavedPrinter = false;
+
+  // ✅ سبب آخر فشل في الطباعة/الاتصال (لعرضه للمستخدم)
+  static String? lastError;
+
   static bool get isConnected =>
       _isConnected ||
           (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux));
+
+  /// ✅ يمكن محاولة الطباعة: إما متصلة الآن، أو توجد طابعة محفوظة سنعيد الاتصال بها تلقائياً
+  static bool get canPrint => isConnected || _hasSavedPrinter;
 
   static String? get connectedDeviceName =>
       _connectedName ??
@@ -39,6 +47,7 @@ class PrinterService {
       final lastAddr = prefs.getString('last_printer_address');
       final lastName = prefs.getString('last_printer_name');
       if (lastAddr != null && lastAddr.isNotEmpty) {
+        _hasSavedPrinter = true;
         debugPrint('⏳ Attempting auto-connect to $lastName...');
         final ok = await PrintBluetoothThermal.connect(macPrinterAddress: lastAddr);
         if (ok) {
@@ -120,7 +129,8 @@ class PrinterService {
     0x2026: '...', 0x00B0: 'deg', 0x20AC: 'EUR', 0x00A3: 'GBP',
   };
 
-  static String _clean(Object? input) {
+  /// ✅ تحويل الأحرف إلى ASCII آمن **مع الحفاظ على المسافات** (لتنسيق أسطر الوصل)
+  static String _ascii(Object? input) {
     final s = input?.toString() ?? '';
     if (s.isEmpty) return '';
     final buf = StringBuffer();
@@ -133,18 +143,24 @@ class PrinterService {
         buf.write(' ');
       }
     }
-    return buf.toString().replaceAll(RegExp(r'\s+'), ' ').trim();
+    return buf.toString();
+  }
+
+  /// تنظيف **بيانات** (اسم زبون/منتج/ذوق...): ASCII + ضغط المسافات المتتالية + قص الأطراف
+  static String _clean(Object? input) {
+    return _ascii(input).replaceAll(RegExp(r'\s+'), ' ').trim();
   }
 
   // ══════════════════════════════════════════════════════
   //  ✅ 3. Safe wrappers
+  //  (لا نضغط المسافات هنا حتى لا يضيع تنسيق الأسطر؛ البيانات تُنظَّف بـ _clean قبل إدخالها)
   // ══════════════════════════════════════════════════════
   static List<int> _t(Generator g, Object? text, {PosStyles? styles}) {
-    return g.text(_clean(text), styles: styles ?? const PosStyles());
+    return g.text(_ascii(text), styles: styles ?? const PosStyles());
   }
 
   static PosColumn _c(Object? text, int width, PosStyles styles) {
-    return PosColumn(text: _clean(text), width: width, styles: styles);
+    return PosColumn(text: _ascii(text), width: width, styles: styles);
   }
 
   // ══════════════════════════════════════════════════════
@@ -200,6 +216,7 @@ class PrinterService {
         _connectedAddress = addr;
         _connectedName = getDeviceName(device);
         _isConnected = true;
+        _hasSavedPrinter = true;
         await _saveLastPrinter(_connectedAddress!, _connectedName!);
         await Future.delayed(const Duration(milliseconds: 500));
         debugPrint('✅ Connected to $_connectedName');
@@ -219,19 +236,92 @@ class PrinterService {
       await PrintBluetoothThermal.disconnect;
     } catch (_) {} finally {
       _reset();
+      _hasSavedPrinter = false; // قطع يدوي: لا نعيد الاتصال تلقائياً حتى يختار المستخدم طابعة
     }
   }
 
+  /// ✅ يفحص حالة الاتصال فقط. لا يمسح العنوان المحفوظ حتى نستطيع إعادة الاتصال به.
   static Future<bool> checkConnection() async {
     try {
       final c = await PrintBluetoothThermal.connectionStatus;
       _isConnected = c;
-      if (!c) _reset();
       return c;
     } catch (_) {
       _isConnected = false;
       return false;
     }
+  }
+
+  // ══════════════════════════════════════════════════════
+  //  ✅ إعادة الاتصال التلقائي (بعد خمول الطابعة أو انقطاع الاتصال)
+  // ══════════════════════════════════════════════════════
+  static Future<String?> _savedAddress() async {
+    if (_connectedAddress != null && _connectedAddress!.isNotEmpty) {
+      return _connectedAddress;
+    }
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final a = prefs.getString('last_printer_address');
+      if (a != null && a.isNotEmpty) return a;
+    } catch (_) {}
+    return null;
+  }
+
+  static Future<bool> _reconnect() async {
+    final addr = await _savedAddress();
+    if (addr == null) {
+      lastError = 'لم يتم اختيار طابعة بعد. اربط الطابعة من إعدادات الطابعة.';
+      return false;
+    }
+
+    try {
+      if (!await PrintBluetoothThermal.bluetoothEnabled) {
+        lastError = 'البلوتوث مغلق في الهاتف.';
+        return false;
+      }
+    } catch (_) {}
+
+    for (int attempt = 1; attempt <= 2; attempt++) {
+      try {
+        debugPrint('🔄 Reconnect attempt $attempt → $addr');
+        try {
+          await PrintBluetoothThermal.disconnect;
+        } catch (_) {}
+        await Future.delayed(const Duration(milliseconds: 400));
+        final ok = await PrintBluetoothThermal.connect(macPrinterAddress: addr);
+        if (ok) {
+          _connectedAddress = addr;
+          _connectedName ??= await _savedName();
+          _isConnected = true;
+          _hasSavedPrinter = true;
+          await Future.delayed(const Duration(milliseconds: 500));
+          debugPrint('✅ Reconnected');
+          return true;
+        }
+      } catch (e) {
+        debugPrint('⚠️ Reconnect error: $e');
+      }
+      await Future.delayed(const Duration(milliseconds: 600));
+    }
+
+    _isConnected = false;
+    lastError = 'تعذر الاتصال بالطابعة. تأكد أنها مشغّلة وقريبة من الهاتف.';
+    return false;
+  }
+
+  static Future<String?> _savedName() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString('last_printer_name');
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// ✅ يتأكد من الاتصال، وإن كان مقطوعاً يحاول إعادة الاتصال بآخر طابعة تلقائياً.
+  static Future<bool> ensureConnected() async {
+    if (await checkConnection()) return true;
+    return _reconnect();
   }
 
   // ══════════════════════════════════════════════════════
@@ -265,6 +355,21 @@ class PrinterService {
       debugPrint('❌ Chunked send failed: $e');
       return false;
     }
+  }
+
+  /// ✅ إرسال مع إعادة محاولة: إذا فشل الإرسال (اتصال ميّت بعد خمول) نعيد الاتصال ونرسل مرة ثانية
+  static Future<bool> _sendWithRetry(List<int> bytes) async {
+    var ok = await _send(bytes);
+    if (!ok) {
+      debugPrint('⚠️ Send failed → reconnect + resend');
+      if (await _reconnect()) {
+        ok = await _send(bytes);
+      }
+    }
+    if (!ok) {
+      lastError ??= 'تعذر إرسال البيانات للطابعة.';
+    }
+    return ok;
   }
 
   // ══════════════════════════════════════════════════════
@@ -349,24 +454,23 @@ class PrinterService {
     List<int> b = [];
     final Map<String, Map<String, dynamic>> grouped = {};
     for (final it in items) {
-      final name = it['productName']?.toString() ?? 'Unknown product';
+      final rawName = it['productName']?.toString() ?? 'Unknown product';
       final isCarton = it['isCarton'] == true;
-      final key = '$name-$isCarton';
+      final key = '$rawName-$isCarton';
       final price = (it['price'] as num? ?? 0).toDouble();
       final qty = (it['quantity'] as num? ?? 0).toDouble();
+      final flavor = _clean(it['flavor']);
 
       if (grouped.containsKey(key)) {
         grouped[key]!['quantity'] = (grouped[key]!['quantity'] as double) + qty;
         grouped[key]!['total'] = (grouped[key]!['total'] as double) + (qty * price);
-        final flavor = it['flavor']?.toString() ?? '';
         if (flavor.isNotEmpty) {
           final flavors = grouped[key]!['flavors'] as List<String>;
           flavors.add('$flavor (${qty.toStringAsFixed(0)})');
         }
       } else {
-        final flavor = it['flavor']?.toString() ?? '';
         grouped[key] = {
-          'productName': name,
+          'productName': _clean(rawName),
           'quantity': qty,
           'total': qty * price,
           'isCarton': isCarton,
@@ -528,6 +632,8 @@ class PrinterService {
     double? amountPaid,
     double? customerDebtBalance,
   }) async {
+    lastError = null;
+
     // 1. إذا كان التطبيق يعمل على نظام الحاسوب (Windows/macOS/Linux)
     if (isDesktop) {
       return await _printDesktop(
@@ -541,8 +647,10 @@ class PrinterService {
 
     // 2. إذا كان على الهاتف المحمول (Android/iOS) عبر طابعة البلوتوث
     try {
-      if (!await checkConnection()) {
-        debugPrint('⚠️ No connection');
+      // ✅ إن كان الاتصال مقطوعاً (مثلاً بعد فترة خمول) نعيد الاتصال تلقائياً
+      if (!await ensureConnected()) {
+        debugPrint('⚠️ No connection (reconnect failed)');
+        lastError ??= 'الطابعة غير متصلة.';
         return false;
       }
       final profile = await CapabilityProfile.load();
@@ -569,11 +677,12 @@ class PrinterService {
       bytes += _buildFooter(g);
 
       debugPrint('📦 Receipt size: ${bytes.length} bytes');
-      final ok = await _send(bytes);
+      final ok = await _sendWithRetry(bytes);
       debugPrint(ok ? '✅ Print successful' : '❌ Print failed');
       return ok;
     } catch (e) {
       debugPrint('❌ PrintReceipt error: $e');
+      lastError ??= 'خطأ أثناء الطباعة.';
       return false;
     }
   }
@@ -837,14 +946,17 @@ class PrinterService {
       );
 
       // إرسال الطباعة إلى طابعة النظام الافتراضية
-      await Printing.layoutPdf(
+      // ✅ إصلاح 1: نرجع نتيجة نافذة الطباعة الحقيقية (false عند الإلغاء) بدل true دائماً
+      final printed = await Printing.layoutPdf(
         onLayout: (PdfPageFormat format) async => pdf.save(),
         name:
         'Facture_${order.id.length > 4 ? order.id.substring(order.id.length - 4) : order.id}',
       );
-      return true;
+      if (!printed) lastError = 'تم إلغاء الطباعة.';
+      return printed;
     } catch (e) {
       debugPrint('❌ Desktop USB Printing Error: $e');
+      lastError = 'خطأ أثناء الطباعة على الحاسوب.';
       return false;
     }
   }
@@ -853,6 +965,7 @@ class PrinterService {
   //  Printer test
   // ══════════════════════════════════════════════════════
   static Future<bool> printTest() async {
+    lastError = null;
     if (isDesktop) {
       try {
         final pdf = pw.Document();
@@ -905,7 +1018,7 @@ class PrinterService {
     }
 
     try {
-      if (!await checkConnection()) return false;
+      if (!await ensureConnected()) return false;
       final profile = await CapabilityProfile.load();
       final g = Generator(PaperSize.mm58, profile);
       List<int> b = [];
@@ -939,7 +1052,7 @@ class PrinterService {
       b += _t(g, _line1, styles: const PosStyles(align: PosAlign.center));
       b += g.feed(3);
       b += g.cut();
-      return await _send(b);
+      return await _sendWithRetry(b);
     } catch (e) {
       debugPrint('❌ Test error: $e');
       return false;

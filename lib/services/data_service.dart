@@ -962,8 +962,8 @@ class DataService {
 
       // حساب صافي الربح لليوم المختار
       double targetDayProfit = 0;
-      final Map<String, int> targetDayItemsQty = {};
-      final Map<String, double> targetDayItemsRevenue = {};
+      // ✅ الكرتون والحبة يُجمَّعان منفصلين (مفتاح = اسم المنتج + النوع)
+      final Map<String, Map<String, dynamic>> targetDayItems = {};
 
       for (final o in targetDayOrders) {
         for (final it in o.items) {
@@ -972,8 +972,18 @@ class DataService {
           final sellPrice = toDouble(it['price']);
           final qty = toInt(it['quantity']);
 
-          targetDayItemsQty[name] = (targetDayItemsQty[name] ?? 0) + qty;
-          targetDayItemsRevenue[name] = (targetDayItemsRevenue[name] ?? 0) + (sellPrice * qty);
+          final isCartonItem = it['isCarton'] == true;
+          final entry = targetDayItems.putIfAbsent(
+            '$name|${isCartonItem ? 'c' : 'u'}',
+                () => <String, dynamic>{
+              'name': name,
+              'type': isCartonItem ? 'كرتون' : 'حبة',
+              'quantity': 0,
+              'revenue': 0.0,
+            },
+          );
+          entry['quantity'] = (entry['quantity'] as int) + qty;
+          entry['revenue'] = (entry['revenue'] as double) + (sellPrice * qty);
 
           if (pid.isNotEmpty && buyPrices.containsKey(pid)) {
             final buyPrice = buyPrices[pid]!;
@@ -988,21 +998,42 @@ class DataService {
         }
       }
 
-      final targetDayProducts = targetDayItemsQty.entries.map((e) => {
-        'name': e.key,
-        'quantity': e.value,
-        'revenue': targetDayItemsRevenue[e.key] ?? 0,
-      }).toList();
+      final targetDayProducts = targetDayItems.values.toList();
 
       // أكثر المنتجات مبيعاً (تاريخي)
       final Map<String, int> salesCount = {};
+      // ✅ الكرتون والحبة منفصلان (لا يُجمعان معاً لأن وحدتيهما مختلفتان)
+      final Map<String, int> cartonSales = {};
+      final Map<String, int> unitSales = {};
       for (final o in orders) {
         for (final it in o.items) {
           final name = (it['productName'] ?? '').toString();
           if (name.isEmpty) continue;
-          salesCount[name] = (salesCount[name] ?? 0) + toInt(it['quantity']);
+          final q = toInt(it['quantity']);
+          salesCount[name] = (salesCount[name] ?? 0) + q;
+          if (it['isCarton'] == true) {
+            cartonSales[name] = (cartonSales[name] ?? 0) + q;
+          } else {
+            unitSales[name] = (unitSales[name] ?? 0) + q;
+          }
         }
       }
+
+      List<Map<String, dynamic>> topOf(Map<String, int> m, String type) {
+        final list = m.entries.toList()
+          ..sort((a, b) => b.value.compareTo(a.value));
+        return list
+            .take(5)
+            .map((e) => <String, dynamic>{
+          'name': e.key,
+          'type': type,
+          'quantity': e.value,
+        })
+            .toList();
+      }
+
+      final topCartonProducts = topOf(cartonSales, 'كرتون');
+      final topUnitProducts = topOf(unitSales, 'حبة');
 
       final sorted = salesCount.entries.toList()
         ..sort((a, b) => b.value.compareTo(a.value));
@@ -1025,6 +1056,8 @@ class DataService {
         'weekSales': sum(week),
         'monthSales': sum(month),
         'topProducts': topProducts,
+        'topCartonProducts': topCartonProducts,
+        'topUnitProducts': topUnitProducts,
 
         // بيانات اليوم المختار (للبحث التاريخي)
         'targetDaySales': sum(targetDayOrders),

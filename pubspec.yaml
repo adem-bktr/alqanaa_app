@@ -20,8 +20,8 @@ dependencies:
   firebase_messaging: ^16.7.0
   http: ^1.2.0
   googleapis_auth: ^2.3.2
-  geolocator_platform_interface: ^4.2.4
-  geolocator_android: ^4.6.1
+  geolocator_platform_interface: ^4.4.0
+  geolocator_android: ^5.1.1
   geolocator_apple: ^2.3.2
   geocoding: ^4.0.0
   url_launcher: ^6.3.0
@@ -29,7 +29,7 @@ dependencies:
   # ═══════════════════════════
   #        🖨️ الطباعة
   # ═══════════════════════════
-  print_bluetooth_thermal: ^1.0.10
+  print_bluetooth_thermal: ^1.2.5
   esc_pos_utils_plus: ^2.0.4
 
 
@@ -46,12 +46,12 @@ dependencies:
   # ═══════════════════════════
   flutter_animate: ^4.5.0
   shimmer: ^4.0.0
-  cached_network_image: ^4.0.0
+  cached_network_image: ^4.0.4
   image_cropper: ^12.2.1
-  badges: ^3.1.2
-  cupertino_icons: ^1.0.8
+  badges: ^4.0.1
+  cupertino_icons: ^2.0.0
   flutter_svg: ^2.0.9
-  google_fonts: ^8.1.0
+  google_fonts: ^9.0.0
 
   # ═══════════════════════════
   #    Local Storage & Prefs

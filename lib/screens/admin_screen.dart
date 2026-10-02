@@ -762,10 +762,18 @@ class _AdminScreenState extends State<AdminScreen>
 
   Future<void> _showPrintDialog(Order order) async {
     if (!mounted) return;
-    if (!PrinterService.isConnected) {
+    // ✅ canPrint: متصلة الآن، أو توجد طابعة محفوظة سنعيد الاتصال بها تلقائياً عند الطباعة
+    if (!PrinterService.canPrint) {
       _showSnackBar('⚠️ يرجى الاتصال بطابعة أولاً', Colors.orange);
       return;
     }
+    // ✅ إصلاح 2: remainingBalance المخزَّن = رصيد الزبون "بعد" الفاتورة،
+    // والوصل يحتاج الرصيد "قبلها" (Ancien Solde) فنطرح متبقي هذه الفاتورة
+    final orderRemaining =
+    (order.total - order.paidAmount) > 0 ? (order.total - order.paidAmount) : 0.0;
+    final previousDebt = (order.remainingBalance - orderRemaining) > 0
+        ? (order.remainingBalance - orderRemaining)
+        : 0.0;
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -814,7 +822,7 @@ class _AdminScreenState extends State<AdminScreen>
                 customerName: order.customerName,
                 customerPhone: order.customerPhone,
                 amountPaid: order.paidAmount,
-                customerDebtBalance: order.remainingBalance,
+                customerDebtBalance: previousDebt,
               );
             },
             icon: const Icon(Icons.print, color: Colors.white),

@@ -719,7 +719,8 @@ class _CartScreenState extends State<CartScreen> {
     if (!_validateInputs()) return;
 
     if (printThermal) {
-      if (!PrinterService.isConnected) {
+      // ✅ canPrint: لا نمنع الطباعة إن كانت هناك طابعة محفوظة (ستُعاد الاتصال بها تلقائياً)
+      if (!PrinterService.canPrint) {
         _showSnackBar('⚠️ الطابعة الحرارية غير متصلة', Colors.orange);
         return;
       }
