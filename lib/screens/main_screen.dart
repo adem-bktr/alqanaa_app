@@ -8,6 +8,7 @@ import '../services/auth_service.dart';
 import '../services/printer_service.dart';
 import '../widgets/receipt_preview_dialog.dart';
 import '../utils/page_transitions.dart';
+import '../utils/order_helpers.dart';
 import 'products_screen.dart';
 import 'cart_screen.dart';
 import 'orders_screen.dart';
@@ -45,7 +46,7 @@ class _MainScreenState extends State<MainScreen>
   List<Brand>   brands         = [];
   List<Brand>   filteredBrands = [];
   List<CartItem> cart          = [];
-  List<Order>   recentOrders   = [];
+  List<Order>   pendingOrders  = []; // ✅ كل الطلبات المعلّقة (وليس آخر 10 فقط)
   Map<String, dynamic> stats   = {};
 
   final searchController = TextEditingController();
@@ -126,7 +127,7 @@ class _MainScreenState extends State<MainScreen>
     if (!mounted) return;
     setState(() { isLoading = true; isStatsLoading = true; });
     await Future.wait(
-        [_loadBrands(), _loadStats(), _loadRecentOrders(), _loadAdminUser()]);
+        [_loadBrands(), _loadStats(), _loadPendingOrders(), _loadAdminUser()]);
     if (mounted) _fadeController.forward(from: 0);
   }
 
@@ -158,10 +159,11 @@ class _MainScreenState extends State<MainScreen>
     } catch (_) { if (mounted) setState(() => isStatsLoading = false); }
   }
 
-  Future<void> _loadRecentOrders() async {
+  // ✅ إصلاح 4: كل الطلبات التي تنتظر المراجعة (كان يُحسب من آخر 10 طلبات فقط)
+  Future<void> _loadPendingOrders() async {
     try {
-      final data = await DataService.getAllOrders();
-      if (mounted) setState(() => recentOrders = data.take(10).toList());
+      final data = await DataService.getPendingOrders();
+      if (mounted) setState(() => pendingOrders = data);
     } catch (_) {}
   }
 
@@ -187,7 +189,8 @@ class _MainScreenState extends State<MainScreen>
       customerName: order.customerName,
       customerPhone: order.customerPhone,
       amountPaid: order.paidAmount,
-      customerDebtBalance: order.remainingBalance,
+      // ✅ إصلاح 1: الرصيد السابق (وليس الرصيد بعد الفاتورة) حتى لا يُحسب دين الفاتورة مرتين
+      customerDebtBalance: previousDebtOf(order),
     );
   }
 
@@ -270,11 +273,11 @@ class _MainScreenState extends State<MainScreen>
                       const SizedBox(height: 4), Text(isAll ? 'الكل' : b!.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, fontWeight: isSel ? FontWeight.bold : FontWeight.normal, color: isSel ? const Color(0xFF2E7D32) : textColor))
                     ])));
           })),
-      Expanded(child: isDesktop 
+      Expanded(child: isDesktop
           ? ListView.builder(padding: const EdgeInsets.all(12), itemCount: _storeFilteredProducts.length, itemBuilder: (context, i) => _buildDesktopProductRow(_storeFilteredProducts[i], isDark, cardColor, textColor))
           : (crossAxisCount > 1
-              ? GridView.builder(padding: const EdgeInsets.all(12), gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: crossAxisCount, crossAxisSpacing: 10, mainAxisSpacing: 12, childAspectRatio: 0.70), itemCount: _storeFilteredProducts.length, itemBuilder: (context, i) => _buildAdvancedProductCard(_storeFilteredProducts[i], isDark, cardColor, textColor))
-              : ListView.builder(padding: const EdgeInsets.all(10), itemCount: _storeFilteredProducts.length, itemBuilder: (context, i) => _buildFastProductCard(_storeFilteredProducts[i], isDark, cardColor, textColor)))),
+          ? GridView.builder(padding: const EdgeInsets.all(12), gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: crossAxisCount, crossAxisSpacing: 10, mainAxisSpacing: 12, childAspectRatio: 0.70), itemCount: _storeFilteredProducts.length, itemBuilder: (context, i) => _buildAdvancedProductCard(_storeFilteredProducts[i], isDark, cardColor, textColor))
+          : ListView.builder(padding: const EdgeInsets.all(10), itemCount: _storeFilteredProducts.length, itemBuilder: (context, i) => _buildFastProductCard(_storeFilteredProducts[i], isDark, cardColor, textColor)))),
       _buildFloatingCartBar(),
     ]);
   }
@@ -302,8 +305,8 @@ class _MainScreenState extends State<MainScreen>
               child: SizedBox(
                 width: 60, height: 60,
                 child: p.imagePath.isNotEmpty
-                  ? CachedNetworkImage(imageUrl: p.imagePath, fit: BoxFit.cover)
-                  : Container(color: Colors.grey.shade100, child: const Icon(Icons.image, color: Colors.grey)),
+                    ? CachedNetworkImage(imageUrl: p.imagePath, fit: BoxFit.cover)
+                    : Container(color: Colors.grey.shade100, child: const Icon(Icons.image, color: Colors.grey)),
               ),
             ),
             const SizedBox(width: 16),
@@ -314,8 +317,8 @@ class _MainScreenState extends State<MainScreen>
                   Text(p.name, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: textColor)),
                   const SizedBox(height: 4),
                   if (p.hasFlavors)
-                    Text('الأذواق: ${p.flavors.map((f) => f.name).join(" - ")}', 
-                         style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                    Text('الأذواق: ${p.flavors.map((f) => f.name).join(" - ")}',
+                        style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
                 ],
               ),
             ),
@@ -336,11 +339,15 @@ class _MainScreenState extends State<MainScreen>
               ],
             ),
             const SizedBox(width: 20),
-            Text('${price.toStringAsFixed(0)} DA', 
-                 style: const TextStyle(color: Color(0xFF2E7D32), fontWeight: FontWeight.bold, fontSize: 16)),
+            Text('${price.toStringAsFixed(0)} DA',
+                style: const TextStyle(color: Color(0xFF2E7D32), fontWeight: FontWeight.bold, fontSize: 16)),
             const SizedBox(width: 20),
             if (sellable)
-              _buildQtySelector(p, isCarton: isCarton)
+            // ✅ إصلاح 6: المنتج ذو الأذواق تُحدَّد كميته على كل ذوق (كما في بطاقة الشبكة)،
+            // بدل زر كمية يضيفه بلا ذوق فترفضه السلة
+              (p.hasFlavors
+                  ? SizedBox(width: 340, child: _buildFlavorChips(p, isCarton))
+                  : _buildQtySelector(p, isCarton: isCarton))
             else
               const Text('غير متوفر', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 12)),
           ],
@@ -638,8 +645,6 @@ class _MainScreenState extends State<MainScreen>
     final textColor = isDark ? Colors.white : Colors.black87;
     final subColor  = isDark ? Colors.grey.shade400 : Colors.grey.shade600;
 
-    final pendingOrders = recentOrders.where((o) => o.status == 'pending').toList();
-
     return RefreshIndicator(
       color: const Color(0xFF2E7D32),
       onRefresh: _loadAll,
@@ -669,6 +674,14 @@ class _MainScreenState extends State<MainScreen>
                   _buildSectionTitle('🔴 طلبات تنتظر المراجعة', isDark),
                   const SizedBox(height: 8),
                   ...pendingOrders.take(5).map((order) => _buildOrderCard(order, isDark, cardBg, textColor, subColor)),
+                  if (pendingOrders.length > 5)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Center(
+                        child: Text('و ${pendingOrders.length - 5} طلبات أخرى — افتح "طلبات اليوم" أو سجل الطلبات',
+                            style: TextStyle(fontSize: 11, color: subColor)),
+                      ),
+                    ),
                 ],
               ],
             ),
@@ -691,7 +704,7 @@ class _MainScreenState extends State<MainScreen>
   }
 
   Widget _buildStatsGrid(bool isDark, Color cardBg) {
-    final pending   = recentOrders.where((o) => o.status == 'pending').length;
+    final pending   = pendingOrders.length;
     return GridView.count(
       shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
       crossAxisCount: isDesktop ? 3 : 3, crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: 1.5,
@@ -721,7 +734,7 @@ class _MainScreenState extends State<MainScreen>
   Widget _buildQuickActionsList(bool isDark, Color cardBg) {
     final actions = [
       {'icon': Icons.camera_enhance_rounded, 'label': 'سكان فاتورة مورد', 'subtitle': 'تحديث المخزن', 'colors': [const Color(0xFF006064), const Color(0xFF00ACC1)], 'onTap': () => Navigator.push(context, SlidePageRoute(page: const ScanInvoiceScreen()))},
-      {'icon': Icons.receipt_long_rounded, 'label': 'طلبات اليوم', 'subtitle': 'عرض طلبات نهار اليوم', 'colors': [const Color(0xFF2E7D32), const Color(0xFF43A047)], 'onTap': () => Navigator.push(context, SlidePageRoute(page: const OrdersScreen(showTodayOnly: true))).then((_) => _loadRecentOrders())},
+      {'icon': Icons.receipt_long_rounded, 'label': 'طلبات اليوم', 'subtitle': 'عرض طلبات نهار اليوم', 'colors': [const Color(0xFF2E7D32), const Color(0xFF43A047)], 'onTap': () => Navigator.push(context, SlidePageRoute(page: const OrdersScreen(showTodayOnly: true))).then((_) => _loadPendingOrders())},
       {'icon': Icons.people_alt_rounded, 'label': 'الزبائن والديون', 'subtitle': 'سجل الديون والزبائن', 'colors': [const Color(0xFFAD1457), const Color(0xFFEC407A)], 'onTap': () => Navigator.push(context, SlidePageRoute(page: const DebtsScreen()))},
       {'icon': Icons.admin_panel_settings_rounded, 'label': 'لوحة الإدارة', 'subtitle': 'المنتجات والبانرات', 'colors': [const Color(0xFF283593), const Color(0xFF5C6BC0)], 'onTap': () => Navigator.push(context, SlidePageRoute(page: const AdminScreen()))},
     ];
@@ -745,7 +758,7 @@ class _MainScreenState extends State<MainScreen>
         ]),
         const SizedBox(height: 10),
         Row(children: [
-          Expanded(child: _actionButton('✅ تأكيد', const Color(0xFFE8F5E9), const Color(0xFF2E7D32), () async { await DataService.updateOrderStatus(order.id, 'confirmed'); _loadRecentOrders(); })),
+          Expanded(child: _actionButton('✅ تأكيد', const Color(0xFFE8F5E9), const Color(0xFF2E7D32), () async { await DataService.updateOrderStatus(order.id, 'confirmed'); _loadPendingOrders(); })),
           const SizedBox(width: 6),
           Expanded(child: _actionButton('❌ رفض', const Color(0xFFFFEBEE), Colors.red, () => _confirmReject(order))),
           const SizedBox(width: 6),
@@ -773,8 +786,9 @@ class _MainScreenState extends State<MainScreen>
       ),
     );
     if (ok == true) {
+      // ✅ updateOrderStatus يُرجع المخزون ويُلغي دين الزبون المرتبط بالطلبية
       await DataService.updateOrderStatus(order.id, 'rejected');
-      _loadRecentOrders();
+      _loadPendingOrders();
     }
   }
 
@@ -791,8 +805,9 @@ class _MainScreenState extends State<MainScreen>
       ),
     );
     if (ok == true) {
+      // ✅ deleteOrder يُرجع المخزون ويُلغي دين الزبون المرتبط بالطلبية
       await DataService.deleteOrder(order.id);
-      _loadRecentOrders();
+      _loadPendingOrders();
     }
   }
 
@@ -817,6 +832,15 @@ class _MainScreenState extends State<MainScreen>
       const AdminScreen(),
       if (isDesktop) DesktopPosView(cart: cart, onCartChanged: () => setState(() {})),
     ];
+
+    // ✅ إصلاح 5: تبويب "نقطة بيع" يظهر على الحاسوب فقط. إذا صغّرتَ النافذة وأنت عليه
+    // يصير الفهرس خارج الحدود فينهار، فنعيده للرئيسية
+    final navIndex = _currentNavIndex >= pages.length ? 0 : _currentNavIndex;
+    if (navIndex != _currentNavIndex) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _currentNavIndex = 0);
+      });
+    }
 
     return Scaffold(
       key: _scaffoldKey,
@@ -870,13 +894,13 @@ class _MainScreenState extends State<MainScreen>
                 style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
               ),
             ),
-          Expanded(child: IndexedStack(index: _currentNavIndex, children: pages)),
+          Expanded(child: IndexedStack(index: navIndex, children: pages)),
         ],
       ),
       bottomNavigationBar: Container(
           decoration: BoxDecoration(boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, -2))]),
           child: NavigationBar(
-              selectedIndex: _currentNavIndex,
+              selectedIndex: navIndex,
               onDestinationSelected: (idx) => setState(() => _currentNavIndex = idx),
               backgroundColor: isDark ? const Color(0xFF1E1E2E) : Colors.white,
               indicatorColor: const Color(0xFF2E7D32).withOpacity(0.15),

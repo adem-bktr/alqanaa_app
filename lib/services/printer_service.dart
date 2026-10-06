@@ -9,6 +9,7 @@ import 'package:printing/printing.dart'; // للطباعة على الويندو
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import '../models/models.dart';
+import 'receipt_renderer.dart';
 
 class PrinterService {
   static String? _connectedAddress;
@@ -20,6 +21,10 @@ class PrinterService {
 
   // ✅ سبب آخر فشل في الطباعة/الاتصال (لعرضه للمستخدم)
   static String? lastError;
+
+  // ⚠️ طباعة وصل البلوتوث كصورة (لدعم العربية بنفس شكل المعاينة).
+  // معطّلة افتراضياً: بعض الطابعات تطبع رموزاً مشوّشة مع الصور. فعّلها فقط بعد تجربة ناجحة.
+  static bool useImageReceipt = false;
 
   static bool get isConnected =>
       _isConnected ||
@@ -357,13 +362,35 @@ class PrinterService {
     }
   }
 
+  /// إرسال مجزّأ (للصور الكبيرة): دفعات صغيرة مع تأخير بسيط حتى لا تفيض ذاكرة الطابعة
+  static Future<bool> _sendChunked(List<int> bytes,
+      {int size = 1024, int delayMs = 90}) async {
+    debugPrint('📤 Sending ${bytes.length} bytes in chunks...');
+    try {
+      for (int i = 0; i < bytes.length; i += size) {
+        final end = (i + size > bytes.length) ? bytes.length : i + size;
+        if (!await PrintBluetoothThermal.writeBytes(bytes.sublist(i, end))) {
+          debugPrint('❌ Chunk failed at $i');
+          return false;
+        }
+        await Future.delayed(Duration(milliseconds: delayMs));
+      }
+      return true;
+    } catch (e) {
+      debugPrint('❌ Chunked send failed: $e');
+      return false;
+    }
+  }
+
   /// ✅ إرسال مع إعادة محاولة: إذا فشل الإرسال (اتصال ميّت بعد خمول) نعيد الاتصال ونرسل مرة ثانية
-  static Future<bool> _sendWithRetry(List<int> bytes) async {
-    var ok = await _send(bytes);
+  static Future<bool> _sendWithRetry(List<int> bytes,
+      {bool chunked = false}) async {
+    Future<bool> doSend() => chunked ? _sendChunked(bytes) : _send(bytes);
+    var ok = await doSend();
     if (!ok) {
       debugPrint('⚠️ Send failed → reconnect + resend');
       if (await _reconnect()) {
-        ok = await _send(bytes);
+        ok = await doSend();
       }
     }
     if (!ok) {
@@ -418,14 +445,16 @@ class PrinterService {
     final shortId = id.length > 6 ? id.substring(id.length - 6) : id;
     final name = _clean(customerName);
     final phone = _clean(customerPhone);
-    b += _t(g, 'Date   : $date', styles: _bigger);
+    b += _t(g, 'Date   : $date', styles: const PosStyles(bold: true));
     b += _t(
       g,
       'Client : ${name.isEmpty ? "-" : name}',
-      styles: const PosStyles(bold: true, height: PosTextSize.size2),
+      styles: const PosStyles(bold: true),
     );
-    b += _t(g, 'Tel    : ${phone.isEmpty ? "-" : phone}', styles: _bigger);
-    b += _t(g, 'Order  : #$shortId', styles: _bigger);
+    if (phone.isNotEmpty) {
+      b += _t(g, 'Tel    : $phone', styles: const PosStyles(bold: true));
+    }
+    b += _t(g, 'Order  : #$shortId', styles: const PosStyles(bold: true));
     b += _t(g, _line2, styles: const PosStyles(align: PosAlign.center));
     return b;
   }
@@ -518,6 +547,157 @@ class PrinterService {
         debugPrint('⚠️ Error printing grouped product: $e');
       }
     });
+    return b;
+  }
+
+  // ══════════════════════════════════════════════════════
+  //  ✅ الوصل النصي بنفس تصميم نافذة المعاينة
+  //  (نفس الترتيب والعناوين: ترويسة ← معلومات ← أصناف ← إجماليات ← تذييل)
+  // ══════════════════════════════════════════════════════
+  static const _dash = '--------------------------------';
+
+  /// سطر بعمودين: نص يسار + مبلغ يمين
+  static List<int> _lr(Generator g, String left, String right,
+      {bool bold = false, bool big = false}) {
+    final h = big ? PosTextSize.size2 : PosTextSize.size1;
+    return g.row([
+      PosColumn(
+        text: _ascii(left),
+        width: 7,
+        styles: PosStyles(bold: bold, height: h, align: PosAlign.left),
+      ),
+      PosColumn(
+        text: _ascii(right),
+        width: 5,
+        styles: PosStyles(bold: bold, height: h, align: PosAlign.right),
+      ),
+    ]);
+  }
+
+  static List<int> _buildPreviewStyleReceipt({
+    required Generator g,
+    required Order order,
+    required String customerName,
+    required String customerPhone,
+    required double total,
+    required double paid,
+    required double prevDebt,
+  }) {
+    List<int> b = [];
+    final date =
+    DateFormat('dd/MM/yyyy - HH:mm', 'en_US').format(DateTime.now());
+    final id = _clean(order.id);
+    final shortId = id.length > 6 ? id.substring(id.length - 6) : id;
+    final name = _clean(customerName);
+    final phone = _clean(customerPhone);
+    final remaining = total - paid;
+    const centerBold = PosStyles(align: PosAlign.center, bold: true);
+
+    b += g.reset();
+
+    // ── الترويسة ──
+    b += _t(
+      g,
+      'AL QANAA GROSSISTE',
+      styles: const PosStyles(
+          align: PosAlign.center, bold: true, height: PosTextSize.size2),
+    );
+    b += _t(g, 'Vente de produits alimentaires', styles: centerBold);
+    b += _t(g, _dash);
+
+    // ── معلومات الوصل والزبون ──
+    b += _t(g, 'Date   : $date');
+    b += _t(g, 'Order  : #$shortId');
+    b += _t(g, 'Client : ${name.isEmpty ? "-" : name}',
+        styles: const PosStyles(bold: true));
+    if (phone.isNotEmpty) b += _t(g, 'Tel    : $phone');
+    b += _t(g, _dash);
+
+    // ── الأصناف (مجمّعة حسب الاسم + النوع) ──
+    final Map<String, Map<String, dynamic>> grouped = {};
+    for (final it in order.items) {
+      final rawName = it['productName']?.toString() ?? 'Produit';
+      final isCarton = it['isCarton'] == true;
+      final key = '$rawName-$isCarton';
+      final price = (it['price'] as num? ?? 0).toDouble();
+      final qty = (it['quantity'] as num? ?? 0).toDouble();
+      final flavor = _clean(it['flavor']);
+
+      if (grouped.containsKey(key)) {
+        grouped[key]!['quantity'] = (grouped[key]!['quantity'] as double) + qty;
+        grouped[key]!['total'] =
+            (grouped[key]!['total'] as double) + (qty * price);
+        if (flavor.isNotEmpty) {
+          (grouped[key]!['flavors'] as List<String>)
+              .add('$flavor (${qty.toStringAsFixed(0)})');
+        }
+      } else {
+        grouped[key] = {
+          'productName': _clean(rawName),
+          'quantity': qty,
+          'total': qty * price,
+          'isCarton': isCarton,
+          'flavors': flavor.isNotEmpty
+              ? <String>['$flavor (${qty.toStringAsFixed(0)})']
+              : <String>[],
+        };
+      }
+    }
+
+    int idx = 1;
+    for (final data in grouped.values) {
+      final nm = data['productName'] as String;
+      final qty = data['quantity'] as double;
+      final totalItem = data['total'] as double;
+      final type = data['isCarton'] == true ? 'Crt' : 'Unt';
+      final flavorsList = data['flavors'] as List<String>;
+
+      b += _t(g, '$idx. $nm ($type)', styles: const PosStyles(bold: true));
+      b += g.row([
+        PosColumn(
+          text: _ascii('   Qte: ${qty.toStringAsFixed(0)}'),
+          width: 6,
+          styles: const PosStyles(align: PosAlign.left),
+        ),
+        PosColumn(
+          text: _ascii('${_money(totalItem)} DA'),
+          width: 6,
+          styles: const PosStyles(align: PosAlign.right, bold: true),
+        ),
+      ]);
+      if (flavorsList.isNotEmpty) {
+        b += _t(
+          g,
+          '   Aromes: ${flavorsList.join(", ")}',
+          styles: const PosStyles(fontType: PosFontType.fontB),
+        );
+      }
+      idx++;
+    }
+    b += _t(g, _dash);
+
+    // ── الحسابات ──
+    b += _lr(g, 'TOTAL A PAYER :', '${_money(total)} DA',
+        bold: true, big: true);
+    b += _lr(g, 'Montant Verse :', '${_money(paid)} DA');
+    if (remaining > 0) {
+      b += _lr(g, 'Reste Facture :', '${_money(remaining)} DA', bold: true);
+    }
+    if (prevDebt > 0) {
+      b += _t(g, _dash);
+      b += _lr(g, 'Ancien Solde :', '${_money(prevDebt)} DA');
+      b += _lr(g, 'NOUVEAU SOLDE :',
+          '${_money(prevDebt + (remaining > 0 ? remaining : 0))} DA',
+          bold: true);
+    }
+    b += _t(g, _dash);
+
+    // ── التذييل ──
+    b += _t(g, 'Merci pour votre confiance !', styles: centerBold);
+    b += _t(g, 'Tel: 0666629473',
+        styles: const PosStyles(align: PosAlign.center));
+    b += g.feed(3);
+    b += g.cut();
     return b;
   }
 
@@ -636,6 +816,24 @@ class PrinterService {
 
     // 1. إذا كان التطبيق يعمل على نظام الحاسوب (Windows/macOS/Linux)
     if (isDesktop) {
+      // ✅ نفس تصميم المعاينة (صورة داخل PDF)، وإن فشل الرسم نرجع للطريقة القديمة
+      RenderedReceipt? rendered;
+      try {
+        rendered = await ReceiptRenderer.buildPng(
+          order: order,
+          customerName: customerName,
+          customerPhone: customerPhone,
+          total: _calcTotal(order),
+          paid: amountPaid ?? order.paidAmount,
+          prevDebt: customerDebtBalance ?? 0,
+          widthPx: 576,
+        );
+      } catch (e) {
+        debugPrint('⚠️ Receipt render failed (desktop): $e');
+      }
+      if (rendered != null) {
+        return await _printDesktopFromImage(rendered, order);
+      }
       return await _printDesktop(
         order,
         customerName,
@@ -655,34 +853,86 @@ class PrinterService {
       }
       final profile = await CapabilityProfile.load();
       final g = Generator(PaperSize.mm58, profile);
-      final date =
-      DateFormat('dd/MM/yyyy - HH:mm', 'en_US').format(DateTime.now());
       debugPrint('🖨️ Starting print — ${order.items.length} products');
       final orderTotal = _calcTotal(order);
 
       List<int> bytes = [];
-      bytes += _buildHeader(g);
-      bytes += _buildCustomerInfo(
-        g: g,
-        order: order,
-        customerName: customerName,
-        customerPhone: customerPhone,
-        date: date,
-      );
-      bytes += _buildTableHeader(g);
-      bytes += _buildItems(g, order.items);
-      bytes += _buildTotal(g, orderTotal);
-      bytes += _buildDebtInfo(
-          g, orderTotal, amountPaid, null, order, customerDebtBalance);
-      bytes += _buildFooter(g);
+      bool asImage = false;
+      try {
+        if (!useImageReceipt) {
+          throw const FormatException('image receipt disabled');
+        }
+        // ✅ الوصل يُرسم كصورة بنفس تصميم المعاينة (والعربية تُطبع كما هي)
+        final raster = await ReceiptRenderer.buildRaster(
+          order: order,
+          customerName: customerName,
+          customerPhone: customerPhone,
+          total: orderTotal,
+          paid: amountPaid ?? order.paidAmount,
+          prevDebt: customerDebtBalance ?? 0,
+          widthPx: 384,
+        );
+        bytes = [...g.reset(), ...raster, ...g.feed(3), ...g.cut()];
+        asImage = true;
+      } catch (e) {
+        debugPrint('ℹ️ Using text receipt ($e)');
+      }
 
-      debugPrint('📦 Receipt size: ${bytes.length} bytes');
-      final ok = await _sendWithRetry(bytes);
+      if (!asImage) {
+        // ✅ الوصل النصي بنفس ترتيب وتصميم المعاينة
+        bytes += _buildPreviewStyleReceipt(
+          g: g,
+          order: order,
+          customerName: customerName,
+          customerPhone: customerPhone,
+          total: orderTotal,
+          paid: amountPaid ?? order.paidAmount,
+          prevDebt: customerDebtBalance ?? 0,
+        );
+      }
+
+      debugPrint('📦 Receipt size: ${bytes.length} bytes (image: $asImage)');
+      final ok = await _sendWithRetry(bytes, chunked: asImage);
       debugPrint(ok ? '✅ Print successful' : '❌ Print failed');
       return ok;
     } catch (e) {
       debugPrint('❌ PrintReceipt error: $e');
       lastError ??= 'خطأ أثناء الطباعة.';
+      return false;
+    }
+  }
+
+  // ══════════════════════════════════════════════════════
+  //  🖥️ الطباعة على الحاسوب من صورة الوصل (نفس تصميم المعاينة)
+  // ══════════════════════════════════════════════════════
+  static Future<bool> _printDesktopFromImage(
+      RenderedReceipt r, Order order) async {
+    try {
+      final pdf = pw.Document();
+      const margin = 1.5 * PdfPageFormat.mm;
+      const pageW = 80 * PdfPageFormat.mm;
+      final imgW = pageW - 2 * margin;
+      final imgH = imgW * r.height / r.width;
+      final image = pw.MemoryImage(r.png);
+
+      pdf.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat(pageW, imgH + 2 * margin, marginAll: margin),
+          build: (pw.Context context) =>
+              pw.Image(image, width: imgW, height: imgH, fit: pw.BoxFit.contain),
+        ),
+      );
+
+      final printed = await Printing.layoutPdf(
+        onLayout: (PdfPageFormat format) async => pdf.save(),
+        name:
+        'Facture_${order.id.length > 4 ? order.id.substring(order.id.length - 4) : order.id}',
+      );
+      if (!printed) lastError = 'تم إلغاء الطباعة.';
+      return printed;
+    } catch (e) {
+      debugPrint('❌ Desktop image printing error: $e');
+      lastError = 'خطأ أثناء الطباعة على الحاسوب.';
       return false;
     }
   }
@@ -809,7 +1059,7 @@ class PrinterService {
                               '$currentIdx. $name ($type)',
                               style: pw.TextStyle(
                                 fontWeight: pw.FontWeight.bold,
-                                fontSize: 9,
+                                fontSize: 9.5,
                               ),
                             ),
                             pw.Row(
@@ -817,13 +1067,16 @@ class PrinterService {
                               children: [
                                 pw.Text(
                                   '   Qte: ${qty.toStringAsFixed(0)}',
-                                  style: const pw.TextStyle(fontSize: 8),
+                                  style: pw.TextStyle(
+                                    fontWeight: pw.FontWeight.bold,
+                                    fontSize: 9.5,
+                                  ),
                                 ),
                                 pw.Text(
                                   '${_money(totalItem)} DA',
                                   style: pw.TextStyle(
                                     fontWeight: pw.FontWeight.bold,
-                                    fontSize: 9,
+                                    fontSize: 9.5,
                                   ),
                                 ),
                               ],
@@ -831,7 +1084,7 @@ class PrinterService {
                             if (flavorsList.isNotEmpty)
                               pw.Text(
                                 '   Aromes: ${flavorsList.join(", ")}',
-                                style: const pw.TextStyle(fontSize: 7),
+                                style: const pw.TextStyle(fontSize: 8.5),
                               ),
                           ],
                         ),

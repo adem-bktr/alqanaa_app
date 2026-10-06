@@ -752,6 +752,10 @@ class _CartScreenState extends State<CartScreen> {
             .map((i) => {
           // ✅ إصلاح المخزون: بدون productId لا يستطيع saveOrder خصم الكمية من المخزن
           'productId': i.product.id,
+          // ✅ تكلفة الشراء وقت البيع (لحساب الربح بدقة حتى لو تغيّر سعر الشراء لاحقاً)
+          'cost': i.isCarton
+              ? i.product.purchasePrice * i.product.unitsPerCarton
+              : i.product.purchasePrice,
           'productName': i.product.name,
           'quantity': i.quantity,
           // ✅ i.unitPrice يأخذ بالحسبان السعر المعدّل (overridePrice) إن وُجد

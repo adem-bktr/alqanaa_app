@@ -18,6 +18,10 @@ class _DebtsScreenState extends State<DebtsScreen> {
   final formatter = NumberFormat('#,##0.00', 'fr_FR');
   String _query = '';
 
+  // ✅ إصلاح 14: التدفق يُنشأ مرة واحدة (كان يُنشأ في كل build فيومض عند كل حرف تكتبه)
+  late final Stream<List<CustomerModel>> _customersStream =
+  DataService.getCustomersStream();
+
   bool get isDesktop => MediaQuery.of(context).size.width >= 900;
 
   @override
@@ -217,7 +221,7 @@ class _DebtsScreenState extends State<DebtsScreen> {
           ),
           Expanded(
             child: StreamBuilder<List<CustomerModel>>(
-              stream: DataService.getCustomersStream(),
+              stream: _customersStream,
               builder: (context, snapshot) {
                 if (!snapshot.hasData) {
                   return const Center(
@@ -233,8 +237,14 @@ class _DebtsScreenState extends State<DebtsScreen> {
                       .toList();
                 }
 
+                // ✅ إصلاح 15: إجمالي الديون يشمل من عليهم دين فقط،
+                // والأرصدة الدائنة (دفعات زائدة) تُحسب وتُعرض منفصلة
                 final totalDebt = snapshot.data!
+                    .where((c) => c.balance > 0)
                     .fold<double>(0, (sum, c) => sum + c.balance);
+                final totalCredit = snapshot.data!
+                    .where((c) => c.balance < 0)
+                    .fold<double>(0, (sum, c) => sum + (-c.balance));
 
                 if (customers.isEmpty) {
                   return _buildEmpty(isDark);
@@ -244,8 +254,8 @@ class _DebtsScreenState extends State<DebtsScreen> {
                   padding: const EdgeInsets.fromLTRB(12, 12, 12, 90),
                   children: [
                     if (_query.isEmpty)
-                      _buildSummaryCard(
-                          totalDebt, snapshot.data!.length, isDark),
+                      _buildSummaryCard(totalDebt, totalCredit,
+                          snapshot.data!.length, isDark),
                     const SizedBox(height: 12),
                     ...customers.map((c) => _buildCustomerTile(
                         c, isDark, cardColor, textColor)),
@@ -259,7 +269,8 @@ class _DebtsScreenState extends State<DebtsScreen> {
     );
   }
 
-  Widget _buildSummaryCard(double totalDebt, int count, bool isDark) {
+  Widget _buildSummaryCard(
+      double totalDebt, double totalCredit, int count, bool isDark) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
@@ -295,6 +306,14 @@ class _DebtsScreenState extends State<DebtsScreen> {
                 Text('$count زبون',
                     style:
                     const TextStyle(color: Colors.white70, fontSize: 12)),
+                if (totalCredit > 0.005) ...[
+                  const SizedBox(height: 2),
+                  Text('أرصدة دائنة للزبائن: ${formatPrice(totalCredit)}',
+                      style: const TextStyle(
+                          color: Colors.amberAccent,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold)),
+                ],
               ],
             ),
           ),
@@ -314,6 +333,13 @@ class _DebtsScreenState extends State<DebtsScreen> {
 
   Widget _buildCustomerTile(
       CustomerModel c, bool isDark, Color cardColor, Color textColor) {
+    final hasCredit = c.balance < -0.005;
+    final Color accent = c.hasDebt
+        ? Colors.red
+        : hasCredit
+        ? Colors.blue.shade700
+        : const Color(0xFF2E7D32);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
@@ -331,14 +357,15 @@ class _DebtsScreenState extends State<DebtsScreen> {
         const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         leading: CircleAvatar(
           radius: 22,
-          backgroundColor:
-          c.hasDebt ? Colors.red.shade50 : const Color(0xFFE8F5E9),
+          backgroundColor: c.hasDebt
+              ? Colors.red.shade50
+              : hasCredit
+              ? Colors.blue.shade50
+              : const Color(0xFFE8F5E9),
           child: Text(
             c.name.isNotEmpty ? c.name[0].toUpperCase() : '?',
             style: TextStyle(
-                color: c.hasDebt ? Colors.red : const Color(0xFF2E7D32),
-                fontWeight: FontWeight.bold,
-                fontSize: 16),
+                color: accent, fontWeight: FontWeight.bold, fontSize: 16),
           ),
         ),
         title: Text(c.name,
@@ -352,12 +379,16 @@ class _DebtsScreenState extends State<DebtsScreen> {
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Text(
-              c.hasDebt ? formatPrice(c.balance) : 'لا يوجد دين',
+              c.hasDebt
+                  ? formatPrice(c.balance)
+                  : hasCredit
+                  ? 'رصيد دائن ${formatPrice(-c.balance)}'
+                  : 'لا يوجد دين',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                fontSize: c.hasDebt ? 13 : 11,
-                color: c.hasDebt
-                    ? Colors.red
+                fontSize: (c.hasDebt || hasCredit) ? 13 : 11,
+                color: (c.hasDebt || hasCredit)
+                    ? accent
                     : (isDark ? Colors.grey.shade500 : Colors.grey),
               ),
             ),
@@ -419,10 +450,21 @@ class _CustomerDebtScreenState extends State<CustomerDebtScreen> {
   final dateFormatter = DateFormat('dd/MM/yyyy - HH:mm');
   late CustomerModel _customer;
 
+  // ✅ إصلاح 14: التدفقات تُنشأ مرة واحدة
+  late final Stream<CustomerModel?> _customerStream;
+  late final Stream<List<DebtTransactionModel>> _txnStream;
+
+  // آخر نسخة حيّة من الزبون (لمعرفة الرصيد الحالي عند التسديد)
+  late CustomerModel _liveCustomer;
+
   @override
   void initState() {
     super.initState();
     _customer = widget.customer;
+    _liveCustomer = widget.customer;
+    _customerStream = DataService.getCustomerStream(widget.customer.id);
+    _txnStream =
+        DataService.getCustomerTransactionsStream(widget.customer.id);
   }
 
   String formatPrice(double price) => '${formatter.format(price)} DA';
@@ -522,6 +564,50 @@ class _CustomerDebtScreenState extends State<CustomerDebtScreen> {
     if (amount == null || amount <= 0) {
       _showSnackBar('أدخل مبلغًا صحيحًا', Colors.red);
       return;
+    }
+
+    // ✅ إصلاح 15: تسديد أكبر من الدين الحالي → نسأل قبل أن يصير للزبون رصيد دائن
+    if (!isCharge) {
+      final current = _liveCustomer.balance;
+      if (amount > current + 0.005) {
+        final credit = amount - (current > 0 ? current : 0);
+        final proceed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16)),
+            title: const Row(
+              children: [
+                Icon(Icons.warning_amber_rounded, color: Colors.orange),
+                SizedBox(width: 8),
+                Text('المبلغ أكبر من الدين'),
+              ],
+            ),
+            content: Text(
+              current > 0
+                  ? 'دين الزبون الحالي ${formatPrice(current)} والمبلغ ${formatPrice(amount)}.\n'
+                  'سيصبح للزبون رصيد دائن (دفعة مقدّمة) قدره ${formatPrice(credit)}.\n\nهل تريد المتابعة؟'
+                  : 'لا يوجد دين على هذا الزبون حالياً.\n'
+                  'سيُسجَّل المبلغ ${formatPrice(amount)} كرصيد دائن (دفعة مقدّمة).\n\nهل تريد المتابعة؟',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('رجوع',
+                    style: TextStyle(color: Colors.grey)),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                style:
+                ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+                child: const Text('متابعة',
+                    style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          ),
+        );
+        if (proceed != true || !mounted) return;
+      }
     }
 
     try {
@@ -712,9 +798,10 @@ class _CustomerDebtScreenState extends State<CustomerDebtScreen> {
         ],
       ),
       body: StreamBuilder<CustomerModel?>(
-        stream: DataService.getCustomerStream(_customer.id),
+        stream: _customerStream,
         builder: (context, snapshot) {
           final customer = snapshot.data ?? _customer;
+          _liveCustomer = customer;
           return SingleChildScrollView(
             padding: const EdgeInsets.all(14),
             child: Column(
@@ -781,8 +868,7 @@ class _CustomerDebtScreenState extends State<CustomerDebtScreen> {
                 ),
                 const SizedBox(height: 10),
                 StreamBuilder<List<DebtTransactionModel>>(
-                  stream:
-                  DataService.getCustomerTransactionsStream(_customer.id),
+                  stream: _txnStream,
                   builder: (context, txnSnapshot) {
                     if (!txnSnapshot.hasData) {
                       return const Padding(
@@ -819,27 +905,33 @@ class _CustomerDebtScreenState extends State<CustomerDebtScreen> {
   }
 
   Widget _buildBalanceCard(CustomerModel customer) {
-    final hasDebt = customer.hasDebt;
+    final hasDebt = customer.balance > 0.005;
+    final hasCredit = customer.balance < -0.005;
+
+    final List<Color> colors = hasDebt
+        ? [Colors.red.shade700, Colors.red.shade400]
+        : hasCredit
+        ? [Colors.blue.shade800, Colors.blue.shade400]
+        : const [Color(0xFF1B5E20), Color(0xFF2E7D32), Color(0xFF43A047)];
+    final Color shadow = hasDebt
+        ? Colors.red
+        : hasCredit
+        ? Colors.blue
+        : const Color(0xFF2E7D32);
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: hasDebt
-              ? [Colors.red.shade700, Colors.red.shade400]
-              : const [
-            Color(0xFF1B5E20),
-            Color(0xFF2E7D32),
-            Color(0xFF43A047)
-          ],
+          colors: colors,
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-              color: (hasDebt ? Colors.red : const Color(0xFF2E7D32))
-                  .withOpacity(0.35),
+              color: shadow.withOpacity(0.35),
               blurRadius: 18,
               offset: const Offset(0, 8)),
         ],
@@ -847,10 +939,11 @@ class _CustomerDebtScreenState extends State<CustomerDebtScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('الرصيد الحالي',
-              style: TextStyle(color: Colors.white70, fontSize: 13)),
+          Text(hasCredit ? 'رصيد دائن للزبون' : 'الرصيد الحالي',
+              style: const TextStyle(color: Colors.white70, fontSize: 13)),
           const SizedBox(height: 6),
-          Text(formatPrice(customer.balance),
+          Text(
+              formatPrice(hasCredit ? -customer.balance : customer.balance),
               style: const TextStyle(
                   color: Colors.white,
                   fontSize: 30,
@@ -859,6 +952,8 @@ class _CustomerDebtScreenState extends State<CustomerDebtScreen> {
           Text(
               hasDebt
                   ? 'يوجد دين مستحق'
+                  : hasCredit
+                  ? 'دفعة مقدّمة: تُخصم من فواتيره القادمة'
                   : 'لا يوجد دين — الحساب متوازن',
               style: const TextStyle(color: Colors.white70, fontSize: 12)),
         ],

@@ -297,8 +297,8 @@ class _ReceiptPreviewDialogState extends State<ReceiptPreviewDialog> {
                                           Text(
                                             '   Qte: ${qty.toStringAsFixed(0)}',
                                             style: TextStyle(
-                                              fontSize: 11,
-                                              color: Colors.grey.shade700,
+                                              fontSize: 12,
+                                              color: Colors.grey.shade800,
                                             ),
                                           ),
                                           Text(
@@ -316,7 +316,7 @@ class _ReceiptPreviewDialogState extends State<ReceiptPreviewDialog> {
                                           child: Text(
                                             '   Aromes: ${flavorsList.join(", ")}',
                                             style: TextStyle(
-                                              fontSize: 10,
+                                              fontSize: 11,
                                               color: Colors.blueGrey.shade700,
                                               fontStyle: FontStyle.italic,
                                             ),

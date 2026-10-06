@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/data_service.dart';
+import 'profits_screen.dart';
 
 class StatsScreen extends StatefulWidget {
   const StatsScreen({super.key});
@@ -130,6 +131,10 @@ class _StatsScreenState extends State<StatsScreen> {
                 ),
               ],
 
+              // ✅ دخول إلى سجل الأرباح (الأرباح الكلية + ربح كل زبون)
+              _buildProfitsEntryCard(),
+              const SizedBox(height: 12),
+
               // بطاقة المبيعات والربح لهذا اليوم
               Container(
                 width: double.infinity,
@@ -194,6 +199,48 @@ class _StatsScreenState extends State<StatsScreen> {
               _buildTodayProductsTable(isDark, cardColor, textColor),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProfitsEntryCard() {
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const ProfitsScreen()),
+      ),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.amber.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.amber.shade600),
+        ),
+        child: Row(
+          children: [
+            const Text('📒', style: TextStyle(fontSize: 26)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('سجل الأرباح',
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                          color: Colors.amber.shade900)),
+                  Text('إجمالي الأرباح وكم ربحت مع كل زبون',
+                      style: TextStyle(
+                          fontSize: 12, color: Colors.amber.shade800)),
+                ],
+              ),
+            ),
+            Icon(Icons.arrow_forward_ios_rounded,
+                size: 16, color: Colors.amber.shade800),
+          ],
         ),
       ),
     );

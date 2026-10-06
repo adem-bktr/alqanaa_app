@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/models.dart';
 import '../services/data_service.dart';
-import '../services/printer_service.dart';
 import '../widgets/receipt_preview_dialog.dart';
+import '../utils/order_helpers.dart';
 import 'package:intl/intl.dart';
 
 class EditOrderScreen extends StatefulWidget {
@@ -22,8 +22,17 @@ class _EditOrderScreenState extends State<EditOrderScreen> {
   @override
   void initState() {
     super.initState();
-    items = List<Map<String, dynamic>>.from(widget.order.items);
+    // ✅ نسخة عميقة: تعديل الكميات هنا لا يغيّر الطلب الأصلي في الذاكرة قبل الحفظ
+    items = widget.order.items
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
     paidAmountController = TextEditingController(text: widget.order.paidAmount.toStringAsFixed(0));
+  }
+
+  @override
+  void dispose() {
+    paidAmountController.dispose();
+    super.dispose();
   }
 
   double get total => items.fold(0, (sum, i) => sum + (toDouble(i['price']) * toDouble(i['quantity'])));
@@ -104,10 +113,27 @@ class _EditOrderScreenState extends State<EditOrderScreen> {
                 const SizedBox(height: 12),
                 TextField(
                   controller: paidAmountController,
-                  keyboardType: TextInputType.number,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   decoration: const InputDecoration(labelText: 'المبلغ المدفوع حالياً', suffixText: 'DA', border: OutlineInputBorder()),
                   onChanged: (v) => setState(() {}),
                 ),
+                // ✅ المتبقي (دين) بعد التعديل
+                Builder(builder: (_) {
+                  final paid = double.tryParse(paidAmountController.text.trim().replaceAll(',', '.')) ?? 0;
+                  final rem = total - paid;
+                  if (rem <= 0.05) return const SizedBox.shrink();
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('المتبقي (دين):', style: TextStyle(fontWeight: FontWeight.bold)),
+                        Text('${formatter.format(rem)} DA',
+                            style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 15)),
+                      ],
+                    ),
+                  );
+                }),
                 const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
@@ -130,24 +156,36 @@ class _EditOrderScreenState extends State<EditOrderScreen> {
   Future<void> _saveAndPrint() async {
     setState(() => isLoading = true);
     try {
-      final paid = double.tryParse(paidAmountController.text) ?? total;
+      final newTotal = total;
+      final paid = double.tryParse(paidAmountController.text.trim().replaceAll(',', '.')) ?? newTotal;
+      final newRemaining = (newTotal - paid) > 0 ? (newTotal - paid) : 0.0;
+
+      // ✅ مزامنة دين الزبون (إن كانت الطلبية مسجّلة على زبون)
+      final customerBalance = await DataService.syncOrderDebt(
+        orderId: widget.order.id,
+        newRemaining: newRemaining,
+      );
+
       final updatedOrder = widget.order.copyWith(
         items: items,
-        total: total,
+        total: newTotal,
         paidAmount: paid,
+        remainingBalance: customerBalance ?? widget.order.remainingBalance,
       );
 
       // 1. تحديث في Firestore
       await DataService.updateFullOrder(updatedOrder);
+      if (!mounted) return;
 
       // 2. معاينة وطباعة الوصل المحدث
+      // ✅ الرصيد السابق (وليس الرصيد بعد الفاتورة) حتى لا يُحسب دين الفاتورة مرتين على الورقة
       await ReceiptPreviewDialog.show(
         context,
         order: updatedOrder,
         customerName: updatedOrder.customerName,
         customerPhone: updatedOrder.customerPhone,
         amountPaid: paid,
-        customerDebtBalance: updatedOrder.remainingBalance,
+        customerDebtBalance: previousDebtOf(updatedOrder),
       );
 
       if (mounted) {
@@ -161,9 +199,76 @@ class _EditOrderScreenState extends State<EditOrderScreen> {
     }
   }
 
+  // ══════════════════════════════════
+  //  إضافة منتج للطلبية (حبة أو كرتون حسب نوع البيع، وبسعر الطلبية)
+  // ══════════════════════════════════
+  double _orderPriceFor(Product p, bool isCarton) {
+    final useSpecial = widget.order.isSpecialPrice;
+    final base = isCarton
+        ? (useSpecial ? p.priceCartonSpecial : p.priceCartonNormal)
+        : (useSpecial ? p.priceUnitSpecial : p.priceUnitNormal);
+    return p.discountedPrice(base);
+  }
+
+  String _productPriceHint(Product p) {
+    final c = '${formatter.format(_orderPriceFor(p, true))} DA';
+    final u = '${formatter.format(_orderPriceFor(p, false))} DA';
+    switch (p.sellType) {
+      case SellType.cartonOnly:
+        return 'كرتون: $c';
+      case SellType.unitOnly:
+        return 'حبة: $u';
+      case SellType.both:
+        return 'كرتون: $c  |  حبة: $u';
+    }
+  }
+
+  Map<String, dynamic> _orderItemFromProduct(Product p, bool isCarton) {
+    final price = _orderPriceFor(p, isCarton);
+    return {
+      'productId': p.id,
+      'productName': p.name,
+      'quantity': 1,
+      'price': price,
+      'unitPrice': price,
+      'isCarton': isCarton,
+      'typeLabel': isCarton ? 'كرتون' : 'حبة',
+      'flavor': '',
+      // تكلفة الشراء وقت الإضافة (لسجل الأرباح)
+      'cost': isCarton ? p.purchasePrice * p.unitsPerCarton : p.purchasePrice,
+    };
+  }
+
+  /// true = كرتون، false = حبة، null = إلغاء (ويُختار تلقائياً إذا كان المنتج يُباع بنوع واحد)
+  Future<bool?> _askCartonOrUnit(Product p) async {
+    if (p.sellType == SellType.cartonOnly) return true;
+    if (p.sellType == SellType.unitOnly) return false;
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(p.name, style: const TextStyle(fontSize: 16)),
+        content: const Text('كيف تريد إضافة هذا المنتج؟'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+            child: const Text('حبة', style: TextStyle(color: Colors.white)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2E7D32)),
+            child: const Text('كرتون', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<Map<String, dynamic>?> _showSelectProductForOrder() async {
     final products = await DataService.getAllProducts();
-    if (products.isEmpty) return null;
+    if (products.isEmpty || !mounted) return null;
 
     String query = '';
     return await showDialog<Map<String, dynamic>>(
@@ -188,18 +293,11 @@ class _EditOrderScreenState extends State<EditOrderScreen> {
                       if (query.isNotEmpty && !p.name.toLowerCase().contains(query)) return const SizedBox.shrink();
                       return ListTile(
                         title: Text(p.name),
-                        subtitle: Text('${formatter.format(p.priceCartonNormal)} DA'),
-                        onTap: () {
-                          Navigator.pop(context, {
-                            'productId': p.id,
-                            'productName': p.name,
-                            'quantity': 1,
-                            'price': p.priceCartonNormal,
-                            'unitPrice': p.priceCartonNormal,
-                            'isCarton': true,
-                            'typeLabel': 'كرتون',
-                            'flavor': '',
-                          });
+                        subtitle: Text(_productPriceHint(p)),
+                        onTap: () async {
+                          final isCarton = await _askCartonOrUnit(p);
+                          if (isCarton == null || !context.mounted) return;
+                          Navigator.pop(context, _orderItemFromProduct(p, isCarton));
                         },
                       );
                     },

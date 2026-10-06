@@ -89,15 +89,16 @@ class ReceiptRenderer {
     void addRow(String left, String right, double lSize, double rSize,
         {bool lBold = false, bool rBold = true}) {
       final lp = makePainter(left, lSize,
-          bold: lBold, fixedWidth: false, maxW: contentW * 0.62);
+          bold: lBold, fixedWidth: false, maxW: contentW * 0.58);
       final rp = makePainter(right, rSize,
-          bold: rBold, fixedWidth: false, maxW: contentW * 0.62);
+          bold: rBold, fixedWidth: false, maxW: contentW * 0.40);
       final y0 = y;
       ops.add((c) {
         lp.paint(c, Offset(pad, y0));
-        rp.paint(c, Offset(widthPx - pad - rp.width, y0));
+        final rightX = math.max(pad + lp.width + 4 * s, widthPx - pad - rp.width);
+        rp.paint(c, Offset(rightX, y0));
       });
-      y += math.max(lp.height, rp.height) + 2 * s;
+      y += math.max(lp.height, rp.height) + 3 * s;
     }
 
     void addDashed() {
@@ -179,33 +180,36 @@ class ReceiptRenderer {
 
       addText('$idx. $name ($type)', 12, gap: 1);
       addRow('   Qte: ${qty.toStringAsFixed(0)}', '${_money(totalItem)} DA',
-          11, 12);
+          12, 12, lBold: false);
       if (flavorsList.isNotEmpty) {
-        addText('   Aromes: ${flavorsList.join(", ")}', 10,
+        addText('   Aromes: ${flavorsList.join(", ")}', 11,
             bold: false, italic: true);
       }
-      y += 3 * s;
+      y += 4 * s;
       idx++;
     }
     addDashed();
 
     // ── الحسابات ──
-    addRow('TOTAL A PAYER :', '${_money(total)} DA', 13, 14, lBold: true);
+    addRow('TOTAL A PAYER :', '${_money(total)} DA', 12, 13, lBold: true);
+    y += 2 * s;
     addRow('Montant Verse :', '${_money(paid)} DA', 11, 11, rBold: false);
     if (remaining > 0) {
-      addRow('Reste Facture :', '${_money(remaining)} DA', 11, 12,
+      y += 2 * s;
+      addRow('Reste Facture :', '${_money(remaining)} DA', 12, 12,
           lBold: true);
     }
     if (prevDebt > 0) {
-      y += 4 * s;
+      y += 6 * s;
       final boxTop = y;
       y += 4 * s;
       addRow('Ancien Solde :', '${_money(prevDebt)} DA', 11, 11,
           rBold: false);
+      y += 2 * s;
       addRow('NOUVEAU SOLDE :',
           '${_money(prevDebt + (remaining > 0 ? remaining : 0))} DA', 12, 12,
           lBold: true);
-      y += 2 * s;
+      y += 4 * s;
       final boxBottom = y;
       ops.add((c) {
         c.drawRect(
@@ -216,7 +220,7 @@ class ReceiptRenderer {
             ..strokeWidth = 1.5 * s,
         );
       });
-      y += 2 * s;
+      y += 4 * s;
     }
     addDashed();
 
@@ -271,7 +275,7 @@ class ReceiptRenderer {
     final px = data.buffer.asUint8List();
 
     final bytesPerRow = (w + 7) ~/ 8;
-    const band = 128; // عدد الأسطر في كل أمر طباعة
+    const band = 24; // عدد الأسطر في كل أمر طباعة (صغير لتفادي فيض ذاكرة الطابعة)
     final out = <int>[];
 
     for (int y0 = 0; y0 < h; y0 += band) {

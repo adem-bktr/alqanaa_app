@@ -816,6 +816,22 @@ class DataService {
         .handleError((e) => debugPrint('❌ pendingCount: $e'));
   }
 
+  static Future<List<app_models.Order>> getPendingOrders() async {
+    try {
+      final snap = await _db
+          .collection('orders')
+          .where('status', isEqualTo: 'pending')
+          .get();
+      final list =
+          snap.docs.map((d) => app_models.Order.fromJson(_qDoc(d))).toList();
+      list.sort(_cmpOrders);
+      return list;
+    } catch (e) {
+      debugPrint('❌ getPendingOrders: $e');
+      return [];
+    }
+  }
+
   /// 🔧 إصلاح الطلبات القديمة التي بلا createdAt
   /// (شغّلها مرة واحدة من زر مؤقت في شاشة الأدمن)
   static Future<int> migrateOrdersCreatedAt() async {

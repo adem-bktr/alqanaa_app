@@ -663,6 +663,7 @@ class _AdminScreenState extends State<AdminScreen>
       'productName': p.name,
       'quantity': 1,
       'price': price,
+      'cost': isCarton ? p.purchasePrice * p.unitsPerCarton : p.purchasePrice,
       'unitPrice': price,
       'isCarton': isCarton,
       'typeLabel': isCarton ? 'كرتون' : 'حبة',

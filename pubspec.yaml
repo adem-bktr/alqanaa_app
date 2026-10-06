@@ -27,10 +27,11 @@ dependencies:
   url_launcher: ^6.3.0
 
   # ═══════════════════════════
-  #        🖨️ الطباعة
+  #        🖨️ الطباعة والأذونات
   # ═══════════════════════════
   print_bluetooth_thermal: ^1.2.5
   esc_pos_utils_plus: ^2.0.4
+  permission_handler: ^11.3.1
 
 
 
