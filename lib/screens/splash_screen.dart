@@ -41,6 +41,9 @@ class _SplashScreenState extends State<SplashScreen>
   final bool _userAlreadyLoggedIn =
       FirebaseAuth.instance.currentUser != null;
 
+  // ✅ تهيئة الإشعارات تجري في الخلفية (كانت تُنتظر قبل الدخول، وبدون إنترنت قد تعلق للأبد)
+  Future<void>? _notifInit;
+
   @override
   void initState() {
     super.initState();
@@ -146,12 +149,33 @@ class _SplashScreenState extends State<SplashScreen>
     );
   }
 
-  Future<void> _checkAuth() async {
+  // ══════════════════════════════════
+  //  ✅ الإشعارات في الخلفية بمهلة (لا تعطّل الدخول بدون إنترنت)
+  // ══════════════════════════════════
+  Future<void> _startNotifications() {
+    return _notifInit ??= () async {
+      try {
+        await NotificationService.initialize()
+            .timeout(const Duration(seconds: 8));
+      } catch (e) {
+        debugPrint('⚠️ Notification error: $e');
+      }
+    }();
+  }
+
+  Future<void> _saveTokenInBackground(String userId) async {
     try {
-      await NotificationService.initialize();
+      await _startNotifications();
+      await NotificationService.saveToken(userId)
+          .timeout(const Duration(seconds: 8));
     } catch (e) {
-      debugPrint('⚠️ Notification error: $e');
+      debugPrint('⚠️ saveToken error: $e');
     }
+  }
+
+  Future<void> _checkAuth() async {
+    // نبدأ تهيئة الإشعارات دون انتظارها
+    _startNotifications();
 
     if (!mounted) return;
 
@@ -190,14 +214,15 @@ class _SplashScreenState extends State<SplashScreen>
         return;
       }
 
+      // ✅ ننتقل أولاً، ثم نحفظ توكن الإشعارات في الخلفية (كان يُنتظر قبل الدخول فيعلق بدون إنترنت)
+      _saveTokenInBackground(user.id);
+
       if (user.isAdmin) {
-        await NotificationService.saveToken(user.id);
         _navigateTo(MainScreen(
           onToggleDarkMode: widget.onToggleDarkMode,
           isDarkMode: widget.isDarkMode,
         ));
       } else {
-        await NotificationService.saveToken(user.id);
         _navigateTo(UserMainScreen(
           user: user,
           onToggleDarkMode: widget.onToggleDarkMode,
