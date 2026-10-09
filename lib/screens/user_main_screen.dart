@@ -11,6 +11,7 @@ import '../services/data_service.dart';
 import '../services/auth_service.dart';
 import '../services/cart_service.dart';
 import '../utils/page_transitions.dart';
+import '../utils/converters.dart';
 import 'products_screen.dart';
 import 'product_detail_screen.dart';
 import 'cart_screen.dart';
@@ -1407,7 +1408,7 @@ class _UserMainScreenState extends State<UserMainScreen>
   @override
   Widget build(BuildContext context) {
     final isDark    = Theme.of(context).brightness == Brightness.dark;
-    final cartCount = cart.fold(0, (sum, item) => sum + item.quantity);
+    final cartCount = cart.fold<double>(0.0, (sum, item) => sum + item.quantity);
 
     // ✅ KeyboardListener يغلف كل الشاشة
     return PopScope(
@@ -1476,7 +1477,7 @@ class _UserMainScreenState extends State<UserMainScreen>
                           cursor: SystemMouseCursors.click,
                           child: badges.Badge(
                             position: badges.BadgePosition.topEnd(top: 2, end: 2),
-                            badgeContent: Text('$cartCount',
+                            badgeContent: Text(formatQuantity(cartCount),
                                 style: const TextStyle(color: Colors.white, fontSize: 10)),
                             showBadge: cart.isNotEmpty,
                             badgeStyle: const badges.BadgeStyle(badgeColor: Colors.red),

@@ -83,16 +83,39 @@ class _EditOrderScreenState extends State<EditOrderScreen> {
                       children: [
                         IconButton(icon: const Icon(Icons.remove_circle_outline), onPressed: () {
                           setState(() {
-                            if (item['quantity'] > 1) {
-                              item['quantity']--;
+                            final q = toDouble(item['quantity']);
+                            if (q > 1) {
+                              item['quantity'] = q - 1;
                             } else {
                               items.removeAt(index);
                             }
                           });
                         }),
-                        Text('${item['quantity']}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                        SizedBox(
+                          width: 50,
+                          height: 32,
+                          child: TextFormField(
+                            key: ValueKey('order_item_${index}_${item['quantity']}'),
+                            initialValue: formatQuantity(item['quantity']),
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                            decoration: const InputDecoration(
+                              contentPadding: EdgeInsets.zero,
+                              isDense: true,
+                              border: OutlineInputBorder(),
+                            ),
+                            onChanged: (val) {
+                              if (val.trim().isEmpty) return;
+                              final newQ = toDouble(val);
+                              if (newQ > 0) {
+                                setState(() => item['quantity'] = newQ);
+                              }
+                            },
+                          ),
+                        ),
                         IconButton(icon: const Icon(Icons.add_circle_outline), onPressed: () {
-                          setState(() => item['quantity']++);
+                          setState(() => item['quantity'] = toDouble(item['quantity']) + 1);
                         }),
                       ],
                     ),

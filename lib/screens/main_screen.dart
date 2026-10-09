@@ -21,6 +21,7 @@ import 'stats_screen.dart';
 import 'scan_invoice_screen.dart';
 import 'desktop_pos_view.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:cloud_firestore/cloud_firestore.dart' show FirebaseFirestore;
 import 'dart:async';
 
 class MainScreen extends StatefulWidget {
@@ -100,11 +101,33 @@ class _MainScreenState extends State<MainScreen>
     _initConnectivity();
   }
 
+  bool _syncing = false;
+
   void _initConnectivity() {
-    _connectivitySub = Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> results) {
-      final isOffline = results.contains(ConnectivityResult.none);
-      if (mounted) setState(() => _isOffline = isOffline);
+    // ✅ نفحص الحالة عند البدء أيضاً (كان الشريط لا يظهر إن فُتح التطبيق بدون شبكة)
+    Connectivity().checkConnectivity().then((results) {
+      if (mounted) setState(() => _isOffline = results.contains(ConnectivityResult.none));
     });
+    _connectivitySub = Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> results) {
+      final wasOffline = _isOffline;
+      final isOffline = results.contains(ConnectivityResult.none);
+      if (!mounted) return;
+      setState(() => _isOffline = isOffline);
+      if (wasOffline && !isOffline) _syncPending();
+    });
+  }
+
+  // ✅ عند عودة الشبكة: نعرض "جاري المزامنة" حتى تصل كل العمليات المحفوظة محلياً للسيرفر
+  Future<void> _syncPending() async {
+    setState(() => _syncing = true);
+    try {
+      await FirebaseFirestore.instance
+          .waitForPendingWrites()
+          .timeout(const Duration(seconds: 30));
+    } catch (_) {}
+    if (!mounted) return;
+    setState(() => _syncing = false);
+    _loadPendingOrders();
   }
 
   @override
@@ -545,7 +568,7 @@ class _MainScreenState extends State<MainScreen>
                         child: const Icon(Icons.remove_circle, color: Colors.red, size: 20),
                       ),
                       const SizedBox(width: 4),
-                      Text('$qty', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                      Text(formatQuantity(qty), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                       const SizedBox(width: 4),
                     ],
                     GestureDetector(
@@ -593,9 +616,9 @@ class _MainScreenState extends State<MainScreen>
     });
   }
 
-  int _flavorQty(Product p, String flavor, bool isCarton) {
+  double _flavorQty(Product p, String flavor, bool isCarton) {
     final idx = cart.indexWhere((it) => it.product.id == p.id && it.isCarton == isCarton && it.flavor == flavor);
-    return idx == -1 ? 0 : cart[idx].quantity;
+    return idx == -1 ? 0.0 : cart[idx].quantity;
   }
 
   void _fastRemoveFromCart(Product p, {String? flavor, required bool isCarton}) {
@@ -612,21 +635,22 @@ class _MainScreenState extends State<MainScreen>
 
   String _getStockLabel(Product p) {
     if (p.unitsPerCarton > 1) {
-      int crt = p.stockQuantity ~/ p.unitsPerCarton; int pcs = p.stockQuantity % p.unitsPerCarton;
+      int crt = p.stockQuantity ~/ p.unitsPerCarton;
+      final pcs = formatQuantity(p.stockQuantity % p.unitsPerCarton);
       return '$crt كرتون و $pcs حبة';
     }
-    return '${p.stockQuantity} حبة';
+    return '${formatQuantity(p.stockQuantity)} حبة';
   }
 
   Widget _buildFloatingCartBar() {
     if (cart.isEmpty) return const SizedBox.shrink();
     final total = cart.fold(0.0, (sum, it) => sum + it.totalPrice);
     // ✅ عرض الكميات الفعلية بدل عدد الأسطر
-    final cartons = cart.where((it) => it.isCarton).fold<int>(0, (s, it) => s + it.quantity);
-    final units   = cart.where((it) => !it.isCarton).fold<int>(0, (s, it) => s + it.quantity);
+    final cartons = cart.where((it) => it.isCarton).fold<double>(0.0, (s, it) => s + it.quantity);
+    final units   = cart.where((it) => !it.isCarton).fold<double>(0.0, (s, it) => s + it.quantity);
     final parts = <String>[
-      if (cartons > 0) '$cartons كرتون',
-      if (units > 0) '$units حبة',
+      if (cartons > 0) '${formatQuantity(cartons)} كرتون',
+      if (units > 0) '${formatQuantity(units)} حبة',
     ];
     return GestureDetector(onTap: () => Navigator.push(context, SlidePageRoute(page: CartScreen(cart: cart, isAdmin: true))).then((_) => setState((){})),
         child: Container(margin: const EdgeInsets.all(10), padding: const EdgeInsets.all(15), decoration: BoxDecoration(color: const Color(0xFF2E7D32), borderRadius: BorderRadius.circular(15)),
@@ -890,6 +914,17 @@ class _MainScreenState extends State<MainScreen>
               padding: const EdgeInsets.symmetric(vertical: 4),
               child: const Text(
                 '🌐 أنت تعمل في وضع الأوفلاين - سيتم مزامنة البيانات عند الاتصال',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+              ),
+            ),
+          if (!_isOffline && _syncing)
+            Container(
+              width: double.infinity,
+              color: Colors.green.shade700,
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: const Text(
+                '🔄 جاري مزامنة العمليات المحفوظة...',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
               ),

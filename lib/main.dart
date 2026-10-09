@@ -15,7 +15,7 @@ import 'dart:io';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   if (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
     await windowManager.ensureInitialized();
     WindowOptions windowOptions = const WindowOptions(
@@ -42,6 +42,15 @@ void main() async {
       );
     } catch (_) {}
   }
+
+  // ✅ ننتظر حالة الدخول المحفوظة على الجهاز (محلية، لا تحتاج إنترنت) حتى لا نعتبرك غير مسجَّل
+  // عند فتح التطبيق بدون شبكة. المهلة تمنع أي تعليق.
+  try {
+    await FirebaseAuth.instance
+        .authStateChanges()
+        .first
+        .timeout(const Duration(seconds: 4));
+  } catch (_) {}
 
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(statusBarColor: Colors.transparent));
   PrinterService.autoConnect();

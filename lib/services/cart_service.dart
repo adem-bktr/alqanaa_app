@@ -2,6 +2,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import '../models/models.dart';
+import '../utils/converters.dart';
 
 class CartService {
   static const String _cartKey = 'saved_cart';
@@ -38,7 +39,7 @@ class CartService {
             item['productData'] as Map<String, dynamic>);
         return CartItem(
           product: product,
-          quantity: item['quantity'] as int,
+          quantity: toDouble(item['quantity']),
           isSpecialPrice: item['isSpecialPrice'] as bool,
           isCarton: item['isCarton'] as bool,
           flavor: (item['flavor'] as String).isNotEmpty

@@ -289,6 +289,11 @@ class _ProfitsScreenState extends State<ProfitsScreen> {
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.calculate_outlined, color: Colors.white),
+            tooltip: 'حاسبة وتدقيق الأرباح',
+            onPressed: _showProfitCalculatorDialog,
+          ),
+          IconButton(
             icon: const Icon(Icons.date_range, color: Colors.white),
             tooltip: 'اختيار فترة',
             onPressed: _pickRange,
@@ -392,6 +397,29 @@ class _ProfitsScreenState extends State<ProfitsScreen> {
                         _heroInfo('الطلبات', '${report.orders}',
                             CrossAxisAlignment.end),
                       ],
+                    ),
+                    const SizedBox(height: 12),
+                    InkWell(
+                      onTap: _showProfitCalculatorDialog,
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.verified, color: Colors.white, size: 16),
+                            SizedBox(width: 6),
+                            Text(
+                              '🔍 فحص وتدقيق معادلة حساب الربح',
+                              style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -735,6 +763,7 @@ class _ProfitsScreenState extends State<ProfitsScreen> {
                     o.profit < 0 ? Colors.red : _green;
                     return ListTile(
                       contentPadding: EdgeInsets.zero,
+                      onTap: () => _showOrderProfitAudit(o),
                       title: Text(
                         o.date != null ? _dateFmt.format(o.date!) : o.order.date,
                         style: TextStyle(
@@ -752,12 +781,19 @@ class _ProfitsScreenState extends State<ProfitsScreen> {
                                 ? Colors.orange.shade700
                                 : Colors.grey.shade600),
                       ),
-                      trailing: Text(
-                        '${_moneyFmt.format(o.profit)} DA',
-                        style: TextStyle(
-                            color: profitColor,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '${_moneyFmt.format(o.profit)} DA',
+                            style: TextStyle(
+                                color: profitColor,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(Icons.chevron_right, size: 18, color: Colors.grey.shade500),
+                        ],
                       ),
                     );
                   },
@@ -791,6 +827,419 @@ class _ProfitsScreenState extends State<ProfitsScreen> {
                 style: TextStyle(color: Colors.grey.shade600, fontSize: 11)),
           ],
         ),
+      ),
+    );
+  }
+
+  // ══════════════════════════════════
+  //  تدقيق أرباح الطلبية التفصيلي
+  // ══════════════════════════════════
+  void _showOrderProfitAudit(_OrderProfit op) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final dialogBg = isDark ? const Color(0xFF1E1E2E) : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black87;
+
+    final o = op.order;
+    double orderTotalSales = 0;
+    double orderTotalCost = 0;
+
+    final List<Map<String, dynamic>> auditItems = [];
+
+    for (final it in o.items) {
+      final name = it['productName']?.toString() ?? 'منتج';
+      final price = _num(it['price']);
+      final qty = _num(it['quantity']);
+      final lineRevenue = price * qty;
+      final isCarton = it['isCarton'] == true;
+
+      final cost = _costOf(it);
+      final unitCost = cost.value ?? 0.0;
+      final lineCost = unitCost * qty;
+      final lineProfit = lineRevenue - lineCost;
+      final isKnown = cost.value != null;
+
+      orderTotalSales += lineRevenue;
+      if (isKnown) orderTotalCost += lineCost;
+
+      auditItems.add({
+        'name': name,
+        'type': isCarton ? 'كرتون' : 'حبة',
+        'qty': qty,
+        'price': price,
+        'unitCost': unitCost,
+        'lineRevenue': lineRevenue,
+        'lineCost': lineCost,
+        'lineProfit': lineProfit,
+        'isKnown': isKnown,
+        'isExact': cost.exact,
+      });
+    }
+
+    final netProfit = orderTotalSales - orderTotalCost;
+    final margin =
+        orderTotalSales > 0 ? (netProfit / orderTotalSales) * 100 : 0.0;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: dialogBg,
+        title: Row(
+          children: [
+            const Icon(Icons.analytics_rounded, color: _green),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'تدقيق أرباح الطلب #${o.shortId}',
+                style: TextStyle(
+                    color: textColor,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('تاريخ الطلب: ${o.date}',
+                    style: TextStyle(
+                        color: Colors.grey.shade600, fontSize: 12)),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: _green.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: _green.withValues(alpha: 0.3)),
+                  ),
+                  child: Column(
+                    children: [
+                      _auditSummaryRow('إجمالي المبيعات:',
+                          '${_moneyFmt.format(orderTotalSales)} DA', textColor),
+                      _auditSummaryRow('إجمالي التكلفة:',
+                          '${_moneyFmt.format(orderTotalCost)} DA', textColor),
+                      const Divider(),
+                      _auditSummaryRow(
+                          'صافي الربح:',
+                          '${_moneyFmt.format(netProfit)} DA',
+                          netProfit >= 0 ? _green : Colors.red,
+                          isBold: true),
+                      _auditSummaryRow('هامش الربح:',
+                          '${margin.toStringAsFixed(1)}%',
+                          netProfit >= 0 ? _green : Colors.red,
+                          isBold: true),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text('تفاصيل الحساب لكل عنصر:',
+                    style: TextStyle(
+                        color: textColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13)),
+                const SizedBox(height: 8),
+                ...auditItems.map((item) {
+                  final isKnown = item['isKnown'] as bool;
+                  final isExact = item['isExact'] as bool;
+                  final lineProfit = item['lineProfit'] as double;
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white10 : Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                          color: isDark ? Colors.white12 : Colors.grey.shade300),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${item['name']} (${item['type']})',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: textColor,
+                              fontSize: 13),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '• سعر البيع: ${_moneyFmt.format(item['price'])} DA × ${item['qty']} = ${_moneyFmt.format(item['lineRevenue'])} DA',
+                          style: TextStyle(
+                              fontSize: 11,
+                              color: textColor.withValues(alpha: 0.8)),
+                        ),
+                        if (isKnown) ...[
+                          Text(
+                            '• سعر الشراء والتكلفة: ${_moneyFmt.format(item['unitCost'])} DA × ${item['qty']} = ${_moneyFmt.format(item['lineCost'])} DA (${isExact ? "مؤكدة وقت البيع" : "تقديرية"})',
+                            style: TextStyle(
+                                fontSize: 11,
+                                color: textColor.withValues(alpha: 0.8)),
+                          ),
+                          Text(
+                            '• معادلة الربح: (${_moneyFmt.format(item['price'])} - ${_moneyFmt.format(item['unitCost'])}) × ${item['qty']} = ${_moneyFmt.format(lineProfit)} DA',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: lineProfit >= 0 ? _green : Colors.red,
+                            ),
+                          ),
+                        ] else
+                          Text(
+                            '⚠️ سعر الشراء غير معروف، لم يدخل في حساب الربح.',
+                            style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.orange.shade800,
+                                fontWeight: FontWeight.bold),
+                          ),
+                      ],
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('إغلاق', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _auditSummaryRow(String label, String value, Color color,
+      {bool isBold = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label,
+              style: TextStyle(
+                  fontSize: 12,
+                  color: color,
+                  fontWeight: isBold ? FontWeight.bold : FontWeight.normal)),
+          Text(value,
+              style: TextStyle(
+                  fontSize: 13,
+                  color: color,
+                  fontWeight: isBold ? FontWeight.bold : FontWeight.normal)),
+        ],
+      ),
+    );
+  }
+
+  // ══════════════════════════════════
+  //  حاسبة وتدقيق الأرباح التفاعلية
+  // ══════════════════════════════════
+  void _showProfitCalculatorDialog() {
+    final buyPriceCtrl = TextEditingController();
+    final sellPriceCtrl = TextEditingController();
+    final unitsCtrl = TextEditingController(text: '1');
+    final qtyCtrl = TextEditingController(text: '1');
+    bool isCarton = true;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setSt) {
+          final isDark = Theme.of(context).brightness == Brightness.dark;
+          final dialogBg = isDark ? const Color(0xFF1E1E2E) : Colors.white;
+          final textColor = isDark ? Colors.white : Colors.black87;
+
+          final buyUnit =
+              double.tryParse(buyPriceCtrl.text.replaceAll(',', '.')) ?? 0.0;
+          final units = int.tryParse(unitsCtrl.text) ?? 1;
+          final sellPrice =
+              double.tryParse(sellPriceCtrl.text.replaceAll(',', '.')) ?? 0.0;
+          final qty = double.tryParse(qtyCtrl.text) ?? 1.0;
+
+          final unitCost = isCarton ? (buyUnit * units) : buyUnit;
+          final totalSales = sellPrice * qty;
+          final totalCost = unitCost * qty;
+          final netProfit = totalSales - totalCost;
+          final margin =
+              totalSales > 0 ? (netProfit / totalSales) * 100 : 0.0;
+          final markup =
+              totalCost > 0 ? (netProfit / totalCost) * 100 : 0.0;
+
+          return AlertDialog(
+            backgroundColor: dialogBg,
+            title: Row(
+              children: [
+                const Icon(Icons.calculate_rounded, color: _green),
+                const SizedBox(width: 8),
+                Text('حاسبة وتدقيق معادلة الربح',
+                    style: TextStyle(
+                        color: textColor,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold)),
+              ],
+            ),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('أدخل أسعار تجريبية للتحقق من صحة المعادلة:',
+                        style: TextStyle(
+                            fontSize: 12, color: Colors.grey.shade600)),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ChoiceChip(
+                            label: const Text('كرتون'),
+                            selected: isCarton,
+                            selectedColor: _green,
+                            labelStyle: TextStyle(
+                                color: isCarton ? Colors.white : textColor),
+                            onSelected: (v) => setSt(() => isCarton = true),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: ChoiceChip(
+                            label: const Text('حبة'),
+                            selected: !isCarton,
+                            selectedColor: _green,
+                            labelStyle: TextStyle(
+                                color: !isCarton ? Colors.white : textColor),
+                            onSelected: (v) => setSt(() => isCarton = false),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: buyPriceCtrl,
+                      keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true),
+                      style: TextStyle(color: textColor),
+                      decoration: const InputDecoration(
+                        labelText: 'سعر شراء الحبة (الأصلي)',
+                        suffixText: 'DA',
+                        border: OutlineInputBorder(),
+                      ),
+                      onChanged: (_) => setSt(() {}),
+                    ),
+                    if (isCarton) ...[
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: unitsCtrl,
+                        keyboardType: TextInputType.number,
+                        style: TextStyle(color: textColor),
+                        decoration: const InputDecoration(
+                          labelText: 'عدد الحبات في الكرتون',
+                          border: OutlineInputBorder(),
+                        ),
+                        onChanged: (_) => setSt(() {}),
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: sellPriceCtrl,
+                      keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true),
+                      style: TextStyle(color: textColor),
+                      decoration: InputDecoration(
+                        labelText:
+                            isCarton ? 'سعر بيع الكرتون' : 'سعر بيع الحبة',
+                        suffixText: 'DA',
+                        border: const OutlineInputBorder(),
+                      ),
+                      onChanged: (_) => setSt(() {}),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: qtyCtrl,
+                      keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true),
+                      style: TextStyle(color: textColor),
+                      decoration: const InputDecoration(
+                        labelText: 'الكمية المباعة',
+                        border: OutlineInputBorder(),
+                      ),
+                      onChanged: (_) => setSt(() {}),
+                    ),
+                    const SizedBox(height: 16),
+                    if (buyUnit > 0 && sellPrice > 0) ...[
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: _green.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                              color: _green.withValues(alpha: 0.3)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('📐 مراحل حساب المعادلة:',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: _green,
+                                    fontSize: 13)),
+                            const SizedBox(height: 6),
+                            Text(
+                                '1. تكلفة الوحدة (${isCarton ? "كرتون" : "حبة"}): ${_moneyFmt.format(unitCost)} DA',
+                                style: TextStyle(
+                                    fontSize: 12, color: textColor)),
+                            Text(
+                                '2. إجمالي المبيعات: ${_moneyFmt.format(sellPrice)} × $qty = ${_moneyFmt.format(totalSales)} DA',
+                                style: TextStyle(
+                                    fontSize: 12, color: textColor)),
+                            Text(
+                                '3. إجمالي التكلفة: ${_moneyFmt.format(unitCost)} × $qty = ${_moneyFmt.format(totalCost)} DA',
+                                style: TextStyle(
+                                    fontSize: 12, color: textColor)),
+                            const Divider(),
+                            Text(
+                                '4. صافي الربح: ${_moneyFmt.format(totalSales)} - ${_moneyFmt.format(totalCost)} = ${_moneyFmt.format(netProfit)} DA',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                    color: netProfit >= 0
+                                        ? _green
+                                        : Colors.red)),
+                            const SizedBox(height: 4),
+                            Text(
+                                '• نسبة هامش الربح (Margin): ${margin.toStringAsFixed(1)}%',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                    color: textColor)),
+                            Text(
+                                '• نسبة الفائدة على التكلفة (Markup): ${markup.toStringAsFixed(1)}%',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                    color: textColor)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('إغلاق',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

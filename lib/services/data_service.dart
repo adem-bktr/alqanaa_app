@@ -1,4 +1,5 @@
 import 'dart:io' show File;
+import 'dart:convert' show utf8;
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -8,9 +9,16 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart' show XFile;
 import 'package:http/http.dart' as http;
+import 'package:crypto/crypto.dart' show sha256;
 
 import '../models/models.dart' as app_models;
 import '../utils/converters.dart';
+
+/// حالة كلمة سر الإدارة (isSet = موجودة، notSet = مؤكد من السيرفر أنها غير معيّنة، unknown = لا نستطيع التأكد الآن)
+enum AdminPwStatus { isSet, notSet, unknown }
+
+/// نتيجة التحقق من كلمة السر (unknown = لا اتصال ولا نسخة محلية للتحقق)
+enum AdminPwCheck { ok, wrong, unknown }
 
 class DataService {
   static final _db = FirebaseFirestore.instance;
@@ -43,6 +51,79 @@ class DataService {
 
   static Map<String, dynamic> _qDoc(QueryDocumentSnapshot<Map<String, dynamic>> d) {
     return {...d.data(), 'id': d.id};
+  }
+
+  // ══════════════════════════════════════════════════════
+  //   📴 أدوات العمل بدون إنترنت
+  //   Firestore يحفظ الكتابات محلياً ويزامنها عند عودة الشبكة، لكن انتظار تأكيد السيرفر
+  //   (await) يعلّق التطبيق بلا إنترنت. لذلك ننتظر مهلة قصيرة ثم نكمل (الكتابة تبقى في الطابور).
+  // ══════════════════════════════════════════════════════
+
+  /// قراءة مستند: السيرفر بمهلة قصيرة، ثم التخزين المحلي (لا نعلق عند ضعف الشبكة)
+  static Future<DocumentSnapshot<Map<String, dynamic>>> _getDocBounded(
+      DocumentReference<Map<String, dynamic>> ref) async {
+    try {
+      return await ref.get().timeout(const Duration(seconds: 4));
+    } catch (_) {
+      return await ref.get(const GetOptions(source: Source.cache));
+    }
+  }
+
+  /// قراءة قائمة: السيرفر بمهلة قصيرة ثم التخزين المحلي (حتى لا يعلق التحميل عند ضعف الشبكة)
+  static Future<QuerySnapshot<Map<String, dynamic>>> _getQ(
+      Query<Map<String, dynamic>> q) async {
+    try {
+      return await q.get().timeout(const Duration(seconds: 5));
+    } catch (_) {
+      return await q.get(const GetOptions(source: Source.cache));
+    }
+  }
+
+  /// عدد الحبات في كرتون منتج: من التخزين المحلي أولاً (فوري ويعمل بلا إنترنت) ثم السيرفر. null = غير معروف.
+  static Future<int?> _unitsPerCartonOf(String pid) async {
+    try {
+      final c = await _db
+          .collection('products')
+          .doc(pid)
+          .get(const GetOptions(source: Source.cache));
+      if (c.exists) {
+        final u = toInt(c.data()?['unitsPerCarton'] ?? 1);
+        return u > 0 ? u : 1;
+      }
+    } catch (_) {}
+    try {
+      final r = await _db
+          .collection('products')
+          .doc(pid)
+          .get()
+          .timeout(const Duration(seconds: 4));
+      if (r.exists) {
+        final u = toInt(r.data()?['unitsPerCarton'] ?? 1);
+        return u > 0 ? u : 1;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /// تنفيذ batch: عند وجود إنترنت ينتظر التأكيد، وبدونه يكمل بعد مهلة والكتابة تبقى في الطابور
+  static Future<void> _commitQueued(WriteBatch batch) async {
+    final f = batch.commit();
+    f.catchError((e) {
+      debugPrint('❌ فشلت كتابة مؤجّلة: $e');
+    });
+    await f.timeout(const Duration(seconds: 4), onTimeout: () {
+      debugPrint('📴 الكتابة محفوظة محلياً وستُزامَن عند عودة الاتصال');
+    });
+  }
+
+  /// نفس الفكرة لكتابة مفردة (set/update/delete)
+  static Future<void> _queued(Future<void> write) async {
+    write.catchError((e) {
+      debugPrint('❌ فشلت كتابة مؤجّلة: $e');
+    });
+    await write.timeout(const Duration(seconds: 4), onTimeout: () {
+      debugPrint('📴 الكتابة محفوظة محلياً وستُزامَن عند عودة الاتصال');
+    });
   }
 
   // ══════════════════════════════════════════════════════
@@ -120,7 +201,7 @@ class DataService {
   // ══════════════════════════════════════════════════════
   static Future<List<app_models.Category>> getCategories() async {
     try {
-      final snap = await _db.collection('categories').get();
+      final snap = await _getQ(_db.collection('categories'));
       final list = snap.docs
           .map((d) => app_models.Category.fromJson(_qDoc(d)))
           .toList();
@@ -191,7 +272,7 @@ class DataService {
   // ══════════════════════════════════════════════════════
   static Future<List<app_models.Brand>> getBrands() async {
     try {
-      final snap = await _db.collection('brands').get();
+      final snap = await _getQ(_db.collection('brands'));
       final list =
       snap.docs.map((d) => app_models.Brand.fromJson(_qDoc(d))).toList();
       list.sort((a, b) => a.name.compareTo(b.name));
@@ -321,7 +402,7 @@ class DataService {
 
   static Future<List<app_models.Product>> getAllProducts() async {
     try {
-      final snap = await _db.collection('products').get();
+      final snap = await _getQ(_db.collection('products'));
       final list =
       snap.docs.map((d) => app_models.Product.fromJson(_qDoc(d))).toList();
       list.sort((a, b) => a.name.compareTo(b.name));
@@ -539,7 +620,7 @@ class DataService {
 
   static Future<List<app_models.Order>> getAllOrders() async {
     try {
-      final snap = await _db.collection('orders').get();
+      final snap = await _getQ(_db.collection('orders'));
       final list =
       snap.docs.map((d) => app_models.Order.fromJson(_qDoc(d))).toList();
       list.sort(_cmpOrders);
@@ -623,10 +704,9 @@ class DataService {
         final qtySold = toInt(it['quantity']);
         final isCarton = it['isCarton'] == true;
 
-        // جلب بيانات المنتج لمعرفة عدد الحبات في الكرتون
-        final pDoc = await _db.collection('products').doc(pid).get();
-        if (pDoc.exists) {
-          final upc = toInt(pDoc.data()?['unitsPerCarton'] ?? 1);
+        // عدد الحبات في الكرتون (من التخزين المحلي أولاً: فوري ويعمل بلا إنترنت)
+        final upc = await _unitsPerCartonOf(pid);
+        if (upc != null) {
           final piecesToSubtract = isCarton ? (qtySold * upc) : qtySold;
 
           batch.update(_db.collection('products').doc(pid), {
@@ -636,7 +716,7 @@ class DataService {
       }
     }
 
-    await batch.commit();
+    await _commitQueued(batch);
     debugPrint('✅ الطلب محفوظ وتم تحديث المخزن: ${order.id}');
   }
 
@@ -657,11 +737,9 @@ class DataService {
       final isCarton = it['isCarton'] == true;
 
       final pRef = _db.collection('products').doc(pid);
-      final pDoc = await pRef.get();
-      if (!pDoc.exists) continue;
-
-      final upc = toInt(pDoc.data()?['unitsPerCarton'] ?? 1);
-      final pieces = isCarton ? (qty * (upc > 0 ? upc : 1)) : qty;
+      final upc = await _unitsPerCartonOf(pid);
+      if (upc == null) continue;
+      final pieces = isCarton ? (qty * upc) : qty;
 
       batch.update(pRef, {
         'stockQuantity': FieldValue.increment(restore ? pieces : -pieces),
@@ -672,7 +750,7 @@ class DataService {
   /// ✅ إصلاح 3: عند الرفض يُرجع المخزن، وعند التراجع عن الرفض يُخصم من جديد
   static Future<void> updateOrderStatus(String orderId, String status) async {
     final orderRef = _db.collection('orders').doc(orderId);
-    final doc = await orderRef.get();
+    final doc = await _getDocBounded(orderRef);
     final data = doc.data();
     final oldStatus = (data?['status'] ?? 'pending').toString();
     final items = (data?['items'] is List) ? data!['items'] as List : const [];
@@ -692,7 +770,22 @@ class DataService {
       'updatedAt': FieldValue.serverTimestamp(),
     });
 
-    await batch.commit();
+    await _commitQueued(batch);
+
+    // ✅ إصلاح 2: الدين المسجّل على الزبون لهذه الطلبية يتبع حالتها
+    // (رفض → يُلغى الدين، تراجع عن الرفض → يعود). لا يؤثر على الطلبات غير المربوطة بزبون.
+    try {
+      final total = _d(data?['total']);
+      final paid = _d(data?['paidAmount']);
+      final remaining = (total - paid) > 0 ? (total - paid) : 0.0;
+      if (oldStatus != 'rejected' && status == 'rejected') {
+        await syncOrderDebt(orderId: orderId, newRemaining: 0);
+      } else if (oldStatus == 'rejected' && status != 'rejected') {
+        await syncOrderDebt(orderId: orderId, newRemaining: remaining);
+      }
+    } catch (e) {
+      debugPrint('⚠️ فشل مزامنة الدين عند تغيير الحالة: $e');
+    }
     debugPrint('🔄 حالة الطلب $orderId → $status');
   }
 
@@ -701,7 +794,7 @@ class DataService {
   /// فإما ينجح كل شيء أو لا يتغير شيء. الطلب المرفوض لا يُحتسب (مخزونه أُرجع مسبقاً).
   static Future<void> updateFullOrder(app_models.Order order) async {
     final orderRef = _db.collection('orders').doc(order.id);
-    final oldDoc = await orderRef.get();
+    final oldDoc = await _getDocBounded(orderRef);
 
     List oldItems = const [];
     bool oldCounted = false;
@@ -727,11 +820,8 @@ class DataService {
     // 2) جلب عدد الحبات في الكرتون لكل منتج (مرة واحدة)
     final upcMap = <String, int>{};
     for (final pid in pids) {
-      final pDoc = await _db.collection('products').doc(pid).get();
-      if (pDoc.exists) {
-        final upc = toInt(pDoc.data()?['unitsPerCarton'] ?? 1);
-        upcMap[pid] = upc > 0 ? upc : 1;
-      }
+      final upc = await _unitsPerCartonOf(pid);
+      if (upc != null) upcMap[pid] = upc;
     }
 
     // 3) حساب الفرق الصافي لكل منتج (+ إرجاع، − خصم)
@@ -764,7 +854,7 @@ class DataService {
         });
       }
     });
-    await batch.commit();
+    await _commitQueued(batch);
 
     debugPrint('📝 تم تحديث الطلب والمخزن بشكل ذرّي: ${order.id}');
   }
@@ -785,11 +875,13 @@ class DataService {
   }
 
   /// ✅ إصلاح 3: عند الحذف يُرجع المخزن (إلا إذا كان الطلب مرفوضاً لأنه أُرجع سابقاً)
+  /// ✅ إصلاح 2: ويُلغى الدين المسجّل على الزبون لهذه الطلبية
   static Future<void> deleteOrder(String orderId) async {
     final orderRef = _db.collection('orders').doc(orderId);
-    final doc = await orderRef.get();
+    final doc = await _getDocBounded(orderRef);
 
     final batch = _db.batch();
+    bool debtActive = false;
 
     if (doc.exists) {
       final data = doc.data();
@@ -799,12 +891,37 @@ class DataService {
 
       if (oldStatus != 'rejected') {
         await _applyStockChange(batch, items, restore: true);
+        debtActive = true; // الطلب المرفوض دينه أُلغي وقت الرفض
       }
     }
 
     batch.delete(orderRef);
-    await batch.commit();
+    await _commitQueued(batch);
+
+    if (debtActive) {
+      try {
+        await syncOrderDebt(orderId: orderId, newRemaining: 0);
+      } catch (e) {
+        debugPrint('⚠️ فشل إلغاء دين الطلب المحذوف: $e');
+      }
+    }
     debugPrint('🗑️ تم حذف الطلب وإرجاع المخزن: $orderId');
+  }
+
+  /// ✅ كل الطلبات التي تنتظر المراجعة (وليس آخر 10 فقط)
+  static Future<List<app_models.Order>> getPendingOrders() async {
+    try {
+      final snap = await _getQ(_db
+          .collection('orders')
+          .where('status', isEqualTo: 'pending'));
+      final list =
+      snap.docs.map((d) => app_models.Order.fromJson(_qDoc(d))).toList();
+      list.sort(_cmpOrders);
+      return list;
+    } catch (e) {
+      debugPrint('❌ getPendingOrders: $e');
+      return [];
+    }
   }
 
   static Stream<int> getPendingOrdersCount() {
@@ -814,22 +931,6 @@ class DataService {
         .snapshots()
         .map((s) => s.docs.length)
         .handleError((e) => debugPrint('❌ pendingCount: $e'));
-  }
-
-  static Future<List<app_models.Order>> getPendingOrders() async {
-    try {
-      final snap = await _db
-          .collection('orders')
-          .where('status', isEqualTo: 'pending')
-          .get();
-      final list =
-          snap.docs.map((d) => app_models.Order.fromJson(_qDoc(d))).toList();
-      list.sort(_cmpOrders);
-      return list;
-    } catch (e) {
-      debugPrint('❌ getPendingOrders: $e');
-      return [];
-    }
   }
 
   /// 🔧 إصلاح الطلبات القديمة التي بلا createdAt
@@ -924,14 +1025,81 @@ class DataService {
   }
 
   static Future<void> setAdminPassword(String password) async {
-    await _db.collection('settings').doc('security').set(
+    await _queued(_db.collection('settings').doc('security').set(
       {
         'adminPassword': password,
         'updatedAt': FieldValue.serverTimestamp(),
       },
       SetOptions(merge: true),
-    );
+    ));
+    await _cachePasswordHash(password); // نسخة محلية مشفّرة للتحقق بدون إنترنت
     debugPrint('🔒 تم تحديث كلمة سر الإدارة');
+  }
+
+  // ── نسخة محلية مشفّرة (hash) من كلمة السر للتحقق بدون إنترنت ──
+  static const String _pwHashKey = 'admin_pw_hash';
+
+  static String _hashPw(String password) =>
+      sha256.convert(utf8.encode('alqanaa::$password')).toString();
+
+  static Future<void> _cachePasswordHash(String password) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_pwHashKey, _hashPw(password));
+    } catch (_) {}
+  }
+
+  static Future<String?> _localPasswordHash() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString(_pwHashKey);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// هل لكلمة سر الإدارة وجود؟ تُميّز بين "غير معيّنة فعلاً" و"لا نستطيع التأكد الآن"
+  /// (بدون هذا التمييز كان غياب الإنترنت يُظهر شاشة "تعيين كلمة سر جديدة" لأي شخص).
+  static Future<AdminPwStatus> adminPasswordStatus() async {
+    final localHash = await _localPasswordHash();
+    try {
+      final doc = await _db
+          .collection('settings')
+          .doc('security')
+          .get()
+          .timeout(const Duration(seconds: 5));
+      final v = doc.data()?['adminPassword'];
+      if (v is String && v.isNotEmpty) {
+        await _cachePasswordHash(v);
+        return AdminPwStatus.isSet;
+      }
+      // لا قيمة: إن كانت النتيجة من الكاش المحلي فلا نثق بها
+      if (doc.metadata.isFromCache) {
+        return localHash != null ? AdminPwStatus.isSet : AdminPwStatus.unknown;
+      }
+      return AdminPwStatus.notSet; // السيرفر أكّد أنها غير معيّنة
+    } catch (_) {
+      return localHash != null ? AdminPwStatus.isSet : AdminPwStatus.unknown;
+    }
+  }
+
+  /// التحقق من كلمة السر: من السيرفر إن أمكن، وإلا من النسخة المحلية المشفّرة
+  static Future<AdminPwCheck> verifyAdminPassword(String entered) async {
+    try {
+      final doc = await _db
+          .collection('settings')
+          .doc('security')
+          .get()
+          .timeout(const Duration(seconds: 5));
+      final v = doc.data()?['adminPassword'];
+      if (v is String && v.isNotEmpty) {
+        await _cachePasswordHash(v);
+        return entered == v ? AdminPwCheck.ok : AdminPwCheck.wrong;
+      }
+    } catch (_) {}
+    final h = await _localPasswordHash();
+    if (h == null) return AdminPwCheck.unknown;
+    return _hashPw(entered) == h ? AdminPwCheck.ok : AdminPwCheck.wrong;
   }
 
   // ══════════════════════════════════════════════════════
@@ -1268,7 +1436,7 @@ class DataService {
   // ══════════════════════════════════════════════════════
   static Future<List<app_models.CustomerModel>> getCustomers() async {
     try {
-      final snap = await _db.collection('customers').get();
+      final snap = await _getQ(_db.collection('customers'));
       final list = snap.docs
           .map((d) => app_models.CustomerModel.fromJson(_qDoc(d)))
           .toList();
@@ -1320,24 +1488,24 @@ class DataService {
   }
 
   static Future<void> saveCustomer(app_models.CustomerModel customer) async {
-    await _db.collection('customers').doc(customer.id).set({
+    await _queued(_db.collection('customers').doc(customer.id).set({
       'name': customer.name,
       'phone': customer.phone,
       'address': customer.address ?? '',
       'balance': customer.balance,
       'createdAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    }, SetOptions(merge: true)));
     debugPrint('✅ زبون محفوظ: ${customer.name}');
   }
 
   static Future<void> updateCustomerInfo(
       app_models.CustomerModel customer) async {
-    await _db.collection('customers').doc(customer.id).set({
+    await _queued(_db.collection('customers').doc(customer.id).set({
       'name': customer.name,
       'phone': customer.phone,
       'address': customer.address ?? '',
       'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    }, SetOptions(merge: true)));
     debugPrint('✏️ تم تعديل بيانات الزبون: ${customer.name}');
   }
 
@@ -1352,7 +1520,7 @@ class DataService {
         batch.delete(d.reference);
       }
       batch.delete(_db.collection('customers').doc(customerId));
-      await batch.commit();
+      await _commitQueued(batch);
       debugPrint('🗑️ تم حذف الزبون وسجل ديونه: $customerId');
     } catch (e) {
       debugPrint('❌ deleteCustomer: $e');
@@ -1373,25 +1541,23 @@ class DataService {
     final customerRef = _db.collection('customers').doc(customerId);
     final txnRef = _db.collection('debt_transactions').doc(txnId);
 
-    await _db.runTransaction((transaction) async {
-      final snap = await transaction.get(customerRef);
-      final currentBalance = _d(snap.data()?['balance']);
-      final delta = type == 'payment' ? -amount : amount;
-      final newBalance = currentBalance + delta;
-
-      transaction.set(txnRef, {
-        'customerId': customerId,
-        'type': type,
-        'amount': amount,
-        'note': note,
-        if (orderId != null && orderId.isNotEmpty) 'orderId': orderId,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-      transaction.update(customerRef, {
-        'balance': newBalance,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+    // ✅ batch + increment بدل runTransaction: المعاملات لا تعمل بدون إنترنت، أما هذه فتُحفظ محلياً
+    // وتُزامَن لاحقاً، والزيادة (increment) تُدمَج صحيحاً حتى لو سجّل جهازان على نفس الزبون.
+    final delta = type == 'payment' ? -amount : amount;
+    final batch = _db.batch();
+    batch.set(txnRef, {
+      'customerId': customerId,
+      'type': type,
+      'amount': amount,
+      'note': note,
+      if (orderId != null && orderId.isNotEmpty) 'orderId': orderId,
+      'createdAt': FieldValue.serverTimestamp(),
     });
+    batch.update(customerRef, {
+      'balance': FieldValue.increment(delta),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    await _commitQueued(batch);
     debugPrint('✅ معاملة دين مسجّلة: $type $amount للزبون $customerId');
   }
 

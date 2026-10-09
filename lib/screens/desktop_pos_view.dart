@@ -98,18 +98,18 @@ class _DesktopPosViewState extends State<DesktopPosView> {
 
   String _stockLabel(Product p) {
     final s = p.stockQuantity;
-    if (s < 0) return 'المخزون: $s حبة';
+    if (s < 0) return 'المخزون: ${formatQuantity(s)} حبة';
     if (p.unitsPerCarton > 1) {
       final crt = s ~/ p.unitsPerCarton;
       final pcs = s % p.unitsPerCarton;
-      return 'المخزون: $crt كرتون و $pcs حبة';
+      return 'المخزون: $crt كرتون و ${formatQuantity(pcs)} حبة';
     }
-    return 'المخزون: $s قطعة';
+    return 'المخزون: ${formatQuantity(s)} قطعة';
   }
 
   /// عدد الحبات التي في السلة لمنتج معيّن (الكرتون يُحوَّل إلى حبات)
-  int _piecesInCart(String productId) {
-    int total = 0;
+  double _piecesInCart(String productId) {
+    double total = 0.0;
     for (final i in widget.cart) {
       if (i.product.id != productId) continue;
       final upc = i.product.unitsPerCarton > 0 ? i.product.unitsPerCarton : 1;
@@ -130,7 +130,7 @@ class _DesktopPosViewState extends State<DesktopPosView> {
     final inCart = _piecesInCart(fresh.id);
     if (inCart > fresh.stockQuantity) {
       _snack(
-        '⚠️ ${fresh.name}: في السلة $inCart حبة والمخزون ${fresh.stockQuantity} حبة',
+        '⚠️ ${fresh.name}: في السلة ${formatQuantity(inCart)} حبة والمخزون ${formatQuantity(fresh.stockQuantity)} حبة',
         Colors.orange,
       );
     }
@@ -146,7 +146,7 @@ class _DesktopPosViewState extends State<DesktopPosView> {
       final fresh = _freshProduct(inCartProduct);
       final inCart = _piecesInCart(id);
       if (inCart > fresh.stockQuantity) {
-        lines.add('• ${fresh.name}: في السلة $inCart حبة، المخزون ${fresh.stockQuantity}');
+        lines.add('• ${fresh.name}: في السلة ${formatQuantity(inCart)} حبة، المخزون ${formatQuantity(fresh.stockQuantity)}');
       }
     }
     return lines;
@@ -1138,10 +1138,10 @@ class _CartItemTileWidgetState extends State<_CartItemTileWidget> {
   @override
   void initState() {
     super.initState();
-    _qtyController = TextEditingController(text: widget.item.quantity.toString());
+    _qtyController = TextEditingController(text: formatQuantity(widget.item.quantity));
     _focusNode.addListener(() {
       if (!_focusNode.hasFocus) {
-        if (_qtyController.text.trim().isEmpty || (int.tryParse(_qtyController.text) ?? 0) <= 0) {
+        if (_qtyController.text.trim().isEmpty || toDouble(_qtyController.text) <= 0) {
           widget.item.quantity = 1;
           _qtyController.text = '1';
           widget.onChanged();
@@ -1154,8 +1154,8 @@ class _CartItemTileWidgetState extends State<_CartItemTileWidget> {
   void didUpdateWidget(covariant _CartItemTileWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.item.quantity != widget.item.quantity) {
-      if (_qtyController.text != widget.item.quantity.toString()) {
-        _qtyController.text = widget.item.quantity.toString();
+      if (_qtyController.text != formatQuantity(widget.item.quantity)) {
+        _qtyController.text = formatQuantity(widget.item.quantity);
       }
     }
   }
@@ -1219,7 +1219,7 @@ class _CartItemTileWidgetState extends State<_CartItemTileWidget> {
                   onPressed: () {
                     if (it.quantity > 1) {
                       it.quantity--;
-                      _qtyController.text = it.quantity.toString();
+                      _qtyController.text = formatQuantity(it.quantity);
                       widget.onChanged();
                     } else {
                       widget.onRemove();
@@ -1232,7 +1232,7 @@ class _CartItemTileWidgetState extends State<_CartItemTileWidget> {
                   child: TextField(
                     controller: _qtyController,
                     focusNode: _focusNode,
-                    keyboardType: TextInputType.number,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     textAlign: TextAlign.center,
                     style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                     decoration: const InputDecoration(contentPadding: EdgeInsets.zero, border: OutlineInputBorder()),
@@ -1240,8 +1240,8 @@ class _CartItemTileWidgetState extends State<_CartItemTileWidget> {
                       if (value.trim().isEmpty) {
                         return; // السماح بمسح الخانة بالكامل أثناء الكتابة
                       }
-                      final newQty = int.tryParse(value);
-                      if (newQty != null && newQty > 0) {
+                      final newQty = toDouble(value);
+                      if (newQty > 0) {
                         it.quantity = newQty;
                         widget.onChanged();
                       }
@@ -1252,7 +1252,7 @@ class _CartItemTileWidgetState extends State<_CartItemTileWidget> {
                   icon: const Icon(Icons.add_circle, color: Colors.green, size: 22),
                   onPressed: () {
                     it.quantity++;
-                    _qtyController.text = it.quantity.toString();
+                    _qtyController.text = formatQuantity(it.quantity);
                     widget.onChanged();
                   },
                 ),

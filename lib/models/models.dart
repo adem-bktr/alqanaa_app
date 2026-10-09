@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../utils/converters.dart';
+export '../utils/converters.dart';
 
 // ══════════════════════════════════════════════════════════
 //   🔧 أدوات تحويل آمنة (تم النقل إلى converters.dart)
@@ -254,7 +255,7 @@ class Product {
   final List<FlavorModel> flavors;
   final bool isFeatured;
   final double purchasePrice;
-  final int stockQuantity; // إجمالي عدد القطع (الحبات) في المخزن
+  final double stockQuantity; // إجمالي عدد القطع (الحبات) في المخزن
   final int unitsPerCarton; // كم حبة داخل الكرتون الواحد
 
   Product({
@@ -351,7 +352,7 @@ class Product {
       flavors: list,
       isFeatured: _b(json['isFeatured']),
       purchasePrice: _d(json['purchasePrice']),
-      stockQuantity: _i(json['stockQuantity']),
+      stockQuantity: _d(json['stockQuantity']),
       unitsPerCarton: _i(json['unitsPerCarton']) > 0 ? _i(json['unitsPerCarton']) : 1,
     );
   }
@@ -368,7 +369,7 @@ class Product {
 // ══════════════════════════════════════════════════════════
 class CartItem {
   final Product product;
-  int quantity;
+  double quantity;
   final bool isSpecialPrice;
   final bool isCarton;
   final String? flavor;
@@ -379,7 +380,7 @@ class CartItem {
 
   CartItem({
     required this.product,
-    this.quantity = 1,
+    this.quantity = 1.0,
     this.isSpecialPrice = false,
     this.isCarton = true,
     this.flavor,
@@ -593,7 +594,7 @@ class Order {
 
   int get itemsCount => items.length;
 
-  int get totalQuantity => items.fold(0, (s, it) => s + _i(it['quantity']));
+  double get totalQuantity => items.fold(0.0, (s, it) => s + _d(it['quantity']));
 
   bool get hasLocation => latitude != null && longitude != null;
 

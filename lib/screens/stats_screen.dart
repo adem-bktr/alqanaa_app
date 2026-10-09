@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/data_service.dart';
+import '../utils/converters.dart';
 import 'profits_screen.dart';
 
 class StatsScreen extends StatefulWidget {
@@ -458,7 +459,7 @@ class _StatsScreenState extends State<StatsScreen> {
                     children: [
                       _tableCell(p['name']?.toString() ?? '', textColor),
                       _tableCell(
-                          '${p['quantity'] ?? 0} $type',
+                          '${formatQuantity(p['quantity'])} $type',
                           isCartonType ? const Color(0xFF2E7D32) : Colors.blue,
                           bold: true),
                       _tableCell('${formatter.format(p['revenue'] ?? 0)} DA',
@@ -482,14 +483,14 @@ class _StatsScreenState extends State<StatsScreen> {
     if (topProducts.isEmpty) return [];
     final firstProduct =
     topProducts.first as Map<String, dynamic>;
-    final firstQty = (firstProduct['quantity'] ?? 1) as int;
+    final firstQty = toDouble(firstProduct['quantity'] ?? 1);
     final barColor =
     unitLabel == 'كرتون' ? const Color(0xFF2E7D32) : Colors.blue;
 
     return topProducts.asMap().entries.map((entry) {
       final index = entry.key;
       final product = entry.value as Map<String, dynamic>;
-      final qty = (product['quantity'] ?? 0) as int;
+      final qty = toDouble(product['quantity']);
       final name = product['name'] as String? ?? '';
 
       Color medalColor;
@@ -555,7 +556,7 @@ class _StatsScreenState extends State<StatsScreen> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    '$qty $unitLabel',
+                    '${formatQuantity(qty)} $unitLabel',
                     style: TextStyle(
                       color: barColor,
                       fontWeight: FontWeight.bold,

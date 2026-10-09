@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/models.dart';
 import '../services/data_service.dart';
+import '../utils/converters.dart';
 
 enum _InvFilter { all, outOfStock, noCost }
 
@@ -125,8 +126,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
   Widget _buildBody(bool isDark, Color cardColor, Color textColor) {
     final totalValue =
     _products.fold<double>(0, (s, p) => s + _valueOf(p));
-    final totalPieces = _products.fold<int>(
-        0, (s, p) => s + (p.stockQuantity > 0 ? p.stockQuantity : 0));
+    final totalPieces = _products.fold<double>(
+        0.0, (s, p) => s + (p.stockQuantity > 0 ? p.stockQuantity : 0));
     final outCount = _products.where((p) => p.stockQuantity <= 0).length;
     final negCount = _products.where((p) => p.stockQuantity < 0).length;
     final noCostWithStock = _products

@@ -6,6 +6,7 @@ import 'package:shimmer/shimmer.dart';
 import '../models/models.dart';
 import '../services/data_service.dart';
 import '../services/auth_service.dart';
+import '../utils/converters.dart';
 import 'product_detail_screen.dart';
 import 'cart_screen.dart';
 import 'package:badges/badges.dart' as badges;
@@ -167,7 +168,7 @@ class _ProductsScreenState extends State<ProductsScreen>
     if (maxQty <= 0) return false;
     final cartQty = widget.cart
         .where((i) => i.product.id == product.id && i.isCarton)
-        .fold(0, (sum, i) => sum + i.quantity);
+        .fold<double>(0.0, (sum, i) => sum + i.quantity);
     return cartQty >= maxQty;
   }
 
@@ -217,7 +218,7 @@ class _ProductsScreenState extends State<ProductsScreen>
     isDark ? const Color(0xFF0F0F1A) : const Color(0xFFF0F2F5);
     final searchBg = isDark ? const Color(0xFF2A2A3E) : Colors.white;
     final cartCount =
-    widget.cart.fold(0, (sum, item) => sum + item.quantity);
+    widget.cart.fold<double>(0.0, (sum, item) => sum + item.quantity);
 
     return KeyboardListener(
       focusNode: _keyboardFocus,
@@ -336,7 +337,7 @@ class _ProductsScreenState extends State<ProductsScreen>
               cursor: SystemMouseCursors.click,
               child: badges.Badge(
                 badgeContent: Text(
-                  '$cartCount',
+                  formatQuantity(cartCount),
                   style: const TextStyle(color: Colors.white, fontSize: 10),
                 ),
                 showBadge: widget.cart.isNotEmpty,
@@ -490,7 +491,7 @@ class _ProductsScreenState extends State<ProductsScreen>
                     cursor: SystemMouseCursors.click,
                     child: badges.Badge(
                       badgeContent: Text(
-                        '$cartCount',
+                        formatQuantity(cartCount),
                         style: const TextStyle(color: Colors.white, fontSize: 10),
                       ),
                       showBadge: widget.cart.isNotEmpty,

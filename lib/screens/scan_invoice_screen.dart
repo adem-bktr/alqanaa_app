@@ -601,7 +601,7 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
 
         if (bestErr <= _tableTolerance) {
           return _ParsedNumbers(
-              quantity: bestQ.round(),
+              quantity: bestQ,
               colisage: bestC.round(),
               price: price,
               total: total,
@@ -613,7 +613,7 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
           final m = total / price;
           if (m >= 1 && m <= 100000 && (m - m.round()).abs() < 0.01) {
             return _ParsedNumbers(
-                quantity: m.round(), colisage: 1, price: price, total: total, isMathValid: true);
+                quantity: m, colisage: 1, price: price, total: total, isMathValid: true);
           }
         }
       }
@@ -622,7 +622,7 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
       final q = pre.first;
       final c = pre.length >= 2 ? pre.last : 1.0;
       return _ParsedNumbers(
-          quantity: q <= _maxPlausibleQty ? q.round() : 0,
+          quantity: q <= _maxPlausibleQty ? q : 0.0,
           colisage: (c >= 1 && c <= _maxPlausibleColisage) ? c.round() : 1,
           price: price,
           total: total,
@@ -631,12 +631,12 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
 
     if (n == 2) {
       return _ParsedNumbers(
-          quantity: v[0] <= _maxPlausibleQty ? v[0].round() : 0,
+          quantity: v[0] <= _maxPlausibleQty ? v[0] : 0.0,
           price: v[1],
           total: 0,
           isMathValid: false);
     }
-    return _ParsedNumbers(quantity: 0, price: v.first, total: 0, isMathValid: false);
+    return _ParsedNumbers(quantity: 0.0, price: v.first, total: 0, isMathValid: false);
   }
 
   /// تجميع أسطر OCR في صفوف مرئية، بحد يتناسب مع الوسيط الحقيقي لارتفاع السطر
@@ -711,7 +711,7 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
       }
       if (bestK >= 0 && bestError < _mathTolerance) {
         return _ParsedNumbers(
-            quantity: bestQty.round(), price: bestPrice, total: bestTotal, isMathValid: true);
+            quantity: bestQty, price: bestPrice, total: bestTotal, isMathValid: true);
       }
       // لا ثلاثية متطابقة: نفترض أن الأخير هو المجموع ونأخذ الرقمين قبله (غير مؤكد)
       final a = plausible[plausible.length - 3];
@@ -720,21 +720,21 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
       final qty = firstQty ? a : b;
       final price = firstQty ? b : a;
       if (qty <= _maxPlausibleQty) {
-        return _ParsedNumbers(quantity: qty.round(), price: price, total: 0, isMathValid: false);
+        return _ParsedNumbers(quantity: qty, price: price, total: 0, isMathValid: false);
       }
-      return _ParsedNumbers(quantity: 0, price: price, total: 0, isMathValid: false);
+      return _ParsedNumbers(quantity: 0.0, price: price, total: 0, isMathValid: false);
     } else if (plausible.length == 2) {
       final a = plausible[0], b = plausible[1];
       final firstQty = _firstIsQty(a, b);
       final qty = firstQty ? a : b;
       final price = firstQty ? b : a;
       if (qty > _maxPlausibleQty) {
-        return _ParsedNumbers(quantity: 0, price: price, total: 0, isMathValid: false);
+        return _ParsedNumbers(quantity: 0.0, price: price, total: 0, isMathValid: false);
       }
-      return _ParsedNumbers(quantity: qty.round(), price: price, total: 0, isMathValid: false);
+      return _ParsedNumbers(quantity: qty, price: price, total: 0, isMathValid: false);
     } else {
       // رقم واحد: لا نعرف إن كان كمية أو سعراً — يُترك للمراجعة اليدوية
-      return _ParsedNumbers(quantity: 0, price: plausible.first, total: 0, isMathValid: false);
+      return _ParsedNumbers(quantity: 0.0, price: plausible.first, total: 0, isMathValid: false);
     }
   }
 
@@ -781,10 +781,10 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
         continue;
       }
       final upc = fresh.unitsPerCarton > 0 ? fresh.unitsPerCarton : 1;
-      int addUnits = 0;
+      double addUnits = 0;
       double valueSum = 0;
       for (final it in entry.value) {
-        int units;
+        double units;
         double unitBuy;
         if (it.colisage > 1) {
           // الكمية × Colisage = عدد الحبات، والسعر المطبوع هو سعر الحبة
@@ -975,7 +975,7 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
     );
   }
 
-  Product _withStock(Product p, int stock, double purchase) => Product(
+  Product _withStock(Product p, double stock, double purchase) => Product(
     id: p.id, brandId: p.brandId, categoryId: p.categoryId, name: p.name,
     priceCartonNormal: p.priceCartonNormal, priceUnitNormal: p.priceUnitNormal,
     priceCartonSpecial: p.priceCartonSpecial, priceUnitSpecial: p.priceUnitSpecial,
@@ -1393,8 +1393,8 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
   void _swapQtyPrice(DetectedInvoiceItem item) {
     setState(() {
       final oldQty = item.quantity;
-      item.quantity = item.price.round();
-      item.price = oldQty.toDouble();
+      item.quantity = item.price;
+      item.price = oldQty;
       item.total = item.lineTotal;
       item.needsReview = false;
       item.isSelected = item.quantity > 0;
@@ -1642,8 +1642,7 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
             ElevatedButton(
               onPressed: () {
                 final newQty =
-                (double.tryParse(q.text.trim().replaceAll(',', '.')) ?? item.quantity.toDouble())
-                    .round();
+                    double.tryParse(q.text.trim().replaceAll(',', '.')) ?? item.quantity;
                 final newPrice =
                     double.tryParse(p.text.trim().replaceAll(',', '.')) ?? item.price;
                 final newCol = int.tryParse(c.text.trim()) ?? item.colisage;
@@ -1733,7 +1732,7 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
     if (ok != true) return;
 
     final name = n.text.trim();
-    final qty = (double.tryParse(q.text.trim().replaceAll(',', '.')) ?? 0).round();
+    final qty = double.tryParse(q.text.trim().replaceAll(',', '.')) ?? 0;
     final price = double.tryParse(p.text.trim().replaceAll(',', '.')) ?? 0;
     final match = await _findMatch(name);
     if (!mounted) return;
@@ -1780,7 +1779,7 @@ class _Num {
 
 class _PlanLine {
   final Product product;               // النسخة الحديثة من قاعدة البيانات
-  final int addUnits;                  // الكمية المضافة بالحبات
+  final double addUnits;               // الكمية المضافة بالحبات
   final double newPurchase;            // سعر الشراء الجديد للحبة
   final List<DetectedInvoiceItem> sources;
   _PlanLine({
@@ -1803,7 +1802,7 @@ class _ApplyPlan {
 }
 
 class _ParsedNumbers {
-  final int quantity;
+  final double quantity;
   final int colisage;
   final double price;
   final double total;
@@ -1819,7 +1818,7 @@ class _ParsedNumbers {
 
 class DetectedInvoiceItem {
   String rawText;
-  int quantity;
+  double quantity;
   int colisage;       // ✅ عدد الحبات في الوحدة (عمود Colisage) — 1 إن لم يوجد
   double price;
   double total;

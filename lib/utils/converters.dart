@@ -7,6 +7,15 @@ double toDouble(dynamic v) {
   return double.tryParse(v.toString().replaceAll(',', '.')) ?? 0;
 }
 
+/// ✅ تنسيق الكمية بدون أصفار عشرية غير ضرورية (مثال: 1.0 تعود 1 ، و 1.5 تعود 1.5)
+String formatQuantity(dynamic v) {
+  final d = toDouble(v);
+  if (d == d.roundToDouble()) {
+    return d.toInt().toString();
+  }
+  return d.toStringAsFixed(2).replaceAll(RegExp(r'0+$'), '').replaceAll(RegExp(r'\.$'), '');
+}
+
 /// ✅ تحويل آمن إلى Int
 int toInt(dynamic v) {
   if (v == null) return 0;

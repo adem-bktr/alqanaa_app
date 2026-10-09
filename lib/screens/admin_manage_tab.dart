@@ -552,11 +552,12 @@ extension AdminManageTabX on _AdminScreenState {
             // ✅ حساب المخزن المفهوم (كرتون + حبة)
             String stockLabel = 'المخزن: ';
             if (product.unitsPerCarton > 1) {
-              int crt = product.stockQuantity ~/ product.unitsPerCarton;
-              int pcs = product.stockQuantity % product.unitsPerCarton;
+              final crt = product.stockQuantity ~/ product.unitsPerCarton;
+              final double rem = product.stockQuantity % product.unitsPerCarton;
+              final pcs = formatQuantity(rem);
               stockLabel += '$crt كرتون و $pcs حبة';
             } else {
-              stockLabel += '${product.stockQuantity} قطعة';
+              stockLabel += '${formatQuantity(product.stockQuantity)} قطعة';
             }
 
             return TweenAnimationBuilder<double>(
@@ -1022,7 +1023,7 @@ extension AdminManageTabX on _AdminScreenState {
                           style: const TextStyle(
                               fontWeight: FontWeight.bold)),
                       subtitle: Text(
-                          '${item['quantity']} × ${(item['price'] ?? 0).toString()} DA'),
+                          '${formatQuantity(item['quantity'])} × ${(item['price'] ?? 0).toString()} DA'),
                       trailing: Text(
                         '${((item['quantity'] ?? 0) * (item['price'] ?? 0)).toStringAsFixed(0)} DA',
                         style: const TextStyle(
@@ -1155,7 +1156,7 @@ extension AdminManageTabX on _AdminScreenState {
     double calculateNewTotal() {
       return editedItems.fold(0.0, (sum, it) {
         final price = _d(it['price']);
-        final qty = _i(it['quantity']);
+        final qty = _d(it['quantity']);
         return sum + (price * qty);
       });
     }
@@ -1203,7 +1204,7 @@ extension AdminManageTabX on _AdminScreenState {
                     itemBuilder: (context, i) {
                       final item = editedItems[i];
                       final name = item['productName'] ?? 'منتج';
-                      final qty = _i(item['quantity']);
+                      final qty = _d(item['quantity']);
                       final price = _d(item['price']);
                       final type = (item['typeLabel'] ?? 'كرتون').toString();
                       final isCartonType = type == 'كرتون';
@@ -1259,7 +1260,29 @@ extension AdminManageTabX on _AdminScreenState {
                                 });
                               },
                             ),
-                            Text('$qty', style: const TextStyle(fontWeight: FontWeight.bold)),
+                            SizedBox(
+                              width: 50,
+                              height: 32,
+                              child: TextFormField(
+                                key: ValueKey('qty_${i}_$qty'),
+                                initialValue: formatQuantity(qty),
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                decoration: const InputDecoration(
+                                  contentPadding: EdgeInsets.zero,
+                                  isDense: true,
+                                  border: OutlineInputBorder(),
+                                ),
+                                onChanged: (val) {
+                                  if (val.trim().isEmpty) return;
+                                  final newQ = toDouble(val);
+                                  if (newQ > 0) {
+                                    setSt(() => item['quantity'] = newQ);
+                                  }
+                                },
+                              ),
+                            ),
                             IconButton(
                               icon: const Icon(Icons.add_circle_outline, color: Colors.green),
                               onPressed: () {

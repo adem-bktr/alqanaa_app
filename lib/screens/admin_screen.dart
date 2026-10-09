@@ -97,6 +97,7 @@ class _AdminScreenState extends State<AdminScreen>
   bool _checkingPassword = true;
   bool _isUnlocked = false;
   bool _isSettingNewPassword = false;
+  bool _passwordUnknown = false; // لا نستطيع التأكد من وجود كلمة سر (لا اتصال ولا نسخة محلية)
   final _adminPasswordController = TextEditingController();
   final _adminPasswordConfirmController = TextEditingController();
   bool _obscureAdminPassword = true;
@@ -159,10 +160,13 @@ class _AdminScreenState extends State<AdminScreen>
   }
 
   Future<void> _checkAdminPassword() async {
-    final stored = await DataService.getAdminPassword();
+    // ✅ نميّز بين "غير معيّنة فعلاً" و"لا نستطيع التأكد الآن" (بدون إنترنت)،
+    // حتى لا تظهر شاشة تعيين كلمة سر جديدة لأي شخص بسبب غياب الشبكة
+    final status = await DataService.adminPasswordStatus();
     if (!mounted) return;
     setState(() {
-      _isSettingNewPassword = stored == null || stored.isEmpty;
+      _isSettingNewPassword = status == AdminPwStatus.notSet;
+      _passwordUnknown = status == AdminPwStatus.unknown;
       _checkingPassword = false;
     });
   }
@@ -195,14 +199,17 @@ class _AdminScreenState extends State<AdminScreen>
       return;
     }
 
-    final stored = await DataService.getAdminPassword();
-    if (entered == stored) {
-      if (!mounted) return;
+    final check = await DataService.verifyAdminPassword(entered);
+    if (!mounted) return;
+    if (check == AdminPwCheck.ok) {
       setState(() {
         _isUnlocked = true;
         _passwordError = null;
       });
       _loadAll();
+    } else if (check == AdminPwCheck.unknown) {
+      setState(() => _passwordError =
+      'تعذّر التحقق من كلمة السر (لا اتصال). اتصل بالإنترنت مرة واحدة ثم أعد المحاولة');
     } else {
       setState(() => _passwordError = 'كلمة السر غير صحيحة');
     }
@@ -249,12 +256,14 @@ class _AdminScreenState extends State<AdminScreen>
               error = null;
             });
 
-            final stored = await DataService.getAdminPassword();
+            final check = await DataService.verifyAdminPassword(current);
             if (!context.mounted) return;
-            if (stored != null && stored.isNotEmpty && current != stored) {
+            if (check != AdminPwCheck.ok) {
               setSt(() {
                 saving = false;
-                error = 'كلمة السر الحالية غير صحيحة';
+                error = check == AdminPwCheck.unknown
+                    ? 'تعذّر التحقق من كلمة السر الحالية (لا اتصال)'
+                    : 'كلمة السر الحالية غير صحيحة';
               });
               return;
             }
@@ -1018,7 +1027,7 @@ class _AdminScreenState extends State<AdminScreen>
         int.tryParse(maxQtySpecialController.text) ?? 0,
         flavors: newProductFlavors,
         purchasePrice: double.tryParse(purchasePriceController.text) ?? 0,
-        stockQuantity: int.tryParse(stockQuantityController.text) ?? 0,
+        stockQuantity: toDouble(stockQuantityController.text),
         unitsPerCarton: int.tryParse(unitsPerCartonController.text) ?? 1,
       );
 
@@ -1681,8 +1690,8 @@ class _AdminScreenState extends State<AdminScreen>
               ElevatedButton(
                 onPressed: () async {
                   // ✅ إصلاح 1: إذا لم تغيّر حقل المخزون، لا نكتب فوقه (قد تكون طلبات جديدة خصمت منه)
-                  int stockToSave = int.tryParse(stockCtrl.text) ?? 0;
-                  if (stockCtrl.text == product.stockQuantity.toString()) {
+                  double stockToSave = toDouble(stockCtrl.text);
+                  if (stockCtrl.text == formatQuantity(product.stockQuantity) || stockCtrl.text == product.stockQuantity.toString()) {
                     final latest = await DataService.getProductById(product.id);
                     if (latest != null) stockToSave = latest.stockQuantity;
                   }
@@ -1821,6 +1830,55 @@ class _AdminScreenState extends State<AdminScreen>
   // ══════════════════════════════════
   //    ✅ بوابة كلمة سر لوحة الإدارة
   // ══════════════════════════════════
+  /// ✅ لا اتصال ولا نسخة محلية من كلمة السر: لا نسمح بتعيين كلمة جديدة، نطلب الاتصال مرة واحدة
+  Widget _buildPasswordUnknown(bool isDark) {
+    final bg = isDark ? const Color(0xFF0F0F1A) : const Color(0xFFF5F5F5);
+    final textColor = isDark ? Colors.white : Colors.black87;
+    return Scaffold(
+      backgroundColor: bg,
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF2E7D32),
+        title: const Text('لوحة الإدارة', style: TextStyle(color: Colors.white)),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.wifi_off_rounded, size: 64, color: Colors.orange),
+              const SizedBox(height: 16),
+              Text('تعذّر التحقق من كلمة سر الإدارة',
+                  style: TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.bold, color: textColor)),
+              const SizedBox(height: 8),
+              Text(
+                'لا يوجد اتصال، ولم تُحفظ كلمة السر على هذا الجهاز بعد.\n'
+                    'اتصل بالإنترنت مرة واحدة ثم أعد المحاولة، وبعدها تعمل بدون إنترنت.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: isDark ? Colors.grey.shade400 : Colors.grey.shade700),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton.icon(
+                onPressed: () {
+                  setState(() => _checkingPassword = true);
+                  _checkAdminPassword();
+                },
+                icon: const Icon(Icons.refresh, color: Colors.white),
+                label: const Text('إعادة المحاولة', style: TextStyle(color: Colors.white)),
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2E7D32)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildPasswordGate(bool isDark) {
     final bg = isDark ? const Color(0xFF0F0F1A) : const Color(0xFFF5F5F5);
     final cardColor = isDark ? const Color(0xFF1E1E2E) : Colors.white;
@@ -1992,7 +2050,9 @@ class _AdminScreenState extends State<AdminScreen>
     }
 
     if (!_isUnlocked) {
-      return _buildPasswordGate(isDark);
+      return _passwordUnknown
+          ? _buildPasswordUnknown(isDark)
+          : _buildPasswordGate(isDark);
     }
 
     // ✅ إصلاح 6: في الهاتف يعمل زر الرجوع، وفي الويب يبقى الحظر لمنع الشاشة البيضاء

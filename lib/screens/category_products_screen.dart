@@ -5,6 +5,7 @@ import 'package:shimmer/shimmer.dart';
 import '../models/models.dart';
 import '../services/data_service.dart';
 import '../services/auth_service.dart';
+import '../utils/converters.dart';
 import '../utils/page_transitions.dart';
 import 'product_detail_screen.dart';
 import 'cart_screen.dart';
@@ -103,7 +104,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen>
     if (maxQty <= 0) return false;
     final cartQty = widget.cart
         .where((i) => i.product.id == product.id && i.isCarton)
-        .fold(0, (sum, i) => sum + i.quantity);
+        .fold<double>(0.0, (sum, i) => sum + i.quantity);
     return cartQty >= maxQty;
   }
 
@@ -148,7 +149,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen>
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final searchBg = isDark ? const Color(0xFF2A2A3E) : Colors.white;
-    final cartCount = widget.cart.fold(0, (sum, item) => sum + item.quantity);
+    final cartCount = widget.cart.fold<double>(0.0, (sum, item) => sum + item.quantity);
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0F0F1A) : const Color(0xFFF0F2F5),
@@ -181,7 +182,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen>
               child: const Text('⭐ مميز', style: TextStyle(color: Colors.white, fontSize: 11)),
             ),
           badges.Badge(
-            badgeContent: Text('$cartCount', style: const TextStyle(color: Colors.white, fontSize: 10)),
+            badgeContent: Text(formatQuantity(cartCount), style: const TextStyle(color: Colors.white, fontSize: 10)),
             showBadge: widget.cart.isNotEmpty,
             badgeStyle: const badges.BadgeStyle(badgeColor: Colors.red),
             child: IconButton(

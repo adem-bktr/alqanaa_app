@@ -580,7 +580,7 @@ class _CartScreenState extends State<CartScreen> {
                   itemBuilder: (context, index) {
                     final group = _groupedCartItems[index];
                     final first = group.first;
-                    final totalQty = group.fold(0, (s, i) => s + i.quantity);
+                    final totalQty = group.fold<double>(0.0, (s, i) => s + i.quantity);
                     final totalPrice = group.fold(0.0, (s, i) => s + i.totalPrice);
 
                     return Padding(
@@ -617,7 +617,7 @@ class _CartScreenState extends State<CartScreen> {
                                 if (group.any((i) => i.flavor != null && i.flavor!.isNotEmpty))
                                   Text(
                                     group.where((i) => i.flavor != null && i.flavor!.isNotEmpty)
-                                        .map((i) => "${i.flavor} (${i.quantity})")
+                                        .map((i) => "${i.flavor} (${formatQuantity(i.quantity)})")
                                         .join(", "),
                                     style: const TextStyle(
                                         fontSize: 11,
@@ -930,7 +930,7 @@ class _CartScreenState extends State<CartScreen> {
             _dataCell(item.flavor != null && item.flavor!.isNotEmpty
                 ? item.flavor!
                 : '-'),
-            _dataCell('${item.quantity}'),
+            _dataCell(formatQuantity(item.quantity)),
             _dataCell(item.isCarton ? 'Carton' : 'Unite'),
             _dataCell(formatPrice(unitPrice)),
             _dataCell(formatPrice(item.totalPrice)),
@@ -1801,7 +1801,7 @@ class _CartScreenState extends State<CartScreen> {
       List<CartItem> items, bool isDark, Color cardColor, Color textColor) {
     if (items.isEmpty) return const SizedBox.shrink();
     final first = items.first;
-    final totalQty = items.fold(0, (s, i) => s + i.quantity);
+    final totalQty = items.fold<double>(0.0, (s, i) => s + i.quantity);
     final totalPrice = items.fold(0.0, (s, i) => s + i.totalPrice);
 
     return Container(
@@ -1871,33 +1871,18 @@ class _CartScreenState extends State<CartScreen> {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        IconButton(
-                          icon: const Icon(Icons.remove_circle_outline, color: Color(0xFF2E7D32), size: 22),
-                          onPressed: () async {
-                            setState(() {
-                              if (item.quantity > 1) {
-                                item.quantity--;
-                              } else if (items.length > 1 || !item.product.hasFlavors) {
-                                widget.cart.remove(item);
-                              }
-                            });
+                        _ItemQuantityInput(
+                          quantity: item.quantity,
+                          textColor: textColor,
+                          onChanged: (newQty) async {
+                            setState(() => item.quantity = newQty);
                             if (!widget.isAdmin) await CartService.saveCart(widget.cart);
                           },
-                        ),
-                        SizedBox(
-                          width: 30,
-                          child: Center(
-                            child: Text(
-                              '${item.quantity}',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: textColor),
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.add_circle_outline, color: Color(0xFF2E7D32), size: 22),
-                          onPressed: () async {
-                            setState(() => item.quantity++);
-                            if (!widget.isAdmin) await CartService.saveCart(widget.cart);
+                          onRemove: () async {
+                            if (items.length > 1 || !item.product.hasFlavors) {
+                              setState(() => widget.cart.remove(item));
+                              if (!widget.isAdmin) await CartService.saveCart(widget.cart);
+                            }
                           },
                         ),
                         IconButton(
@@ -1951,6 +1936,98 @@ class _CartScreenState extends State<CartScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _ItemQuantityInput extends StatefulWidget {
+  final double quantity;
+  final Color textColor;
+  final ValueChanged<double> onChanged;
+  final VoidCallback onRemove;
+
+  const _ItemQuantityInput({
+    required this.quantity,
+    required this.textColor,
+    required this.onChanged,
+    required this.onRemove,
+  });
+
+  @override
+  State<_ItemQuantityInput> createState() => _ItemQuantityInputState();
+}
+
+class _ItemQuantityInputState extends State<_ItemQuantityInput> {
+  late TextEditingController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController(text: formatQuantity(widget.quantity));
+  }
+
+  @override
+  void didUpdateWidget(covariant _ItemQuantityInput oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.quantity != widget.quantity) {
+      if (toDouble(_ctrl.text) != widget.quantity) {
+        _ctrl.text = formatQuantity(widget.quantity);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          icon: const Icon(Icons.remove_circle_outline, color: Color(0xFF2E7D32), size: 22),
+          onPressed: () {
+            if (widget.quantity > 1) {
+              final q = widget.quantity - 1;
+              _ctrl.text = formatQuantity(q);
+              widget.onChanged(q);
+            } else {
+              widget.onRemove();
+            }
+          },
+        ),
+        SizedBox(
+          width: 50,
+          height: 32,
+          child: TextField(
+            controller: _ctrl,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            textAlign: TextAlign.center,
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: widget.textColor),
+            decoration: const InputDecoration(
+              contentPadding: EdgeInsets.zero,
+              isDense: true,
+              border: OutlineInputBorder(),
+            ),
+            onChanged: (val) {
+              if (val.trim().isEmpty) return;
+              final q = toDouble(val);
+              if (q > 0) widget.onChanged(q);
+            },
+          ),
+        ),
+        IconButton(
+          icon: const Icon(Icons.add_circle_outline, color: Color(0xFF2E7D32), size: 22),
+          onPressed: () {
+            final q = widget.quantity + 1;
+            _ctrl.text = formatQuantity(q);
+            widget.onChanged(q);
+          },
+        ),
+      ],
     );
   }
 }

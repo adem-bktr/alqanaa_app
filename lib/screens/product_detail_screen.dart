@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shimmer/shimmer.dart';
-
 import 'package:intl/intl.dart';
 import '../models/models.dart';
 
@@ -28,7 +27,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   bool isCarton = true;
   final formatter = NumberFormat('#,##0.00', 'fr_FR');
   late Map<String, int> flavorQuantities;
-  int quantity = 1;
+  double quantity = 1;
 
   String? _focusedFlavor;
   bool _quantityFocused = false;
@@ -140,9 +139,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   int    get totalFlavorQty  => flavorQuantities.values.fold(0, (s, q) => s + q);
   double get totalFlavorPrice => currentPrice * totalFlavorQty;
 
-  int get currentCartQty => widget.cart
-      .where((i) => i.product.id == widget.product.id && i.isCarton == isCarton)
-      .fold(0, (s, i) => s + i.quantity);
+  double get currentCartQty {
+    double sum = 0.0;
+    for (final i in widget.cart) {
+      if (i.product.id == widget.product.id && i.isCarton == isCarton) {
+        sum += i.quantity;
+      }
+    }
+    return sum;
+  }
 
   void _showSnackBar(String msg, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -182,16 +187,16 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 (i) => i.product.id == widget.product.id &&
                 i.isCarton == isCarton && i.flavor == entry.key,
             orElse: () => CartItem(
-              product: widget.product, quantity: 0,
+              product: widget.product, quantity: 0.0,
               isSpecialPrice: widget.isSpecialPrice,
               isCarton: isCarton, flavor: entry.key,
             ),
           );
           if (existing.quantity > 0) {
-            existing.quantity += entry.value;
+            existing.quantity += entry.value.toDouble();
           } else {
             widget.cart.add(CartItem(
-              product: widget.product, quantity: entry.value,
+              product: widget.product, quantity: entry.value.toDouble(),
               isSpecialPrice: widget.isSpecialPrice,
               isCarton: isCarton, flavor: entry.key,
             ));
@@ -224,7 +229,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         ));
       }
       _showSnackBar(
-        '✅ تمت الإضافة - $quantity ${isCarton ? 'كرتون' : 'حبة'}',
+        '✅ تمت الإضافة - ${formatQuantity(quantity)} ${isCarton ? 'كرتون' : 'حبة'}',
         const Color(0xFF2E7D32),
       );
     }
@@ -504,7 +509,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           ? Colors.red : Colors.orange,
                       size: 16),
                   const SizedBox(width: 6),
-                  Text('متبقي: ${maxQty - currentCartQty - totalFlavorQty} كرتون من $maxQty',
+                  Text('متبقي: ${formatQuantity(maxQty - currentCartQty - totalFlavorQty)} كرتون من $maxQty',
                       style: TextStyle(
                         color: (maxQty - currentCartQty - totalFlavorQty) <= 0
                             ? Colors.red : Colors.orange,
@@ -604,11 +609,32 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     Column(children: [
                       if (isDesktop && _quantityFocused)
                         const Icon(Icons.keyboard_arrow_up_rounded, color: Colors.blue, size: 20),
-                      Text('$quantity',
+                      SizedBox(
+                        width: 90,
+                        height: 48,
+                        child: TextFormField(
+                          key: ValueKey('detail_qty_$quantity'),
+                          initialValue: formatQuantity(quantity),
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          textAlign: TextAlign.center,
                           style: TextStyle(
-                            fontSize: 36, fontWeight: FontWeight.bold,
+                            fontSize: 24, fontWeight: FontWeight.bold,
                             color: _quantityFocused ? Colors.blue : const Color(0xFF2E7D32),
-                          )),
+                          ),
+                          decoration: const InputDecoration(
+                            contentPadding: EdgeInsets.zero,
+                            isDense: true,
+                            border: OutlineInputBorder(),
+                          ),
+                          onChanged: (val) {
+                            if (val.trim().isEmpty) return;
+                            final newQ = toDouble(val);
+                            if (newQ > 0) {
+                              setState(() => quantity = newQ);
+                            }
+                          },
+                        ),
+                      ),
                       if (isDesktop && _quantityFocused)
                         const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.blue, size: 20),
                       Text('${formatter.format(currentPrice * quantity)} DA',
@@ -622,7 +648,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                 ? Colors.red.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(6),
                           ),
-                          child: Text('متبقي: ${maxQty - currentCartQty - quantity} كرتون',
+                          child: Text('متبقي: ${formatQuantity(maxQty - currentCartQty - quantity)} كرتون',
                               style: TextStyle(
                                 color: isMaxReached ? Colors.red : Colors.orange,
                                 fontSize: 11, fontWeight: FontWeight.bold,
