@@ -87,7 +87,7 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   double get total =>
-      widget.cart.fold(0, (sum, item) => sum + item.totalPrice);
+      widget.cart.fold(0.0, (sum, item) => sum + item.totalPrice);
 
   String formatPrice(double price) => '${formatter.format(price)} DA';
 

@@ -35,7 +35,7 @@ class _EditOrderScreenState extends State<EditOrderScreen> {
     super.dispose();
   }
 
-  double get total => items.fold(0, (sum, i) => sum + (toDouble(i['price']) * toDouble(i['quantity'])));
+  double get total => items.fold(0.0, (sum, i) => sum + (toDouble(i['price']) * toDouble(i['quantity'])));
 
   @override
   Widget build(BuildContext context) {

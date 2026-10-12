@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import '../models/models.dart' as app_models;
+import '../utils/converters.dart';
 
 class UserOrdersScreen extends StatefulWidget {
   final String userId;
@@ -128,7 +129,7 @@ class _UserOrdersScreenState extends State<UserOrdersScreen>
 
   Widget _buildItem(Map<String, dynamic> i, Color textColor, bool isDark) {
     final price  = (i['price'] as num?)?.toDouble() ?? 0;
-    final qty    = (i['quantity'] as num?)?.toInt() ?? 0;
+    final qty    = (i['quantity'] as num?)?.toDouble() ?? 0.0;
     final type   = i['typeLabel'] ?? 'كرتون';
     final flavor = (i['flavor'] as String?) ?? '';
     final name   = i['productName']?.toString() ?? '';
@@ -158,7 +159,7 @@ class _UserOrdersScreenState extends State<UserOrdersScreen>
           const SizedBox(width: 8),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('$name x $qty',
+              Text('$name x ${formatQuantity(qty)}',
                   style: TextStyle(fontSize: 13, color: textColor, fontWeight: FontWeight.w500)),
               if (flavor.isNotEmpty)
                 Text(flavor, style: const TextStyle(

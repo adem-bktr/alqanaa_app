@@ -1154,7 +1154,7 @@ class DataService {
           final pid = it['productId']?.toString() ?? '';
           final name = it['productName']?.toString() ?? 'منتج';
           final sellPrice = toDouble(it['price']);
-          final qty = toInt(it['quantity']);
+          final qty = toDouble(it['quantity']);
 
           final isCartonItem = it['isCarton'] == true;
           final entry = targetDayItems.putIfAbsent(
@@ -1162,11 +1162,11 @@ class DataService {
                 () => <String, dynamic>{
               'name': name,
               'type': isCartonItem ? 'كرتون' : 'حبة',
-              'quantity': 0,
+              'quantity': 0.0,
               'revenue': 0.0,
             },
           );
-          entry['quantity'] = (entry['quantity'] as int) + qty;
+          entry['quantity'] = (entry['quantity'] as double) + qty;
           entry['revenue'] = (entry['revenue'] as double) + (sellPrice * qty);
 
           if (pid.isNotEmpty && buyPrices.containsKey(pid)) {
@@ -1185,25 +1185,25 @@ class DataService {
       final targetDayProducts = targetDayItems.values.toList();
 
       // أكثر المنتجات مبيعاً (تاريخي)
-      final Map<String, int> salesCount = {};
+      final Map<String, double> salesCount = {};
       // ✅ الكرتون والحبة منفصلان (لا يُجمعان معاً لأن وحدتيهما مختلفتان)
-      final Map<String, int> cartonSales = {};
-      final Map<String, int> unitSales = {};
+      final Map<String, double> cartonSales = {};
+      final Map<String, double> unitSales = {};
       for (final o in orders) {
         for (final it in o.items) {
           final name = (it['productName'] ?? '').toString();
           if (name.isEmpty) continue;
-          final q = toInt(it['quantity']);
-          salesCount[name] = (salesCount[name] ?? 0) + q;
+          final q = toDouble(it['quantity']);
+          salesCount[name] = (salesCount[name] ?? 0.0) + q;
           if (it['isCarton'] == true) {
-            cartonSales[name] = (cartonSales[name] ?? 0) + q;
+            cartonSales[name] = (cartonSales[name] ?? 0.0) + q;
           } else {
-            unitSales[name] = (unitSales[name] ?? 0) + q;
+            unitSales[name] = (unitSales[name] ?? 0.0) + q;
           }
         }
       }
 
-      List<Map<String, dynamic>> topOf(Map<String, int> m, String type) {
+      List<Map<String, dynamic>> topOf(Map<String, double> m, String type) {
         final list = m.entries.toList()
           ..sort((a, b) => b.value.compareTo(a.value));
         return list
