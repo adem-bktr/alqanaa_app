@@ -19,7 +19,7 @@ class OrdersScreen extends StatefulWidget {
 
 class _OrdersScreenState extends State<OrdersScreen> {
   final searchController = TextEditingController();
-  final NumberFormat formatter = NumberFormat('#,##0', 'en_US');
+  final NumberFormat formatter = NumberFormat('#,##0.00', 'en_US');
   late String selectedFilter;
 
   bool _isDisposed = false;

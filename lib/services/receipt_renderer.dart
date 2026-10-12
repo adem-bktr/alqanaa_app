@@ -18,13 +18,27 @@ class RenderedReceipt {
 class ReceiptRenderer {
   static String _money(num value) {
     final isNeg = value < 0;
-    final digits = value.abs().round().toString();
+    final fixed = value.abs().toStringAsFixed(2);
+    final parts = fixed.split('.');
+    final intDigits = parts[0];
+    final decPart = parts[1];
+
     final buf = StringBuffer();
-    for (int i = 0; i < digits.length; i++) {
-      if (i > 0 && (digits.length - i) % 3 == 0) buf.write(' ');
-      buf.write(digits[i]);
+    for (int i = 0; i < intDigits.length; i++) {
+      if (i > 0 && (intDigits.length - i) % 3 == 0) {
+        buf.write(' ');
+      }
+      buf.write(intDigits[i]);
     }
+    buf.write('.$decPart');
     return (isNeg ? '-' : '') + buf.toString();
+  }
+
+  static String _fmtQty(num qty) {
+    if (qty == qty.roundToDouble()) {
+      return qty.toInt().toString();
+    }
+    return qty.toStringAsFixed(2).replaceAll(RegExp(r'0+$'), '').replaceAll(RegExp(r'\.$'), '');
   }
 
   // ══════════════════════════════════════════════════════
@@ -155,7 +169,7 @@ class ReceiptRenderer {
             (grouped[key]!['total'] as double) + (qty * price);
         if (flavor.isNotEmpty) {
           (grouped[key]!['flavors'] as List<String>)
-              .add('$flavor (${qty.toStringAsFixed(0)})');
+              .add('$flavor (${_fmtQty(qty)})');
         }
       } else {
         grouped[key] = {
@@ -164,7 +178,7 @@ class ReceiptRenderer {
           'total': qty * price,
           'isCarton': isCarton,
           'flavors': flavor.isNotEmpty
-              ? <String>['$flavor (${qty.toStringAsFixed(0)})']
+              ? <String>['$flavor (${_fmtQty(qty)})']
               : <String>[],
         };
       }
@@ -179,7 +193,7 @@ class ReceiptRenderer {
       final flavorsList = data['flavors'] as List<String>;
 
       addText('$idx. $name ($type)', 12, gap: 1);
-      addRow('   Qte: ${qty.toStringAsFixed(0)}', '${_money(totalItem)} DA',
+      addRow('   Qte: ${_fmtQty(qty)}', '${_money(totalItem)} DA',
           12, 12, lBold: false);
       if (flavorsList.isNotEmpty) {
         addText('   Aromes: ${flavorsList.join(", ")}', 11,

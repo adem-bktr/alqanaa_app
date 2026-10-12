@@ -63,7 +63,7 @@ class ProfitsScreen extends StatefulWidget {
 class _ProfitsScreenState extends State<ProfitsScreen> {
   static const _green = Color(0xFF2E7D32);
 
-  final _moneyFmt = NumberFormat('#,##0', 'fr_FR');
+  final _moneyFmt = NumberFormat('#,##0.00', 'fr_FR');
   final _dateFmt = DateFormat('yyyy/MM/dd HH:mm');
   final _searchCtrl = TextEditingController();
 

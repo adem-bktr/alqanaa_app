@@ -23,7 +23,7 @@ class _DesktopPosViewState extends State<DesktopPosView> {
   bool isLoading = true;
   bool _isSaving = false; // ✅ يمنع إتمام فاتورتين في نفس الوقت (نقر مزدوج / F10 متكرر)
   bool _specialPrice = false; // ✅ البيع بالسعر الخاص
-  final formatter = NumberFormat('#,##0', 'en_US');
+  final formatter = NumberFormat('#,##0.00', 'en_US');
   final FocusNode _searchFocusNode = FocusNode();
   final FocusNode _keyboardFocusNode = FocusNode(); // ✅ كان يُنشأ FocusNode جديد في كل build
 
@@ -724,6 +724,7 @@ class _CheckoutDialogState extends State<_CheckoutDialog> {
       _nameCtrl.text = c.name;
       _phoneCtrl.text = c.phone;
       _searchCtrl.text = c.name;
+      _paidCtrl.text = '0'; // ✅ الزبون المسجل يشتري بالدين افتراضياً
       _error = null;
     });
   }

@@ -80,15 +80,27 @@ class PrinterService {
   // ══════════════════════════════════════════════════════
   static String _money(num value) {
     final isNeg = value < 0;
-    final digits = value.abs().round().toString();
+    final fixed = value.abs().toStringAsFixed(2);
+    final parts = fixed.split('.');
+    final intDigits = parts[0];
+    final decPart = parts[1];
+
     final buf = StringBuffer();
-    for (int i = 0; i < digits.length; i++) {
-      if (i > 0 && (digits.length - i) % 3 == 0) {
+    for (int i = 0; i < intDigits.length; i++) {
+      if (i > 0 && (intDigits.length - i) % 3 == 0) {
         buf.write(' ');
       }
-      buf.write(digits[i]);
+      buf.write(intDigits[i]);
     }
+    buf.write('.$decPart');
     return (isNeg ? '-' : '') + buf.toString();
+  }
+
+  static String _fmtQty(num qty) {
+    if (qty == qty.roundToDouble()) {
+      return qty.toInt().toString();
+    }
+    return qty.toStringAsFixed(2).replaceAll(RegExp(r'0+$'), '').replaceAll(RegExp(r'\.$'), '');
   }
 
   // ══════════════════════════════════════════════════════
@@ -495,7 +507,7 @@ class PrinterService {
         grouped[key]!['total'] = (grouped[key]!['total'] as double) + (qty * price);
         if (flavor.isNotEmpty) {
           final flavors = grouped[key]!['flavors'] as List<String>;
-          flavors.add('$flavor (${qty.toStringAsFixed(0)})');
+          flavors.add('$flavor (${_fmtQty(qty)})');
         }
       } else {
         grouped[key] = {
@@ -504,7 +516,7 @@ class PrinterService {
           'total': qty * price,
           'isCarton': isCarton,
           'flavors': flavor.isNotEmpty
-              ? ['$flavor (${qty.toStringAsFixed(0)})']
+              ? ['$flavor (${_fmtQty(qty)})']
               : <String>[],
         };
       }
@@ -527,7 +539,7 @@ class PrinterService {
               bold: true, align: PosAlign.left, height: PosTextSize.size2),
         );
         b += g.row([
-          _c('   Qte: ${qty.toStringAsFixed(0)}', 6,
+          _c('   Qte: ${_fmtQty(qty)}', 6,
               const PosStyles(align: PosAlign.left, height: PosTextSize.size2)),
           _c('${_money(total)} DA', 6,
               const PosStyles(
@@ -629,7 +641,7 @@ class PrinterService {
             (grouped[key]!['total'] as double) + (qty * price);
         if (flavor.isNotEmpty) {
           (grouped[key]!['flavors'] as List<String>)
-              .add('$flavor (${qty.toStringAsFixed(0)})');
+              .add('$flavor (${_fmtQty(qty)})');
         }
       } else {
         grouped[key] = {
@@ -638,7 +650,7 @@ class PrinterService {
           'total': qty * price,
           'isCarton': isCarton,
           'flavors': flavor.isNotEmpty
-              ? <String>['$flavor (${qty.toStringAsFixed(0)})']
+              ? <String>['$flavor (${_fmtQty(qty)})']
               : <String>[],
         };
       }
@@ -655,7 +667,7 @@ class PrinterService {
       b += _t(g, '$idx. $nm ($type)', styles: const PosStyles(bold: true));
       b += g.row([
         PosColumn(
-          text: _ascii('   Qte: ${qty.toStringAsFixed(0)}'),
+          text: _ascii('   Qte: ${_fmtQty(qty)}'),
           width: 6,
           styles: const PosStyles(align: PosAlign.left),
         ),
@@ -1024,7 +1036,7 @@ class PrinterService {
                         final flavor = it['flavor']?.toString() ?? '';
                         if (flavor.isNotEmpty) {
                           final flavors = grouped[key]!['flavors'] as List<String>;
-                          flavors.add('$flavor (${qty.toStringAsFixed(0)})');
+                          flavors.add('$flavor (${_fmtQty(qty)})');
                         }
                       } else {
                         final flavor = it['flavor']?.toString() ?? '';
@@ -1034,7 +1046,7 @@ class PrinterService {
                           'total': qty * price,
                           'isCarton': isCarton,
                           'flavors': flavor.isNotEmpty
-                              ? ['$flavor (${qty.toStringAsFixed(0)})']
+                              ? ['$flavor (${_fmtQty(qty)})']
                               : <String>[],
                         };
                       }
@@ -1066,7 +1078,7 @@ class PrinterService {
                               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                               children: [
                                 pw.Text(
-                                  '   Qte: ${qty.toStringAsFixed(0)}',
+                                  '   Qte: ${_fmtQty(qty)}',
                                   style: pw.TextStyle(
                                     fontWeight: pw.FontWeight.bold,
                                     fontSize: 9.5,

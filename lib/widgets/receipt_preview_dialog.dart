@@ -50,16 +50,27 @@ class _ReceiptPreviewDialogState extends State<ReceiptPreviewDialog> {
 
   String _money(num value) {
     final isNeg = value < 0;
-    final digits = value.abs().round().toString();
-    final buf = StringBuffer();
+    final fixed = value.abs().toStringAsFixed(2);
+    final parts = fixed.split('.');
+    final intDigits = parts[0];
+    final decPart = parts[1];
 
-    for (int i = 0; i < digits.length; i++) {
-      if (i > 0 && (digits.length - i) % 3 == 0) {
+    final buf = StringBuffer();
+    for (int i = 0; i < intDigits.length; i++) {
+      if (i > 0 && (intDigits.length - i) % 3 == 0) {
         buf.write(' ');
       }
-      buf.write(digits[i]);
+      buf.write(intDigits[i]);
     }
+    buf.write('.$decPart');
     return (isNeg ? '-' : '') + buf.toString();
+  }
+
+  String _fmtQty(num qty) {
+    if (qty == qty.roundToDouble()) {
+      return qty.toInt().toString();
+    }
+    return qty.toStringAsFixed(2).replaceAll(RegExp(r'0+$'), '').replaceAll(RegExp(r'\.$'), '');
   }
 
   Future<void> _handlePrint() async {
@@ -246,7 +257,7 @@ class _ReceiptPreviewDialogState extends State<ReceiptPreviewDialog> {
                                 final flavor = it['flavor']?.toString() ?? '';
                                 if (flavor.isNotEmpty) {
                                   final flavors = grouped[key]!['flavors'] as List<String>;
-                                  flavors.add('$flavor (${qty.toStringAsFixed(0)})');
+                                  flavors.add('$flavor (${_fmtQty(qty)})');
                                 }
                               } else {
                                 final flavor = it['flavor']?.toString() ?? '';
@@ -256,7 +267,7 @@ class _ReceiptPreviewDialogState extends State<ReceiptPreviewDialog> {
                                   'total': qty * price,
                                   'isCarton': isCarton,
                                   'flavors': flavor.isNotEmpty
-                                      ? ['$flavor (${qty.toStringAsFixed(0)})']
+                                      ? ['$flavor (${_fmtQty(qty)})']
                                       : <String>[],
                                 };
                               }
@@ -295,7 +306,7 @@ class _ReceiptPreviewDialogState extends State<ReceiptPreviewDialog> {
                                         MainAxisAlignment.spaceBetween,
                                         children: [
                                           Text(
-                                            '   Qte: ${qty.toStringAsFixed(0)}',
+                                            '   Qte: ${_fmtQty(qty)}',
                                             style: TextStyle(
                                               fontSize: 12,
                                               color: Colors.grey.shade800,

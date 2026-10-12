@@ -407,7 +407,7 @@ class _CartScreenState extends State<CartScreen> {
         _selectedCustomer = selected;
         nameController.text = selected.name;
         phoneController.text = selected.phone;
-        amountPaidController.text = total.toStringAsFixed(2);
+        amountPaidController.text = '0';
       });
     }
   }
@@ -416,7 +416,7 @@ class _CartScreenState extends State<CartScreen> {
     if (!widget.isAdmin) return const SizedBox.shrink();
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF2A2A3E) : const Color(0xFFF5F5F5),
         borderRadius: BorderRadius.circular(12),
@@ -449,7 +449,7 @@ class _CartScreenState extends State<CartScreen> {
               Expanded(
                 child: Text(_selectedCustomer!.name,
                     style:
-                    const TextStyle(fontWeight: FontWeight.bold)),
+                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
               ),
               GestureDetector(
                 onTap: () => setState(() {
@@ -461,22 +461,21 @@ class _CartScreenState extends State<CartScreen> {
               ),
             ],
           ),
-          if (_selectedCustomer!.hasDebt)
-            Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Text(
-                  'دين سابق: ${formatPrice(_selectedCustomer!.balance)}',
-                  style: const TextStyle(
-                      fontSize: 11, color: Colors.red)),
-            ),
-          const SizedBox(height: 8),
+          const Divider(height: 16),
+          _summaryRow('مجموع الطلب:', formatPrice(total), Colors.black87),
+          const SizedBox(height: 4),
+          _summaryRow('الدين القديم (الرصيد السابق):', formatPrice(_selectedCustomer!.balance), _selectedCustomer!.balance > 0 ? Colors.red : Colors.green),
+          const SizedBox(height: 4),
+          _summaryRow('المجموع الكلي:', formatPrice(total + _selectedCustomer!.balance), Colors.blue.shade800, isBold: true),
+          const SizedBox(height: 10),
           TextField(
             style: const TextStyle(color: Colors.black87),
             controller: amountPaidController,
             keyboardType:
             const TextInputType.numberWithOptions(decimal: true),
             decoration: InputDecoration(
-              hintText: 'المبلغ المدفوع الآن',
+              hintText: 'كم سدد (المبلغ المدفوع الآن)',
+              labelText: 'كم سدد',
               filled: true,
               fillColor: Colors.white,
               border: OutlineInputBorder(
@@ -487,24 +486,55 @@ class _CartScreenState extends State<CartScreen> {
             ),
             onChanged: (_) => setState(() {}),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
           Builder(builder: (context) {
             final paid = double.tryParse(
                 amountPaidController.text.trim().replaceAll(',', '.')) ??
-                0;
-            final remaining = total - paid;
-            if (remaining > 0) {
-              return Text(
-                  'سيُسجَّل كدين: ${formatPrice(remaining)}',
-                  style: const TextStyle(
-                      fontSize: 11,
-                      color: Colors.orange,
-                      fontWeight: FontWeight.bold));
-            }
-            return const SizedBox.shrink();
+                0.0;
+            final prevBalance = _selectedCustomer!.balance;
+            final grandTotal = total + prevBalance;
+            final remainingOrder = total - paid;
+            final newTotalBalance = grandTotal - paid;
+
+            return Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.green.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.green.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '• المتبقي على الفاتورة: ${formatPrice(remainingOrder > 0 ? remainingOrder : 0)}',
+                    style: const TextStyle(fontSize: 12, color: Colors.orange, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '• رصيد الزبون الجديد (كم تبقى له / ذمته الإجمالية): ${formatPrice(newTotalBalance)}',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: newTotalBalance > 0 ? Colors.red.shade700 : Colors.green.shade700,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            );
           }),
         ],
       ),
+    );
+  }
+
+  Widget _summaryRow(String label, String value, Color color, {bool isBold = false}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: TextStyle(fontSize: 12, color: Colors.grey.shade700, fontWeight: isBold ? FontWeight.bold : FontWeight.normal)),
+        Text(value, style: TextStyle(fontSize: 13, color: color, fontWeight: isBold ? FontWeight.bold : FontWeight.w600)),
+      ],
     );
   }
 
@@ -740,9 +770,27 @@ class _CartScreenState extends State<CartScreen> {
 
       final paid = double.tryParse(
           amountPaidController.text.trim().replaceAll(',', '.')) ??
-          total;
+          0.0;
       final remaining = total - paid;
-      final customerBalance = _selectedCustomer != null ? _selectedCustomer!.balance + (remaining > 0 ? remaining : 0) : 0.0;
+
+      // ✅ البحث التلقائي عن الزبون في حال لم يتم ربطه عبر زر "ربط بزبون" ولكنه كُتب يدوياً
+      CustomerModel? targetCustomer = _selectedCustomer;
+      if (targetCustomer == null && widget.isAdmin) {
+        final enteredName = nameController.text.trim();
+        final enteredPhone = phoneController.text.trim();
+        if (enteredName.isNotEmpty || enteredPhone.isNotEmpty) {
+          try {
+            final customers = await DataService.getCustomers();
+            targetCustomer = customers.firstWhere(
+              (c) => (enteredPhone.isNotEmpty && c.phone == enteredPhone) ||
+                     (enteredName.isNotEmpty && c.name.toLowerCase() == enteredName.toLowerCase()),
+            );
+          } catch (_) {}
+        }
+      }
+
+      final prevBal = targetCustomer?.balance ?? 0.0;
+      final customerBalance = targetCustomer != null ? prevBal + (remaining > 0 ? remaining : 0) : 0.0;
 
       final order = Order(
         id: orderId,
@@ -785,7 +833,7 @@ class _CartScreenState extends State<CartScreen> {
           customerName: nameController.text.trim(),
           customerPhone: phoneController.text.trim(),
           amountPaid: paid,
-          customerDebtBalance: _selectedCustomer?.balance ?? 0.0,
+          customerDebtBalance: targetCustomer?.balance ?? 0.0,
         );
 
         if (printed != true) {
@@ -802,17 +850,17 @@ class _CartScreenState extends State<CartScreen> {
       debugPrint('✅ الطلب محفوظ: $orderId');
 
       // ✅ تسجيل الدين إذا الطلبية مربوطة بزبون ومازال باقي مبلغ
-      if (_selectedCustomer != null) {
+      if (targetCustomer != null) {
         if (remaining > 0.05) { // استخدام هامش بسيط لتجنب فروقات الكسور
           try {
             await DataService.addDebtTransaction(
-              customerId: _selectedCustomer!.id,
+              customerId: targetCustomer.id,
               type: 'charge',
               amount: remaining,
               note: 'دين من فاتورة هاتف رقم #$orderId',
               orderId: orderId, // ✅ ربط الدين بالطلبية (لمزامنته عند تعديل الطلبية)
             );
-            debugPrint('💳 دين مسجّل بنجاح: $remaining على ${_selectedCustomer!.name}');
+            debugPrint('💳 دين مسجّل بنجاح: $remaining على ${targetCustomer.name}');
           } catch (e) {
             debugPrint('❌ فشل تسجيل الدين في السيرفر: $e');
             // هنا يمكن إضافة تنبيه للمستخدم بأن الفاتورة حفظت لكن الدين لم يسجل
