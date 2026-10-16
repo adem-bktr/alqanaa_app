@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/models.dart';
 import '../services/data_service.dart';
+import '../utils/converters.dart';
 
 enum _InvFilter { all, outOfStock, noCost }
 
@@ -62,18 +63,18 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
   String _stockLabel(Product p) {
     final s = p.stockQuantity;
-    final qtyStr = _qtyFmt.format(s);
+    final qtyStr = formatQuantity(s);
     if (s < 0) return '$qtyStr حبة';
     if (p.unitsPerCarton > 1) {
       final upc = p.unitsPerCarton;
       final crt = s / upc;
       if (s % upc == 0) {
-        return '${_qtyFmt.format(crt)} كرتون';
+        return '${formatQuantity(crt)} كرتون';
       }
       if (crt >= 1) {
         final wholeCrt = crt.floor();
         final remPcs = s - (wholeCrt * upc);
-        return '${_qtyFmt.format(wholeCrt)} كرتون و ${_qtyFmt.format(remPcs)} حبة';
+        return '${formatQuantity(wholeCrt)} كرتون و ${formatQuantity(remPcs)} حبة';
       }
       return '$qtyStr حبة';
     }
