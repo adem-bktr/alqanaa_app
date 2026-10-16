@@ -62,15 +62,21 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
   String _stockLabel(Product p) {
     final s = p.stockQuantity;
-    if (s < 0) return '$s حبة';
+    if (s < 0) return '${formatQuantity(s)} حبة';
     if (p.unitsPerCarton > 1) {
-      final crt = s ~/ p.unitsPerCarton;
-      final pcs = s % p.unitsPerCarton;
-      if (crt == 0) return '$pcs حبة';
-      if (pcs == 0) return '$crt كرتون';
-      return '$crt كرتون و $pcs حبة';
+      final upc = p.unitsPerCarton;
+      final crt = s / upc;
+      if (s % upc == 0) {
+        return '${formatQuantity(crt)} كرتون';
+      }
+      if (crt >= 1) {
+        final wholeCrt = crt.floor();
+        final remPcs = s - (wholeCrt * upc);
+        return '${formatQuantity(wholeCrt)} كرتون و ${formatQuantity(remPcs)} حبة';
+      }
+      return '${formatQuantity(s)} حبة';
     }
-    return '$s قطعة';
+    return '${formatQuantity(s)} قطعة';
   }
 
   List<Product> get _visible {
@@ -190,7 +196,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                         _totalInfo('عدد المنتجات', '${_products.length}',
                             CrossAxisAlignment.start),
                         _totalInfo('إجمالي القطع',
-                            _moneyFmt.format(totalPieces),
+                            formatQuantity(totalPieces),
                             CrossAxisAlignment.center),
                         _totalInfo('منتجات نافدة', '$outCount',
                             CrossAxisAlignment.end),
