@@ -66,17 +66,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
     final qtyStr = formatQuantity(s);
     if (s < 0) return '$qtyStr حبة';
     if (p.unitsPerCarton > 1) {
-      final upc = p.unitsPerCarton;
-      final crt = s / upc;
-      if (s % upc == 0) {
-        return '${formatQuantity(crt)} كرتون';
-      }
-      if (crt >= 1) {
-        final wholeCrt = crt.floor();
-        final remPcs = s - (wholeCrt * upc);
-        return '${formatQuantity(wholeCrt)} كرتون و ${formatQuantity(remPcs)} حبة';
-      }
-      return '$qtyStr حبة';
+      final crt = s / p.unitsPerCarton;
+      return '${formatQuantity(crt)} كرتون';
     }
     return '$qtyStr قطعة';
   }

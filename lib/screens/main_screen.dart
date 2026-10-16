@@ -635,9 +635,8 @@ class _MainScreenState extends State<MainScreen>
 
   String _getStockLabel(Product p) {
     if (p.unitsPerCarton > 1) {
-      int crt = p.stockQuantity ~/ p.unitsPerCarton;
-      final pcs = formatQuantity(p.stockQuantity % p.unitsPerCarton);
-      return '$crt كرتون و $pcs حبة';
+      final crt = p.stockQuantity / p.unitsPerCarton;
+      return '${formatQuantity(crt)} كرتون';
     }
     return '${formatQuantity(p.stockQuantity)} حبة';
   }

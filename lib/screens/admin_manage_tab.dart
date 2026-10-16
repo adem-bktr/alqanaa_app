@@ -549,13 +549,11 @@ extension AdminManageTabX on _AdminScreenState {
           itemBuilder: (context, index) {
             final product = products[index];
 
-            // ✅ حساب المخزن المفهوم (كرتون + حبة)
+            // ✅ عرض المخزن بالكرتون والفاصلة العشرية
             String stockLabel = 'المخزن: ';
             if (product.unitsPerCarton > 1) {
-              final crt = product.stockQuantity ~/ product.unitsPerCarton;
-              final double rem = product.stockQuantity % product.unitsPerCarton;
-              final pcs = formatQuantity(rem);
-              stockLabel += '$crt كرتون و $pcs حبة';
+              final crt = product.stockQuantity / product.unitsPerCarton;
+              stockLabel += '${formatQuantity(crt)} كرتون';
             } else {
               stockLabel += '${formatQuantity(product.stockQuantity)} قطعة';
             }
