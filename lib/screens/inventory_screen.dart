@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/models.dart';
 import '../services/data_service.dart';
-import '../utils/converters.dart';
 
 enum _InvFilter { all, outOfStock, noCost }
 
@@ -20,6 +19,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
   final _moneyFmt = NumberFormat('#,##0', 'fr_FR');
   final _priceFmt = NumberFormat('#,##0.##', 'fr_FR');
+  final _qtyFmt = NumberFormat('#,##0.##', 'fr_FR');
   final _searchCtrl = TextEditingController();
 
   List<Product> _products = [];
@@ -62,21 +62,22 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
   String _stockLabel(Product p) {
     final s = p.stockQuantity;
-    if (s < 0) return '${formatQuantity(s)} حبة';
+    final qtyStr = _qtyFmt.format(s);
+    if (s < 0) return '$qtyStr حبة';
     if (p.unitsPerCarton > 1) {
       final upc = p.unitsPerCarton;
       final crt = s / upc;
       if (s % upc == 0) {
-        return '${formatQuantity(crt)} كرتون';
+        return '${_qtyFmt.format(crt)} كرتون';
       }
       if (crt >= 1) {
         final wholeCrt = crt.floor();
         final remPcs = s - (wholeCrt * upc);
-        return '${formatQuantity(wholeCrt)} كرتون و ${formatQuantity(remPcs)} حبة';
+        return '${_qtyFmt.format(wholeCrt)} كرتون و ${_qtyFmt.format(remPcs)} حبة';
       }
-      return '${formatQuantity(s)} حبة';
+      return '$qtyStr حبة';
     }
-    return '${formatQuantity(s)} قطعة';
+    return '$qtyStr قطعة';
   }
 
   List<Product> get _visible {
@@ -196,7 +197,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                         _totalInfo('عدد المنتجات', '${_products.length}',
                             CrossAxisAlignment.start),
                         _totalInfo('إجمالي القطع',
-                            formatQuantity(totalPieces),
+                            _qtyFmt.format(totalPieces),
                             CrossAxisAlignment.center),
                         _totalInfo('منتجات نافدة', '$outCount',
                             CrossAxisAlignment.end),
