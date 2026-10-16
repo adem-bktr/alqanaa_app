@@ -664,24 +664,28 @@ class PrinterService {
       final type = data['isCarton'] == true ? 'Crt' : 'Unt';
       final flavorsList = data['flavors'] as List<String>;
 
-      b += _t(g, '$idx. $nm ($type)', styles: const PosStyles(bold: true));
+      b += _t(g, '$idx. $nm ($type)',
+          styles: const PosStyles(bold: true, height: PosTextSize.size2));
       b += g.row([
         PosColumn(
           text: _ascii('   Qte: ${_fmtQty(qty)}'),
           width: 6,
-          styles: const PosStyles(align: PosAlign.left),
+          styles: const PosStyles(
+              align: PosAlign.left, height: PosTextSize.size2),
         ),
         PosColumn(
           text: _ascii('${_money(totalItem)} DA'),
           width: 6,
-          styles: const PosStyles(align: PosAlign.right, bold: true),
+          styles: const PosStyles(
+              align: PosAlign.right, bold: true, height: PosTextSize.size2),
         ),
       ]);
       if (flavorsList.isNotEmpty) {
         b += _t(
           g,
           '   Aromes: ${flavorsList.join(", ")}',
-          styles: const PosStyles(fontType: PosFontType.fontB),
+          styles: const PosStyles(
+              fontType: PosFontType.fontB, height: PosTextSize.size2),
         );
       }
       idx++;

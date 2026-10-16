@@ -98,14 +98,40 @@ class _ReceiptPreviewDialogState extends State<ReceiptPreviewDialog> {
         );
         Navigator.of(context).pop(true);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+        // فشلت الطباعة — نسأل المستخدم هل يريد حفظ الطلب بدون طباعة؟
+        final saveAnyway = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            title: const Row(
+              children: [
+                Icon(Icons.warning_amber_rounded, color: Colors.orange),
+                SizedBox(width: 8),
+                Text('الطابعة غير متصلة'),
+              ],
+            ),
             content: Text(
-                '⚠️ ${PrinterService.lastError ?? 'تعذر إرسال الوصل. يرجى التحقق من اتصال الطابعة.'}'),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
+                PrinterService.lastError ?? 'تعذر الاتصال بالطابعة. هل تريد حفظ الطلب وتخطي الطباعة؟'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('إلغاء'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2E7D32),
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('حفظ بدون طباعة'),
+              ),
+            ],
           ),
         );
+
+        if (saveAnyway == true && mounted) {
+          Navigator.of(context).pop(true);
+        }
       }
     } catch (e) {
       if (!mounted) return;
@@ -497,24 +523,47 @@ class _ReceiptPreviewDialogState extends State<ReceiptPreviewDialog> {
             const SizedBox(height: 16),
 
             // أزرار التحكم
-            Row(
+            Column(
               children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: _isPrinting
-                        ? null
-                        : () => Navigator.of(context).pop(false),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: _isPrinting
+                            ? null
+                            : () => Navigator.of(context).pop(false),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: const Text('إلغاء'),
                       ),
                     ),
-                    child: const Text('إلغاء'),
-                  ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _isPrinting
+                            ? null
+                            : () => Navigator.of(context).pop(true),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          foregroundColor: const Color(0xFF2E7D32),
+                          side: const BorderSide(color: Color(0xFF2E7D32)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        icon: const Icon(Icons.save_outlined, size: 18),
+                        label: const Text('حفظ بدون طباعة'),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 12),
-                Expanded(
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
                   child: ElevatedButton.icon(
                     onPressed: _isPrinting ? null : _handlePrint,
                     style: ElevatedButton.styleFrom(
@@ -536,7 +585,7 @@ class _ReceiptPreviewDialogState extends State<ReceiptPreviewDialog> {
                     )
                         : const Icon(Icons.print_rounded),
                     label: Text(
-                      _isPrinting ? 'جاري الطباعة...' : 'تأكيد الطباعة',
+                      _isPrinting ? 'جاري الطباعة...' : 'طباعة وتأكيد',
                     ),
                   ),
                 ),

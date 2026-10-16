@@ -192,11 +192,11 @@ class ReceiptRenderer {
       final type = data['isCarton'] == true ? 'Crt' : 'Unt';
       final flavorsList = data['flavors'] as List<String>;
 
-      addText('$idx. $name ($type)', 12, gap: 1);
+      addText('$idx. $name ($type)', 14, gap: 1);
       addRow('   Qte: ${_fmtQty(qty)}', '${_money(totalItem)} DA',
-          12, 12, lBold: false);
+          14, 14, lBold: false);
       if (flavorsList.isNotEmpty) {
-        addText('   Aromes: ${flavorsList.join(", ")}', 11,
+        addText('   Aromes: ${flavorsList.join(", ")}', 12,
             bold: false, italic: true);
       }
       y += 4 * s;
