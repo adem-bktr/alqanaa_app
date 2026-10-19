@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../services/data_service.dart';
 import '../utils/converters.dart';
 import 'profits_screen.dart';
+import 'product_sales_screen.dart';
 
 class StatsScreen extends StatefulWidget {
   const StatsScreen({super.key});
@@ -136,6 +137,10 @@ class _StatsScreenState extends State<StatsScreen> {
               _buildProfitsEntryCard(),
               const SizedBox(height: 12),
 
+              // ✅ دخول إلى مبيعات المنتجات (كم بعت من كل منتج في أي فترة)
+              _buildProductSalesEntryCard(),
+              const SizedBox(height: 12),
+
               // بطاقة المبيعات والربح لهذا اليوم
               Container(
                 width: double.infinity,
@@ -241,6 +246,48 @@ class _StatsScreenState extends State<StatsScreen> {
             ),
             Icon(Icons.arrow_forward_ios_rounded,
                 size: 16, color: Colors.amber.shade800),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProductSalesEntryCard() {
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const ProductSalesScreen()),
+      ),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.blue.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.blue.shade400),
+        ),
+        child: Row(
+          children: [
+            const Text('📦', style: TextStyle(fontSize: 26)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('مبيعات المنتجات',
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                          color: Colors.blue.shade800)),
+                  Text('كم بعت من كل منتج (كرتون وحبة) في اليوم أو الشهر أو أي فترة',
+                      style: TextStyle(
+                          fontSize: 12, color: Colors.blue.shade700)),
+                ],
+              ),
+            ),
+            Icon(Icons.arrow_forward_ios_rounded,
+                size: 16, color: Colors.blue.shade700),
           ],
         ),
       ),
