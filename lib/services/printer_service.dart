@@ -696,13 +696,16 @@ class PrinterService {
       b += _lr(g, 'Reste Facture :', '${_money(remaining)} DA', bold: true);
     }
     if (prevDebt > 0) {
-      b += _t(g, _dash);
+      b += _t(g, '================================');
+      b += _t(g, '  COMPTE CLIENT / كشف الحساب   ', styles: centerBold);
       b += _lr(g, 'Ancien Solde :', '${_money(prevDebt)} DA');
       b += _lr(g, 'NOUVEAU SOLDE :',
           '${_money(prevDebt + (remaining > 0 ? remaining : 0))} DA',
           bold: true);
+      b += _t(g, '================================');
+    } else {
+      b += _t(g, _dash);
     }
-    b += _t(g, _dash);
 
     // ── التذييل ──
     b += _t(g, 'Merci pour votre confiance !', styles: centerBold);

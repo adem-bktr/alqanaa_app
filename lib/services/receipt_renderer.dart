@@ -192,46 +192,62 @@ class ReceiptRenderer {
       final type = data['isCarton'] == true ? 'Crt' : 'Unt';
       final flavorsList = data['flavors'] as List<String>;
 
-      addText('$idx. $name ($type)', 13, gap: 1);
+      addText('$idx. $name ($type)', 11.5, gap: 1);
       addRow('   Qte: ${_fmtQty(qty)}', '${_money(totalItem)} DA',
-          12, 13, lBold: false, rBold: true);
+          10.5, 11.5, lBold: false, rBold: true);
       if (flavorsList.isNotEmpty) {
-        addText('   Aromes: ${flavorsList.join(", ")}', 11,
+        addText('   Aromes: ${flavorsList.join(", ")}', 9.5,
             bold: false, italic: true);
       }
-      y += 5 * s;
+      y += 3 * s;
       idx++;
     }
     addDashed();
 
-    // ── الحسابات ──
-    addRow('TOTAL A PAYER :', '${_money(total)} DA', 13, 14, lBold: true, rBold: true);
+    // ── الحسابات (خطوط عريضة وواضحة جداً) ──
+    final totalBoxTop = y;
+    y += 4 * s;
+    addRow('TOTAL A PAYER :', '${_money(total)} DA', 13.5, 15.5, lBold: true, rBold: true);
     y += 3 * s;
-    addRow('Montant Verse :', '${_money(paid)} DA', 12, 12, lBold: false, rBold: false);
+    addRow('Montant Verse :', '${_money(paid)} DA', 12, 12, lBold: true, rBold: true);
     if (remaining > 0) {
       y += 2 * s;
-      addRow('Reste Facture :', '${_money(remaining)} DA', 13, 13,
+      addRow('Reste Facture :', '${_money(remaining)} DA', 13, 13.5,
           lBold: true, rBold: true);
     }
+    y += 4 * s;
+    final totalBoxBottom = y;
+    ops.add((c) {
+      c.drawRRect(
+        RRect.fromLTRBR(2 * s, totalBoxTop, widthPx - 2 * s, totalBoxBottom, Radius.circular(4 * s)),
+        Paint()
+          ..color = Colors.black
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.0 * s,
+      );
+    });
+
     if (prevDebt > 0) {
-      y += 6 * s;
+      y += 8 * s;
       final boxTop = y;
       y += 4 * s;
+      addText('=== COMPTE CLIENT / كشف الحساب ===', 10.5, align: TextAlign.center, bold: true);
+      y += 2 * s;
       addRow('Ancien Solde :', '${_money(prevDebt)} DA', 12, 12,
-          lBold: false, rBold: false);
+          lBold: true, rBold: true);
       y += 3 * s;
       addRow('NOUVEAU SOLDE :',
-          '${_money(prevDebt + (remaining > 0 ? remaining : 0))} DA', 13, 13,
+          '${_money(prevDebt + (remaining > 0 ? remaining : 0))} DA', 13.5, 15,
           lBold: true, rBold: true);
       y += 4 * s;
       final boxBottom = y;
       ops.add((c) {
-        c.drawRect(
-          Rect.fromLTRB(2 * s, boxTop, widthPx - 2 * s, boxBottom),
+        c.drawRRect(
+          RRect.fromLTRBR(2 * s, boxTop, widthPx - 2 * s, boxBottom, Radius.circular(4 * s)),
           Paint()
             ..color = Colors.black
             ..style = PaintingStyle.stroke
-            ..strokeWidth = 1.5 * s,
+            ..strokeWidth = 2.4 * s,
         );
       });
       y += 4 * s;

@@ -314,36 +314,36 @@ class _ReceiptPreviewDialogState extends State<ReceiptPreviewDialog> {
                                 final flavorsList = data['flavors'] as List<String>;
 
                                 return Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 4),
+                                  padding: const EdgeInsets.symmetric(vertical: 2),
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         '$idx. $name ($type)',
                                         style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 13,
-                                          color: Colors.black87,
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 11.5,
+                                          color: Colors.black,
                                         ),
                                       ),
-                                      const SizedBox(height: 2),
+                                      const SizedBox(height: 1),
                                       Row(
                                         mainAxisAlignment:
                                         MainAxisAlignment.spaceBetween,
                                         children: [
                                           Text(
                                             '   Qte: ${_fmtQty(qty)}',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w600,
-                                              color: Colors.grey.shade800,
+                                            style: const TextStyle(
+                                              fontSize: 10.5,
+                                              color: Colors.black,
                                             ),
                                           ),
                                           Text(
                                             '${_money(total)} DA',
                                             style: const TextStyle(
                                               fontWeight: FontWeight.bold,
-                                              fontSize: 13,
+                                              fontSize: 11.5,
+                                              color: Colors.black,
                                             ),
                                           ),
                                         ],
@@ -353,9 +353,9 @@ class _ReceiptPreviewDialogState extends State<ReceiptPreviewDialog> {
                                           padding: const EdgeInsets.only(left: 12, top: 1),
                                           child: Text(
                                             '   Aromes: ${flavorsList.join(", ")}',
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              color: Colors.blueGrey.shade700,
+                                            style: const TextStyle(
+                                              fontSize: 9.5,
+                                              color: Colors.black,
                                               fontStyle: FontStyle.italic,
                                             ),
                                           ),
@@ -372,13 +372,18 @@ class _ReceiptPreviewDialogState extends State<ReceiptPreviewDialog> {
                         const Center(
                           child: Text(
                             '--------------------------------------------',
-                            style: TextStyle(color: Colors.grey, fontSize: 10),
+                            style: TextStyle(color: Colors.black, fontSize: 10, fontWeight: FontWeight.bold),
                           ),
                         ),
 
-                        // الحسابات والإجماليات
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 2),
+                        // الحسابات والإجماليات (أسود وأبيض فقط - خطوط بارزة وواضحة جداً)
+                        Container(
+                          padding: const EdgeInsets.all(9),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: Colors.black, width: 2.0),
+                          ),
                           child: Column(
                             children: [
                               Row(
@@ -388,29 +393,31 @@ class _ReceiptPreviewDialogState extends State<ReceiptPreviewDialog> {
                                   const Text(
                                     'TOTAL A PAYER :',
                                     style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13,
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 14,
+                                      color: Colors.black,
+                                      letterSpacing: 0.3,
                                     ),
                                   ),
                                   Text(
                                     '${_money(total)} DA',
                                     style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                      color: Colors.blueAccent,
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 16,
+                                      color: Colors.black,
                                     ),
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 4),
+                              const SizedBox(height: 5),
                               Row(
                                 mainAxisAlignment:
                                 MainAxisAlignment.spaceBetween,
                                 children: [
                                   const Text('Montant Verse :',
-                                      style: TextStyle(fontSize: 11)),
+                                      style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.black)),
                                   Text('${_money(paid)} DA',
-                                      style: const TextStyle(fontSize: 11)),
+                                      style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.black)),
                                 ],
                               ),
                               if (remaining > 0) ...[
@@ -422,73 +429,86 @@ class _ReceiptPreviewDialogState extends State<ReceiptPreviewDialog> {
                                     const Text(
                                       'Reste Facture :',
                                       style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 11,
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: 12,
+                                        color: Colors.black,
                                       ),
                                     ),
                                     Text(
                                       '${_money(remaining)} DA',
                                       style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12,
-                                        color: Colors.redAccent,
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: 13,
+                                        color: Colors.black,
                                       ),
                                     ),
                                   ],
                                 ),
                               ],
-                              if (prevDebt > 0) ...[
-                                const SizedBox(height: 6),
-                                Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.amber.shade50,
-                                    borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(
-                                        color: Colors.amber.shade200),
-                                  ),
-                                  child: Column(
-                                    children: [
-                                      Row(
-                                        mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          const Text('Ancien Solde :',
-                                              style: TextStyle(fontSize: 11)),
-                                          Text('${_money(prevDebt)} DA',
-                                              style: const TextStyle(
-                                                  fontSize: 11)),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Row(
-                                        mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          const Text(
-                                            'NOUVEAU SOLDE :',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                          Text(
-                                            '${_money(prevDebt + (remaining > 0 ? remaining : 0))} DA',
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 12,
-                                              color: Colors.red,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
                             ],
                           ),
                         ),
+
+                        if (prevDebt > 0) ...[
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.all(9),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: Colors.black, width: 2.2),
+                            ),
+                            child: Column(
+                              children: [
+                                const Center(
+                                  child: Text(
+                                    '=== COMPTE CLIENT / كشف الحساب ===',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 11,
+                                      color: Colors.black,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ),
+                                const Divider(height: 10, thickness: 1.5, color: Colors.black),
+                                Row(
+                                  mainAxisAlignment:
+                                  MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text('Ancien Solde :',
+                                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.black)),
+                                    Text('${_money(prevDebt)} DA',
+                                        style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.black)),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  mainAxisAlignment:
+                                  MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text(
+                                      'NOUVEAU SOLDE :',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: 13,
+                                        color: Colors.black,
+                                      ),
+                                    ),
+                                    Text(
+                                      '${_money(prevDebt + (remaining > 0 ? remaining : 0))} DA',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: 14,
+                                        color: Colors.black,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
 
                         const SizedBox(height: 6),
                         const Center(
