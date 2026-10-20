@@ -4,6 +4,74 @@ part of 'admin_screen.dart';
 //    تبويب: إدارة (الطلبات، الإعلانات، التعديل/الحذف)
 // ══════════════════════════════════
 extension AdminManageTabX on _AdminScreenState {
+  // ✅ دالة تكبير صورة المنتج لعرضها للزبون
+  void _showProductZoomDialog(String imageUrl, String productName) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: EdgeInsets.zero,
+        child: Stack(
+          children: [
+            GestureDetector(
+              onTap: () => Navigator.pop(ctx),
+              child: Container(
+                color: Colors.black.withOpacity(0.9),
+                width: double.infinity,
+                height: double.infinity,
+              ),
+            ),
+            Center(
+              child: InteractiveViewer(
+                minScale: 0.5,
+                maxScale: 4.0,
+                child: CachedNetworkImage(
+                  imageUrl: imageUrl,
+                  fit: BoxFit.contain,
+                  placeholder: (_, __) => const CircularProgressIndicator(color: Colors.white),
+                  errorWidget: (_, __, ___) => const Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.broken_image, color: Colors.white, size: 60),
+                      SizedBox(height: 8),
+                      Text('تعذر تحميل الصورة', style: TextStyle(color: Colors.white)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 40,
+              left: 20,
+              right: 20,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      productName,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   // ✅ بطاقة دخول سريع لشاشة الإحصائيات (بعد نقلها جوا "إدارة")
   Widget _buildStatsEntryCard(bool isDark) {
     return MouseRegion(
@@ -549,11 +617,15 @@ extension AdminManageTabX on _AdminScreenState {
           itemBuilder: (context, index) {
             final product = products[index];
 
-            // ✅ عرض المخزن بالكرتون والفاصلة العشرية
+            // ✅ حساب المخزن المفهوم (كرتون + حبة) أو بالميزان
             String stockLabel = 'المخزن: ';
-            if (product.unitsPerCarton > 1) {
-              final crt = product.stockQuantity / product.unitsPerCarton;
-              stockLabel += '${formatQuantity(crt)} كرتون';
+            if (product.isWeighed) {
+              stockLabel += '${formatQuantity(product.stockQuantity)} كغ';
+            } else if (product.unitsPerCarton > 1) {
+              final crt = product.stockQuantity ~/ product.unitsPerCarton;
+              final double rem = product.stockQuantity % product.unitsPerCarton;
+              final pcs = formatQuantity(rem);
+              stockLabel += '$crt كرتون و $pcs حبة';
             } else {
               stockLabel += '${formatQuantity(product.stockQuantity)} قطعة';
             }
@@ -572,22 +644,40 @@ extension AdminManageTabX on _AdminScreenState {
               ),
               child: ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: Container(
-                  width: 45,
-                  height: 45,
-                  decoration: BoxDecoration(
-                    color: product.isFeatured
-                        ? Colors.amber.shade100
-                        : const Color(0xFFE8F5E9),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(
-                    product.isFeatured
-                        ? Icons.star
-                        : Icons.inventory_2,
-                    color: product.isFeatured
-                        ? Colors.amber
-                        : const Color(0xFF2E7D32),
+                leading: GestureDetector(
+                  onTap: () {
+                    if (product.imagePath.isNotEmpty) {
+                      _showProductZoomDialog(product.imagePath, product.name);
+                    }
+                  },
+                  child: Tooltip(
+                    message: 'انقر لتكبير الصورة للزبون',
+                    child: Container(
+                      width: 45,
+                      height: 45,
+                      decoration: BoxDecoration(
+                        color: product.isFeatured
+                            ? Colors.amber.shade100
+                            : const Color(0xFFE8F5E9),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: product.imagePath.isNotEmpty
+                          ? ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: CachedNetworkImage(
+                          imageUrl: product.imagePath,
+                          fit: BoxFit.cover,
+                          errorWidget: (_, __, ___) => Icon(
+                            product.isFeatured ? Icons.star : Icons.inventory_2,
+                            color: product.isFeatured ? Colors.amber : const Color(0xFF2E7D32),
+                          ),
+                        ),
+                      )
+                          : Icon(
+                        product.isFeatured ? Icons.star : Icons.inventory_2,
+                        color: product.isFeatured ? Colors.amber : const Color(0xFF2E7D32),
+                      ),
+                    ),
                   ),
                 ),
                 title: Text(product.name,

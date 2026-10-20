@@ -63,11 +63,23 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
   String _stockLabel(Product p) {
     final s = p.stockQuantity;
-    final qtyStr = formatQuantity(s);
+    if (p.isWeighed) {
+      return '${formatQuantity(s)} كغ';
+    }
+    final qtyStr = _qtyFmt.format(s);
     if (s < 0) return '$qtyStr حبة';
     if (p.unitsPerCarton > 1) {
-      final crt = s / p.unitsPerCarton;
-      return '${formatQuantity(crt)} كرتون';
+      final upc = p.unitsPerCarton;
+      final crt = s / upc;
+      if (s % upc == 0) {
+        return '${_qtyFmt.format(crt)} كرتون';
+      }
+      if (crt >= 1) {
+        final wholeCrt = crt.floor();
+        final remPcs = s - (wholeCrt * upc);
+        return '${_qtyFmt.format(wholeCrt)} كرتون و ${_qtyFmt.format(remPcs)} حبة';
+      }
+      return '$qtyStr حبة';
     }
     return '$qtyStr قطعة';
   }

@@ -192,37 +192,37 @@ class ReceiptRenderer {
       final type = data['isCarton'] == true ? 'Crt' : 'Unt';
       final flavorsList = data['flavors'] as List<String>;
 
-      addText('$idx. $name ($type)', 14, gap: 1);
+      addText('$idx. $name ($type)', 13, gap: 1);
       addRow('   Qte: ${_fmtQty(qty)}', '${_money(totalItem)} DA',
-          14, 14, lBold: false);
+          12, 13, lBold: false, rBold: true);
       if (flavorsList.isNotEmpty) {
-        addText('   Aromes: ${flavorsList.join(", ")}', 12,
+        addText('   Aromes: ${flavorsList.join(", ")}', 11,
             bold: false, italic: true);
       }
-      y += 4 * s;
+      y += 5 * s;
       idx++;
     }
     addDashed();
 
     // ── الحسابات ──
-    addRow('TOTAL A PAYER :', '${_money(total)} DA', 12, 13, lBold: true);
-    y += 2 * s;
-    addRow('Montant Verse :', '${_money(paid)} DA', 11, 11, rBold: false);
+    addRow('TOTAL A PAYER :', '${_money(total)} DA', 13, 14, lBold: true, rBold: true);
+    y += 3 * s;
+    addRow('Montant Verse :', '${_money(paid)} DA', 12, 12, lBold: false, rBold: false);
     if (remaining > 0) {
       y += 2 * s;
-      addRow('Reste Facture :', '${_money(remaining)} DA', 12, 12,
-          lBold: true);
+      addRow('Reste Facture :', '${_money(remaining)} DA', 13, 13,
+          lBold: true, rBold: true);
     }
     if (prevDebt > 0) {
       y += 6 * s;
       final boxTop = y;
       y += 4 * s;
-      addRow('Ancien Solde :', '${_money(prevDebt)} DA', 11, 11,
-          rBold: false);
-      y += 2 * s;
+      addRow('Ancien Solde :', '${_money(prevDebt)} DA', 12, 12,
+          lBold: false, rBold: false);
+      y += 3 * s;
       addRow('NOUVEAU SOLDE :',
-          '${_money(prevDebt + (remaining > 0 ? remaining : 0))} DA', 12, 12,
-          lBold: true);
+          '${_money(prevDebt + (remaining > 0 ? remaining : 0))} DA', 13, 13,
+          lBold: true, rBold: true);
       y += 4 * s;
       final boxBottom = y;
       ops.add((c) {

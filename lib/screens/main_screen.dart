@@ -7,6 +7,7 @@ import '../services/data_service.dart';
 import '../services/auth_service.dart';
 import '../services/printer_service.dart';
 import '../widgets/receipt_preview_dialog.dart';
+import '../widgets/product_zoom_dialog.dart';
 import '../utils/page_transitions.dart';
 import '../utils/order_helpers.dart';
 import 'products_screen.dart';
@@ -323,14 +324,39 @@ class _MainScreenState extends State<MainScreen>
         padding: const EdgeInsets.all(12),
         child: Row(
           children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: SizedBox(
-                width: 60, height: 60,
-                child: p.imagePath.isNotEmpty
-                    ? CachedNetworkImage(imageUrl: p.imagePath, fit: BoxFit.cover)
-                    : Container(color: Colors.grey.shade100, child: const Icon(Icons.image, color: Colors.grey)),
-              ),
+            Stack(
+              children: [
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    if (p.imagePath.isNotEmpty) {
+                      showProductZoomDialog(context, p.imagePath, p.name);
+                    }
+                  },
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: SizedBox(
+                      width: 60, height: 60,
+                      child: p.imagePath.isNotEmpty
+                          ? CachedNetworkImage(imageUrl: p.imagePath, fit: BoxFit.cover)
+                          : Container(color: Colors.grey.shade100, child: const Icon(Icons.image, color: Colors.grey)),
+                    ),
+                  ),
+                ),
+                if (p.imagePath.isNotEmpty)
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.6),
+                        borderRadius: const BorderRadius.only(topLeft: Radius.circular(6)),
+                      ),
+                      child: const Icon(Icons.zoom_in, color: Colors.white, size: 14),
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -400,12 +426,38 @@ class _MainScreenState extends State<MainScreen>
                       child: Stack(
                           fit: StackFit.expand,
                           children: [
-                            ClipRRect(
-                                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                                child: p.imagePath.isNotEmpty
-                                    ? CachedNetworkImage(imageUrl: p.imagePath, fit: BoxFit.cover, errorWidget: (_,__,___) => const Icon(Icons.image, size: 50))
-                                    : Container(color: Colors.grey.shade100, child: const Icon(Icons.image, size: 50))
+                            GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () {
+                                if (p.imagePath.isNotEmpty) {
+                                  showProductZoomDialog(context, p.imagePath, p.name);
+                                }
+                              },
+                              child: ClipRRect(
+                                  borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                                  child: p.imagePath.isNotEmpty
+                                      ? CachedNetworkImage(imageUrl: p.imagePath, fit: BoxFit.cover, errorWidget: (_,__,___) => const Icon(Icons.image, size: 50))
+                                      : Container(color: Colors.grey.shade100, child: const Icon(Icons.image, size: 50))
+                              ),
                             ),
+                            if (p.imagePath.isNotEmpty)
+                              Positioned(
+                                top: 8,
+                                right: 8,
+                                child: GestureDetector(
+                                  onTap: () {
+                                    showProductZoomDialog(context, p.imagePath, p.name);
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withOpacity(0.6),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Icon(Icons.zoom_in, color: Colors.white, size: 16),
+                                  ),
+                                ),
+                              ),
                           ]
                       )
                   ),
@@ -634,9 +686,13 @@ class _MainScreenState extends State<MainScreen>
   }
 
   String _getStockLabel(Product p) {
+    if (p.isWeighed) {
+      return '${formatQuantity(p.stockQuantity)} كغ';
+    }
     if (p.unitsPerCarton > 1) {
-      final crt = p.stockQuantity / p.unitsPerCarton;
-      return '${formatQuantity(crt)} كرتون';
+      int crt = p.stockQuantity ~/ p.unitsPerCarton;
+      final pcs = formatQuantity(p.stockQuantity % p.unitsPerCarton);
+      return '$crt كرتون و $pcs حبة';
     }
     return '${formatQuantity(p.stockQuantity)} حبة';
   }

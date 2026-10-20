@@ -10,6 +10,7 @@ import '../models/models.dart';
 import '../services/data_service.dart';
 import '../services/auth_service.dart';
 import '../services/cart_service.dart';
+import '../widgets/product_zoom_dialog.dart';
 import '../utils/page_transitions.dart';
 import '../utils/converters.dart';
 import 'products_screen.dart';
@@ -1027,26 +1028,51 @@ class _UserMainScreenState extends State<UserMainScreen>
           padding: const EdgeInsets.all(12),
           child: Row(
             children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: SizedBox(
-                  width: 60, height: 60,
-                  child: p.imagePath.isNotEmpty
-                      ? CachedNetworkImage(
-                    imageUrl: p.imagePath,
-                    fit: BoxFit.cover,
-                    placeholder: (context, url) => Shimmer.fromColors(
-                      baseColor: Colors.grey[300]!,
-                      highlightColor: Colors.grey[100]!,
-                      child: Container(color: Colors.white),
+              Stack(
+                children: [
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      if (p.imagePath.isNotEmpty) {
+                        showProductZoomDialog(context, p.imagePath, p.name);
+                      }
+                    },
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: SizedBox(
+                        width: 60, height: 60,
+                        child: p.imagePath.isNotEmpty
+                            ? CachedNetworkImage(
+                          imageUrl: p.imagePath,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => Shimmer.fromColors(
+                            baseColor: Colors.grey[300]!,
+                            highlightColor: Colors.grey[100]!,
+                            child: Container(color: Colors.white),
+                          ),
+                          errorWidget: (context, url, error) => Container(
+                            color: Colors.grey.shade100,
+                            child: const Icon(Icons.image, color: Colors.grey),
+                          ),
+                        )
+                            : Container(color: Colors.grey.shade100, child: const Icon(Icons.image, color: Colors.grey)),
+                      ),
                     ),
-                    errorWidget: (context, url, error) => Container(
-                      color: Colors.grey.shade100,
-                      child: const Icon(Icons.image, color: Colors.grey),
+                  ),
+                  if (p.imagePath.isNotEmpty)
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.6),
+                          borderRadius: const BorderRadius.only(topLeft: Radius.circular(6)),
+                        ),
+                        child: const Icon(Icons.zoom_in, color: Colors.white, size: 14),
+                      ),
                     ),
-                  )
-                      : Container(color: Colors.grey.shade100, child: const Icon(Icons.image, color: Colors.grey)),
-                ),
+                ],
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -1774,50 +1800,76 @@ class _ProductMiniCardState extends State<_ProductMiniCard> {
               children: [
                 Expanded(
                   flex: 3,
-                  child: ClipRRect(
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        widget.product.imagePath.isNotEmpty
-                            ? CachedNetworkImage(
-                          imageUrl: widget.product.imagePath,
-                          fit: BoxFit.cover,
-                          placeholder: (context, url) => Shimmer.fromColors(
-                            baseColor: Colors.grey[300]!,
-                            highlightColor: Colors.grey[100]!,
-                            child: Container(color: Colors.white),
-                          ),
-                          errorWidget: (context, url, error) => Container(
-                            color: const Color(0xFFE8F5E9),
-                            child: const Icon(Icons.inventory_2_rounded,
-                                color: Color(0xFF2E7D32), size: 32),
-                          ),
-                        )
-                            : Container(
-                            color: const Color(0xFFE8F5E9),
-                            child: const Center(child: Icon(Icons.inventory_2_rounded,
-                                color: Color(0xFF2E7D32), size: 32))),
-                        if (widget.product.discount > 0)
-                          Positioned(
-                            top: 6, right: 6,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () {
+                          if (widget.product.imagePath.isNotEmpty) {
+                            showProductZoomDialog(context, widget.product.imagePath, widget.product.name);
+                          }
+                        },
+                        child: ClipRRect(
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                          child: widget.product.imagePath.isNotEmpty
+                              ? CachedNetworkImage(
+                            imageUrl: widget.product.imagePath,
+                            fit: BoxFit.cover,
+                            placeholder: (context, url) => Shimmer.fromColors(
+                              baseColor: Colors.grey[300]!,
+                              highlightColor: Colors.grey[100]!,
+                              child: Container(color: Colors.white),
+                            ),
+                            errorWidget: (context, url, error) => Container(
+                              color: const Color(0xFFE8F5E9),
+                              child: const Icon(Icons.inventory_2_rounded,
+                                  color: Color(0xFF2E7D32), size: 32),
+                            ),
+                          )
+                              : Container(
+                              color: const Color(0xFFE8F5E9),
+                              child: const Center(child: Icon(Icons.inventory_2_rounded,
+                                  color: Color(0xFF2E7D32), size: 32))),
+                        ),
+                      ),
+                      if (widget.product.imagePath.isNotEmpty)
+                        Positioned(
+                          bottom: 6,
+                          right: 6,
+                          child: GestureDetector(
+                            onTap: () {
+                              showProductZoomDialog(context, widget.product.imagePath, widget.product.name);
+                            },
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                              decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(6)),
-                              child: Text('-${widget.product.discount.toInt()}%',
-                                  style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.6),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(Icons.zoom_in, color: Colors.white, size: 16),
                             ),
                           ),
-                        if (!widget.product.isAvailable)
-                          Positioned.fill(
-                            child: Container(
-                              color: Colors.black54,
-                              child: const Center(child: Text('غير متوفر',
-                                  style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold))),
-                            ),
+                        ),
+                      if (widget.product.discount > 0)
+                        Positioned(
+                          top: 6, right: 6,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                            decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(6)),
+                            child: Text('-${widget.product.discount.toInt()}%',
+                                style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
                           ),
-                      ],
-                    ),
+                        ),
+                      if (!widget.product.isAvailable)
+                        Positioned.fill(
+                          child: Container(
+                            color: Colors.black54,
+                            child: const Center(child: Text('غير متوفر',
+                                style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold))),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
                 Expanded(

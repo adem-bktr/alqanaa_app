@@ -314,7 +314,7 @@ class _ReceiptPreviewDialogState extends State<ReceiptPreviewDialog> {
                                 final flavorsList = data['flavors'] as List<String>;
 
                                 return Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 3),
+                                  padding: const EdgeInsets.symmetric(vertical: 4),
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
@@ -322,7 +322,7 @@ class _ReceiptPreviewDialogState extends State<ReceiptPreviewDialog> {
                                         '$idx. $name ($type)',
                                         style: const TextStyle(
                                           fontWeight: FontWeight.bold,
-                                          fontSize: 12,
+                                          fontSize: 13,
                                           color: Colors.black87,
                                         ),
                                       ),
@@ -335,6 +335,7 @@ class _ReceiptPreviewDialogState extends State<ReceiptPreviewDialog> {
                                             '   Qte: ${_fmtQty(qty)}',
                                             style: TextStyle(
                                               fontSize: 12,
+                                              fontWeight: FontWeight.w600,
                                               color: Colors.grey.shade800,
                                             ),
                                           ),
@@ -342,7 +343,7 @@ class _ReceiptPreviewDialogState extends State<ReceiptPreviewDialog> {
                                             '${_money(total)} DA',
                                             style: const TextStyle(
                                               fontWeight: FontWeight.bold,
-                                              fontSize: 12,
+                                              fontSize: 13,
                                             ),
                                           ),
                                         ],

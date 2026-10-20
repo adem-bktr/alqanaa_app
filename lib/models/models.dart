@@ -257,6 +257,7 @@ class Product {
   final double purchasePrice;
   final double stockQuantity; // إجمالي عدد القطع (الحبات) في المخزن
   final int unitsPerCarton; // كم حبة داخل الكرتون الواحد
+  final bool isWeighed; // هل المنتج يُباع بالميزان (بالوزن)
 
   Product({
     required this.id,
@@ -278,6 +279,7 @@ class Product {
     this.purchasePrice = 0,
     this.stockQuantity = 0,
     this.unitsPerCarton = 1, // افتراضياً الكرتون فيه قطعة واحدة إذا لم يحدد
+    this.isWeighed = false,
   });
 
   bool get hasFlavors => flavors.isNotEmpty;
@@ -316,6 +318,7 @@ class Product {
     'purchasePrice': purchasePrice,
     'stockQuantity': stockQuantity,
     'unitsPerCarton': unitsPerCarton,
+    'isWeighed': isWeighed,
   };
 
   factory Product.fromJson(Map<String, dynamic> json) {
@@ -354,6 +357,7 @@ class Product {
       purchasePrice: _d(json['purchasePrice']),
       stockQuantity: _d(json['stockQuantity']),
       unitsPerCarton: _i(json['unitsPerCarton']) > 0 ? _i(json['unitsPerCarton']) : 1,
+      isWeighed: _b(json['isWeighed']),
     );
   }
 

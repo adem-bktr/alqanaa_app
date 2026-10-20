@@ -98,10 +98,14 @@ class _DesktopPosViewState extends State<DesktopPosView> {
 
   String _stockLabel(Product p) {
     final s = p.stockQuantity;
+    if (p.isWeighed) {
+      return 'المخزون: ${formatQuantity(s)} كغ';
+    }
     if (s < 0) return 'المخزون: ${formatQuantity(s)} حبة';
     if (p.unitsPerCarton > 1) {
-      final crt = s / p.unitsPerCarton;
-      return 'المخزون: ${formatQuantity(crt)} كرتون';
+      final crt = s ~/ p.unitsPerCarton;
+      final pcs = s % p.unitsPerCarton;
+      return 'المخزون: $crt كرتون و ${formatQuantity(pcs)} حبة';
     }
     return 'المخزون: ${formatQuantity(s)} قطعة';
   }

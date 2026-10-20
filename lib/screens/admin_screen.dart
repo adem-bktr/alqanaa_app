@@ -1,6 +1,7 @@
 import 'dart:io' show File;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart'; // ✅ أضفنا هذا الاستيراد
@@ -137,23 +138,61 @@ class _AdminScreenState extends State<AdminScreen>
     // ✅ مراقبة تغييرات الأسعار لحساب الربح والتحويل التلقائي
     purchasePriceCartonController.addListener(_onCartonPriceChanged);
     unitsPerCartonController.addListener(_onCartonPriceChanged);
+    cartonNormalController.addListener(_onCartonNormalChanged);
+    unitNormalController.addListener(_onUnitNormalChanged);
+    unitsPerCartonController.addListener(_onCartonNormalChanged);
 
     // مستمعين لتحديث واجهة الربح عند تغيير أسعار البيع
-    cartonNormalController.addListener(refresh);
-    unitNormalController.addListener(refresh);
     cartonSpecialController.addListener(refresh);
     unitSpecialController.addListener(refresh);
     purchasePriceController.addListener(refresh);
   }
 
+  bool _isUpdatingPrice = false;
+
   void _onCartonPriceChanged() {
+    if (_isUpdatingPrice) return;
     final pCarton = double.tryParse(purchasePriceCartonController.text.replaceAll(',', '.')) ?? 0;
     final units = double.tryParse(unitsPerCartonController.text) ?? 1;
     if (pCarton > 0 && units > 0) {
-      final pUnit = pCarton / units;
-      // تحديث سعر الحبة فقط إذا لم يكن المستخدم يكتب فيه حالياً (لتجنب الحلقات اللانهائية)
-      if (purchasePriceController.text != pUnit.toStringAsFixed(2)) {
-        purchasePriceController.text = pUnit.toStringAsFixed(2);
+      final pUnit = (pCarton / units).round();
+      final currentUnit = double.tryParse(purchasePriceController.text.replaceAll(',', '.')) ?? 0;
+      if (currentUnit != pUnit) {
+        _isUpdatingPrice = true;
+        purchasePriceController.text = pUnit.toString();
+        _isUpdatingPrice = false;
+      }
+    }
+    refresh();
+  }
+
+  void _onCartonNormalChanged() {
+    if (_isUpdatingPrice) return;
+    final cartonPrice = double.tryParse(cartonNormalController.text.replaceAll(',', '.')) ?? 0;
+    final units = double.tryParse(unitsPerCartonController.text) ?? 1;
+    if (cartonPrice > 0 && units > 0) {
+      final unitPrice = (cartonPrice / units).round();
+      final currentUnit = double.tryParse(unitNormalController.text.replaceAll(',', '.')) ?? 0;
+      if (currentUnit != unitPrice) {
+        _isUpdatingPrice = true;
+        unitNormalController.text = unitPrice.toString();
+        _isUpdatingPrice = false;
+      }
+    }
+    refresh();
+  }
+
+  void _onUnitNormalChanged() {
+    if (_isUpdatingPrice) return;
+    final unitPrice = double.tryParse(unitNormalController.text.replaceAll(',', '.')) ?? 0;
+    final units = double.tryParse(unitsPerCartonController.text) ?? 1;
+    if (unitPrice > 0 && units > 0) {
+      final cartonPrice = (unitPrice * units).round();
+      final currentCarton = double.tryParse(cartonNormalController.text.replaceAll(',', '.')) ?? 0;
+      if (currentCarton != cartonPrice) {
+        _isUpdatingPrice = true;
+        cartonNormalController.text = cartonPrice.toString();
+        _isUpdatingPrice = false;
       }
     }
     refresh();
