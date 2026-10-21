@@ -934,24 +934,29 @@ class _AdminScreenState extends State<AdminScreen>
       // ✅ في الويب، نتجاوز عملية القص لضمان عمل الإضافة بدون تعليق
       if (kIsWeb) return picked.path;
 
-      final cropped = await ImageCropper().cropImage(
-        sourcePath: picked.path,
-        compressQuality: 85,
-        uiSettings: [
-          AndroidUiSettings(
-            toolbarTitle: 'قص الصورة',
-            toolbarColor: const Color(0xFF2E7D32),
-            toolbarWidgetColor: Colors.white,
-            activeControlsWidgetColor: const Color(0xFF2E7D32),
-          ),
-          IOSUiSettings(
-            title: 'قص الصورة',
-            cancelButtonTitle: 'إلغاء',
-            doneButtonTitle: 'تم',
-          ),
-        ],
-      );
-      return cropped?.path;
+      try {
+        final cropped = await ImageCropper().cropImage(
+          sourcePath: picked.path,
+          compressQuality: 85,
+          uiSettings: [
+            AndroidUiSettings(
+              toolbarTitle: 'قص الصورة',
+              toolbarColor: const Color(0xFF2E7D32),
+              toolbarWidgetColor: Colors.white,
+              activeControlsWidgetColor: const Color(0xFF2E7D32),
+            ),
+            IOSUiSettings(
+              title: 'قص الصورة',
+              cancelButtonTitle: 'إلغاء',
+              doneButtonTitle: 'تم',
+            ),
+          ],
+        );
+        return cropped?.path ?? picked.path;
+      } catch (cropError) {
+        debugPrint('⚠️ فشل قص الصورة، سيتم استخدام الصورة الأصلية: $cropError');
+        return picked.path;
+      }
     } catch (e) {
       debugPrint('❌ pick image: $e');
       return null;
