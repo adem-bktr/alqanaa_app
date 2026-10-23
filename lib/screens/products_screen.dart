@@ -645,8 +645,9 @@ class _ProductsScreenState extends State<ProductsScreen>
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   // ══════════════════════════════════
   //    Grid View

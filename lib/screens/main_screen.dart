@@ -1005,7 +1005,8 @@ class _MainScreenState extends State<MainScreen>
           Expanded(child: IndexedStack(index: navIndex, children: pages)),
         ],
       ),
-      bottomNavigationBar: Container(
+    ),
+    bottomNavigationBar: Container(
           decoration: BoxDecoration(boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, -2))]),
           child: NavigationBar(
               selectedIndex: navIndex,
