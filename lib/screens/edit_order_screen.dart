@@ -180,7 +180,7 @@ class _EditOrderScreenState extends State<EditOrderScreen> {
     setState(() => isLoading = true);
     try {
       final newTotal = total;
-      final paid = double.tryParse(paidAmountController.text.trim().replaceAll(',', '.')) ?? newTotal;
+      final paid = double.tryParse(paidAmountController.text.trim().replaceAll(',', '.')) ?? widget.order.paidAmount;
       final newRemaining = (newTotal - paid) > 0 ? (newTotal - paid) : 0.0;
 
       // ✅ مزامنة دين الزبون (إن كانت الطلبية مسجّلة على زبون)

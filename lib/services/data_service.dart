@@ -283,35 +283,7 @@ class DataService {
     }
   }
 
-  static Future<List<app_models.Brand>> getBrandsByCategory(
-      String categoryId) async {
-    try {
-      if (categoryId.isEmpty) return getBrands();
-      final snap = await _db
-          .collection('brands')
-          .where('categoryId', isEqualTo: categoryId)
-          .get();
-      final list =
-      snap.docs.map((d) => app_models.Brand.fromJson(_qDoc(d))).toList();
-      list.sort((a, b) => a.name.compareTo(b.name));
-      return list;
-    } catch (e) {
-      debugPrint('❌ getBrandsByCategory: $e');
-      return [];
-    }
-  }
 
-  static Future<app_models.Brand?> getBrandById(String brandId) async {
-    try {
-      if (brandId.isEmpty) return null;
-      final doc = await _db.collection('brands').doc(brandId).get();
-      if (!doc.exists) return null;
-      return app_models.Brand.fromJson(_doc(doc));
-    } catch (e) {
-      debugPrint('❌ getBrandById: $e');
-      return null;
-    }
-  }
 
   static Future<void> saveBrand(app_models.Brand brand,
       {String? logoPath}) async {
@@ -549,34 +521,7 @@ class DataService {
     });
   }
 
-  /// تحديث توفر ذوق معيّن
-  static Future<void> updateFlavorAvailability(
-      String productId,
-      String flavorName,
-      bool isAvailable,
-      ) async {
-    try {
-      final ref = _db.collection('products').doc(productId);
-      final doc = await ref.get();
-      if (!doc.exists) return;
 
-      final raw = doc.data()?['flavors'];
-      if (raw is! List) return;
-
-      final updated = raw.map((f) {
-        final fm = app_models.FlavorModel.fromJson(f);
-        if (fm.name == flavorName) {
-          return fm.copyWith(isAvailable: isAvailable).toJson();
-        }
-        return fm.toJson();
-      }).toList();
-
-      await ref.update({'flavors': updated});
-      debugPrint('✅ تحديث الذوق $flavorName → $isAvailable');
-    } catch (e) {
-      debugPrint('❌ updateFlavorAvailability: $e');
-    }
-  }
 
   static Future<void> deleteProduct(String productId) async {
     try {
@@ -933,30 +878,7 @@ class DataService {
         .handleError((e) => debugPrint('❌ pendingCount: $e'));
   }
 
-  /// 🔧 إصلاح الطلبات القديمة التي بلا createdAt
-  /// (شغّلها مرة واحدة من زر مؤقت في شاشة الأدمن)
-  static Future<int> migrateOrdersCreatedAt() async {
-    int fixed = 0;
-    try {
-      final snap = await _db.collection('orders').get();
-      for (final d in snap.docs) {
-        if (d.data()['createdAt'] != null) continue;
 
-        final o = app_models.Order.fromJson(_qDoc(d));
-        final dt = o.dateTime ??
-            DateTime.fromMillisecondsSinceEpoch(
-              int.tryParse(o.id) ?? DateTime.now().millisecondsSinceEpoch,
-            );
-
-        await d.reference.update({'createdAt': Timestamp.fromDate(dt)});
-        fixed++;
-      }
-      debugPrint('🔧 تم إصلاح $fixed طلب');
-    } catch (e) {
-      debugPrint('❌ migrateOrders: $e');
-    }
-    return fixed;
-  }
 
   // ══════════════════════════════════════════════════════
   //   ⚙️ الإعدادات
@@ -1314,30 +1236,7 @@ class DataService {
     debugPrint('🗑️ تم حذف الإعلان: $id');
   }
 
-  static Future<void> toggleAnnouncementStatus(
-      String id, bool isActive) async {
-    await _db
-        .collection('announcements')
-        .doc(id)
-        .update({'isActive': isActive});
-  }
 
-  static Future<void> cleanupOldAnnouncements() async {
-    try {
-      final snap = await _db
-          .collection('announcements')
-          .where('isActive', isEqualTo: false)
-          .get();
-      final batch = _db.batch();
-      for (final d in snap.docs) {
-        batch.delete(d.reference);
-      }
-      await batch.commit();
-      debugPrint('🧹 تم تنظيف ${snap.docs.length} إعلان');
-    } catch (e) {
-      debugPrint('❌ cleanup: $e');
-    }
-  }
 
   // ══════════════════════════════════════════════════════
   //   🖼️ البانرات
@@ -1574,17 +1473,42 @@ class DataService {
           .collection('debt_transactions')
           .where('orderId', isEqualTo: orderId)
           .get();
-      if (snap.docs.isEmpty) return null;
 
       String customerId = '';
       double recorded = 0;
-      for (final d in snap.docs) {
-        final data = d.data();
-        final cid = data['customerId']?.toString() ?? '';
-        if (cid.isNotEmpty) customerId = cid;
-        final amount = _d(data['amount']);
-        recorded += data['type'] == 'payment' ? -amount : amount;
+
+      if (snap.docs.isNotEmpty) {
+        for (final d in snap.docs) {
+          final data = d.data();
+          final cid = data['customerId']?.toString() ?? '';
+          if (cid.isNotEmpty) customerId = cid;
+          final amount = _d(data['amount']);
+          recorded += data['type'] == 'payment' ? -amount : amount;
+        }
+      } else {
+        // لم تسجّل حركات سابقة لهذه الطلبية (كانت مسددة بالكامل)
+        final orderDoc = await _db.collection('orders').doc(orderId).get();
+        if (orderDoc.exists) {
+          final oData = orderDoc.data();
+          final uid = oData?['userId']?.toString() ?? '';
+          final phone = oData?['customerPhone']?.toString() ?? '';
+          if (uid.isNotEmpty) {
+            final cDoc = await _db.collection('customers').doc(uid).get();
+            if (cDoc.exists) customerId = uid;
+          }
+          if (customerId.isEmpty && phone.isNotEmpty) {
+            final cSnap = await _db
+                .collection('customers')
+                .where('phone', isEqualTo: phone)
+                .limit(1)
+                .get();
+            if (cSnap.docs.isNotEmpty) {
+              customerId = cSnap.docs.first.id;
+            }
+          }
+        }
       }
+
       if (customerId.isEmpty) return null;
 
       final delta = newRemaining - recorded;
@@ -1651,15 +1575,7 @@ class DataService {
     return b.id.compareTo(a.id);
   }
 
-  static Future<double> getTotalDebt() async {
-    try {
-      final customers = await getCustomers();
-      return customers.fold<double>(0.0, (sum, c) => sum + c.balance);
-    } catch (e) {
-      debugPrint('❌ getTotalDebt: $e');
-      return 0;
-    }
-  }
+
 
   // 🧠 الربط الذكي للموردين (OCR)
   static Future<String?> getMappedProductId(String supplierText) async {

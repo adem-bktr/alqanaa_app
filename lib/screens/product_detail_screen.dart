@@ -529,7 +529,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   // ══════════════════════════════════
   Widget _buildNormalQuantitySection(Color cardColor, Color textColor, Color subColor) {
     final isMaxReached = isCarton && maxQty > 0 && currentCartQty + quantity >= maxQty;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return _SectionAnimator(
       delay: 400,

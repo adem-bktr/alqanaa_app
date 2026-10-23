@@ -1163,70 +1163,7 @@ class _CartScreenState extends State<CartScreen> {
         name: 'Facture_AlQanaa');
   }
 
-  Future<String?> _showFlavorDialog(
-      BuildContext context, List<FlavorModel> flavors) async {
-    return await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16)),
-        title: const Row(
-          children: [
-            Icon(Icons.icecream, color: Colors.purple),
-            SizedBox(width: 8),
-            Text('اختر الطعم',
-                style: TextStyle(color: Colors.purple)),
-          ],
-        ),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: ListView.builder(
-            shrinkWrap: true,
-            itemCount: flavors.length,
-            itemBuilder: (context, index) {
-              final flavor = flavors[index];
-              return Card(
-                margin: const EdgeInsets.only(bottom: 8),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  side: BorderSide(
-                      color: flavor.isAvailable
-                          ? Colors.purple
-                          : Colors.grey,
-                      width: 0.5),
-                ),
-                child: ListTile(
-                  enabled: flavor.isAvailable,
-                  leading: Icon(Icons.circle,
-                      color: flavor.isAvailable
-                          ? Colors.purple
-                          : Colors.grey,
-                      size: 12),
-                  title: Text(flavor.name,
-                      style: TextStyle(
-                          fontWeight: FontWeight.w500,
-                          color: flavor.isAvailable
-                              ? null
-                              : Colors.grey)),
-                  onTap: () =>
-                      Navigator.pop(context, flavor.name),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
-                ),
-              );
-            },
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, null),
-            child: const Text('إلغاء',
-                style: TextStyle(color: Colors.grey)),
-          ),
-        ],
-      ),
-    );
-  }
+
 
   // ══════════════════════════════════
   //  BUILD
@@ -1284,6 +1221,12 @@ class _CartScreenState extends State<CartScreen> {
           },
         ),
         actions: [
+          if (MediaQuery.of(context).viewInsets.bottom > 0)
+            IconButton(
+              icon: const Icon(Icons.keyboard_hide_rounded, color: Colors.white),
+              onPressed: () => FocusScope.of(context).unfocus(),
+              tooltip: 'إخفاء لوحة المفاتيح',
+            ),
           if (widget.isAdmin)
             IconButton(
               icon: const Icon(Icons.print, color: Colors.white),
@@ -1322,15 +1265,18 @@ class _CartScreenState extends State<CartScreen> {
             ),
         ],
       ),
-      body: isLoading
-          ? const Center(
-          child: CircularProgressIndicator(
-              color: Color(0xFF2E7D32)))
-          : widget.cart.isEmpty
-          ? _buildEmptyCart(isDark)
-          : Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        behavior: HitTestBehavior.translucent,
+        child: isLoading
+            ? const Center(
+            child: CircularProgressIndicator(
+                color: Color(0xFF2E7D32)))
+            : widget.cart.isEmpty
+            ? _buildEmptyCart(isDark)
+            : Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
           // ── العمود الأيسر: قائمة المنتجات ──
           Expanded(
             flex: 6,
@@ -1362,8 +1308,9 @@ class _CartScreenState extends State<CartScreen> {
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   // ── ملخص الطلب للـ Desktop ──
   Widget _buildDesktopSummary(
@@ -1601,6 +1548,12 @@ class _CartScreenState extends State<CartScreen> {
           },
         ),
         actions: [
+          if (MediaQuery.of(context).viewInsets.bottom > 0)
+            IconButton(
+              icon: const Icon(Icons.keyboard_hide_rounded, color: Colors.white),
+              onPressed: () => FocusScope.of(context).unfocus(),
+              tooltip: 'إخفاء لوحة المفاتيح',
+            ),
           if (widget.isAdmin)
             IconButton(
               icon: const Icon(Icons.print, color: Colors.white),
@@ -1796,21 +1749,34 @@ class _CartScreenState extends State<CartScreen> {
           ),
         ),
       ),
-      body: SafeArea(
-        top: true,
-        bottom: false,
-        maintainBottomViewPadding: true,
-        child: isLoading
-            ? const Center(
-            child: CircularProgressIndicator(
-                color: Color(0xFF2E7D32)))
-            : widget.cart.isEmpty
-            ? _buildEmptyCart(isDark)
-            : ListView.builder(
-          padding: const EdgeInsets.all(8),
-          itemCount: _groupedCartItems.length,
-          itemBuilder: (context, index) => _buildCartItem(
-              _groupedCartItems[index], isDark, cardColor, textColor),
+      floatingActionButton: MediaQuery.of(context).viewInsets.bottom > 0
+          ? FloatingActionButton.extended(
+              onPressed: () => FocusScope.of(context).unfocus(),
+              backgroundColor: const Color(0xFF2E7D32),
+              icon: const Icon(Icons.keyboard_hide_rounded, color: Colors.white),
+              label: const Text('إخفاء الكيبورد',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            )
+          : null,
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        behavior: HitTestBehavior.translucent,
+        child: SafeArea(
+          top: true,
+          bottom: false,
+          maintainBottomViewPadding: true,
+          child: isLoading
+              ? const Center(
+              child: CircularProgressIndicator(
+                  color: Color(0xFF2E7D32)))
+              : widget.cart.isEmpty
+              ? _buildEmptyCart(isDark)
+              : ListView.builder(
+            padding: const EdgeInsets.all(8),
+            itemCount: _groupedCartItems.length,
+            itemBuilder: (context, index) => _buildCartItem(
+                _groupedCartItems[index], isDark, cardColor, textColor),
+          ),
         ),
       ),
     );
@@ -1849,7 +1815,6 @@ class _CartScreenState extends State<CartScreen> {
       List<CartItem> items, bool isDark, Color cardColor, Color textColor) {
     if (items.isEmpty) return const SizedBox.shrink();
     final first = items.first;
-    final totalQty = items.fold<double>(0.0, (s, i) => s + i.quantity);
     final totalPrice = items.fold(0.0, (s, i) => s + i.totalPrice);
 
     return Container(

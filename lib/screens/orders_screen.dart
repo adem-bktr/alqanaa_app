@@ -96,11 +96,31 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
     if (result != null) {
       try {
-        final updatedOrder = order.copyWith(paidAmount: result);
+        final newRemaining = (order.total - result) > 0 ? (order.total - result) : 0.0;
+        final customerBalance = await DataService.syncOrderDebt(
+          orderId: order.id,
+          newRemaining: newRemaining,
+        );
+        final updatedOrder = order.copyWith(
+          paidAmount: result,
+          remainingBalance: customerBalance ?? order.remainingBalance,
+        );
         await DataService.updateFullOrder(updatedOrder);
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('✅ تم تحديث المبلغ')));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(customerBalance != null
+                  ? '✅ تم تحديث المبلغ ودين الزبون'
+                  : '✅ تم تحديث المبلغ'),
+            ),
+          );
+        }
       } catch (e) {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ خطأ: $e'), backgroundColor: Colors.red));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('❌ خطأ: $e'), backgroundColor: Colors.red),
+          );
+        }
       }
     }
   }

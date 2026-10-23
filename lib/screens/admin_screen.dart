@@ -609,6 +609,14 @@ class _AdminScreenState extends State<AdminScreen>
     return null;
   }
 
+  Brand? _brandById(String? id) {
+    if (id == null || id.isEmpty) return null;
+    for (final b in brands) {
+      if (b.id == id) return b;
+    }
+    return null;
+  }
+
   void _showSnackBar(String message, Color color) {
     if (!mounted || _isDisposed) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -1404,6 +1412,7 @@ class _AdminScreenState extends State<AdminScreen>
     final buyPriceCartonCtrl = TextEditingController(text: _trimNum(product.purchasePrice * product.unitsPerCarton));
     final stockCtrl = TextEditingController(text: product.stockQuantity.toString());
 
+    Brand? editBrand = _brandById(product.brandId);
     Category? editCategory = _categoryById(product.categoryId);
     String? newImagePath;
     SellType editSellType = product.sellType;
@@ -1479,6 +1488,27 @@ class _AdminScreenState extends State<AdminScreen>
                   ),
                   const SizedBox(height: 12),
                   _dialogField(nameCtrl, 'اسم المنتج'),
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<Brand>(
+                    value: _safeBrandValue(editBrand),
+                    hint: const Text('اختر العلامة التجارية'),
+                    style: const TextStyle(color: Colors.black87),
+                    items: brands
+                        .map((b) => DropdownMenuItem(
+                        value: b,
+                        child: Text('🏪 ${b.name}',
+                            style: const TextStyle(color: Colors.black87))))
+                        .toList(),
+                    onChanged: (v) => setSt(() => editBrand = v),
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: const Color(0xFFF5F5F5),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 10),
                   DropdownButtonFormField<Category>(
                     value: _safeCategoryValue(editCategory),
@@ -1741,7 +1771,7 @@ class _AdminScreenState extends State<AdminScreen>
                   }
                   final updated = Product(
                     id: product.id,
-                    brandId: product.brandId,
+                    brandId: editBrand?.id ?? product.brandId,
                     categoryId: editCategory?.id ?? '',
                     name: nameCtrl.text,
                     priceCartonNormal:

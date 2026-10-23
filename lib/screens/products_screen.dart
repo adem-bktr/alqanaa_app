@@ -243,6 +243,12 @@ class _ProductsScreenState extends State<ProductsScreen>
             ),
           ),
           actions: [
+            if (MediaQuery.of(context).viewInsets.bottom > 0)
+              IconButton(
+                icon: const Icon(Icons.keyboard_hide_rounded, color: Colors.white),
+                onPressed: () => FocusScope.of(context).unfocus(),
+                tooltip: 'إخفاء لوحة المفاتيح',
+              ),
             if (isSpecialPrice)
               Container(
                 margin:
@@ -375,8 +381,20 @@ class _ProductsScreenState extends State<ProductsScreen>
         // ══════════════════════════════════
         //  Desktop: Top Bar
         // ══════════════════════════════════
-        body: isDesktop
-            ? Column(
+        floatingActionButton: MediaQuery.of(context).viewInsets.bottom > 0
+            ? FloatingActionButton.extended(
+                onPressed: () => FocusScope.of(context).unfocus(),
+                backgroundColor: const Color(0xFF2E7D32),
+                icon: const Icon(Icons.keyboard_hide_rounded, color: Colors.white),
+                label: const Text('إخفاء الكيبورد',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              )
+            : null,
+        body: GestureDetector(
+          onTap: () => FocusScope.of(context).unfocus(),
+          behavior: HitTestBehavior.translucent,
+          child: isDesktop
+              ? Column(
           children: [
             // Desktop Top Bar
             Container(

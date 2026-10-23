@@ -449,7 +449,7 @@ class _ReceiptPreviewDialogState extends State<ReceiptPreviewDialog> {
                           ),
                         ),
 
-                        if (prevDebt > 0) ...[
+                        if (prevDebt > 0 || (prevDebt + (remaining > 0 ? remaining : 0)) > 0) ...[
                           const SizedBox(height: 8),
                           Container(
                             padding: const EdgeInsets.all(9),

@@ -947,6 +947,12 @@ class _MainScreenState extends State<MainScreen>
           ]),
         ]),
         actions: [
+          if (MediaQuery.of(context).viewInsets.bottom > 0)
+            IconButton(
+              icon: const Icon(Icons.keyboard_hide_rounded, color: Colors.white),
+              onPressed: () => FocusScope.of(context).unfocus(),
+              tooltip: 'إخفاء لوحة المفاتيح',
+            ),
           IconButton(
             icon: Icon(
               PrinterService.isConnected ? Icons.print_rounded : Icons.print_disabled_rounded,
@@ -960,7 +966,19 @@ class _MainScreenState extends State<MainScreen>
           const SizedBox(width: 8),
         ],
       ),
-      body: Column(
+      floatingActionButton: MediaQuery.of(context).viewInsets.bottom > 0
+          ? FloatingActionButton.extended(
+              onPressed: () => FocusScope.of(context).unfocus(),
+              backgroundColor: const Color(0xFF2E7D32),
+              icon: const Icon(Icons.keyboard_hide_rounded, color: Colors.white),
+              label: const Text('إخفاء الكيبورد',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            )
+          : null,
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        behavior: HitTestBehavior.translucent,
+        child: Column(
         children: [
           if (_isOffline)
             Container(

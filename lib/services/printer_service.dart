@@ -784,9 +784,9 @@ class PrinterService {
     } else {
       b += _t(g, 'Facture Payee (Solder)', styles: _bigger);
     }
-    if (prevDebt > 0) {
+    final totalDebt = prevDebt + (remaining > 0 ? remaining : 0);
+    if (prevDebt > 0 || totalDebt > 0) {
       b += _t(g, 'Ancien Solde  : ${_money(prevDebt)} DA', styles: _bigger);
-      final totalDebt = prevDebt + (remaining > 0 ? remaining : 0);
       b += _t(
         g,
         'NOUVEAU SOLDE : ${_money(totalDebt)} DA',

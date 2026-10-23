@@ -5,8 +5,6 @@ import 'package:shimmer/shimmer.dart';
 import '../models/models.dart';
 import '../services/data_service.dart';
 import '../services/auth_service.dart';
-import '../utils/converters.dart';
-import '../utils/page_transitions.dart';
 import 'product_detail_screen.dart';
 import 'cart_screen.dart';
 import 'package:badges/badges.dart' as badges;
@@ -170,6 +168,12 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen>
           ],
         ),
         actions: [
+          if (MediaQuery.of(context).viewInsets.bottom > 0)
+            IconButton(
+              icon: const Icon(Icons.keyboard_hide_rounded, color: Colors.white),
+              onPressed: () => FocusScope.of(context).unfocus(),
+              tooltip: 'إخفاء لوحة المفاتيح',
+            ),
           if (isSpecialPrice)
             Container(
               margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
@@ -201,9 +205,21 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen>
           ),
         ],
       ),
-      body: SafeArea(
-        top: false,
-        child: Column(
+      floatingActionButton: MediaQuery.of(context).viewInsets.bottom > 0
+          ? FloatingActionButton.extended(
+              onPressed: () => FocusScope.of(context).unfocus(),
+              backgroundColor: const Color(0xFF2E7D32),
+              icon: const Icon(Icons.keyboard_hide_rounded, color: Colors.white),
+              label: const Text('إخفاء الكيبورد',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            )
+          : null,
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        behavior: HitTestBehavior.translucent,
+        child: SafeArea(
+          top: false,
+          child: Column(
           children: [
             // شريط البحث
             Container(
