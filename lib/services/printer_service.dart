@@ -694,14 +694,20 @@ class PrinterService {
     b += _lr(g, 'Montant Verse :', '${_money(paid)} DA');
     if (remaining > 0) {
       b += _lr(g, 'Reste Facture :', '${_money(remaining)} DA', bold: true);
+    } else if (remaining < 0) {
+      final excess = -remaining;
+      if (prevDebt > 0) {
+        b += _lr(g, 'Deduite du Solde :', '${_money(excess > prevDebt ? prevDebt : excess)} DA', bold: true);
+      } else {
+        b += _lr(g, 'Rendu (Monnaie) :', '${_money(excess)} DA', bold: true);
+      }
     }
-    if (prevDebt > 0) {
+    final newSolde = prevDebt + remaining;
+    if (prevDebt > 0 || newSolde > 0 || (newSolde < 0 && customerName.isNotEmpty)) {
       b += _t(g, '================================');
       b += _t(g, '  COMPTE CLIENT / كشف الحساب   ', styles: centerBold);
       b += _lr(g, 'Ancien Solde :', '${_money(prevDebt)} DA');
-      b += _lr(g, 'NOUVEAU SOLDE :',
-          '${_money(prevDebt + (remaining > 0 ? remaining : 0))} DA',
-          bold: true);
+      b += _lr(g, 'NOUVEAU SOLDE :', '${_money(newSolde)} DA', bold: true);
       b += _t(g, '================================');
     } else {
       b += _t(g, _dash);
@@ -781,11 +787,18 @@ class PrinterService {
         'Reste Facture : ${_money(remaining)} DA',
         styles: const PosStyles(bold: true, height: PosTextSize.size2),
       );
+    } else if (remaining < 0) {
+      final excess = -remaining;
+      if (prevDebt > 0) {
+        b += _t(g, 'Deduite du Solde : ${_money(excess > prevDebt ? prevDebt : excess)} DA', styles: _bigger);
+      } else {
+        b += _t(g, 'Rendu (Monnaie) : ${_money(excess)} DA', styles: _bigger);
+      }
     } else {
       b += _t(g, 'Facture Payee (Solder)', styles: _bigger);
     }
-    final totalDebt = prevDebt + (remaining > 0 ? remaining : 0);
-    if (prevDebt > 0 || totalDebt > 0) {
+    final totalDebt = prevDebt + remaining;
+    if (prevDebt > 0 || totalDebt > 0 || (totalDebt < 0 && customerDebtBalance != null)) {
       b += _t(g, 'Ancien Solde  : ${_money(prevDebt)} DA', styles: _bigger);
       b += _t(
         g,
@@ -1147,6 +1160,14 @@ class PrinterService {
                           'Reste Facture :',
                           style: pw.TextStyle(
                             fontWeight: pw.FontWeight.bold,
+                  if (remaining > 0)
+                    pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                      children: [
+                        pw.Text(
+                          'Reste Facture :',
+                          style: pw.TextStyle(
+                            fontWeight: pw.FontWeight.bold,
                             fontSize: 9,
                           ),
                         ),
@@ -1158,8 +1179,29 @@ class PrinterService {
                           ),
                         ),
                       ],
+                    )
+                  else if (remaining < 0)
+                    pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                      children: [
+                        pw.Text(
+                          prevDebt > 0 ? 'Deduite du Solde :' : 'Rendu (Monnaie) :',
+                          style: pw.TextStyle(
+                            fontWeight: pw.FontWeight.bold,
+                            fontSize: 9,
+                          ),
+                        ),
+                        pw.Text(
+                          '${_money(-remaining)} DA',
+                          style: pw.TextStyle(
+                            fontWeight: pw.FontWeight.bold,
+                            fontSize: 9,
+                          ),
+                        ),
+                      ],
                     ),
-                  if (prevDebt > 0) ...[
+                  final newSolde = prevDebt + remaining;
+                  if (prevDebt > 0 || newSolde > 0 || newSolde < 0) ...[
                     pw.SizedBox(height: 2),
                     pw.Row(
                       mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
@@ -1181,7 +1223,7 @@ class PrinterService {
                           ),
                         ),
                         pw.Text(
-                          '${_money(prevDebt + (remaining > 0 ? remaining : 0))} DA',
+                          '${_money(newSolde)} DA',
                           style: pw.TextStyle(
                             fontWeight: pw.FontWeight.bold,
                             fontSize: 9,

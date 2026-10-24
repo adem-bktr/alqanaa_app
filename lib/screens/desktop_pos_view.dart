@@ -319,8 +319,8 @@ class _DesktopPosViewState extends State<DesktopPosView> {
 
     try {
       final remaining = total - r.paid;
-      final debt = remaining > 0.05 ? remaining : 0.0;
       final prevBalance = r.customer?.balance ?? 0.0;
+      final newCustomerBalance = r.customer != null ? prevBalance + remaining : 0.0;
       final orderId = DateTime.now().millisecondsSinceEpoch.toString();
 
       final order = Order(
@@ -353,27 +353,42 @@ class _DesktopPosViewState extends State<DesktopPosView> {
         date: DateFormat('dd/MM/yyyy - HH:mm').format(DateTime.now()),
         paidAmount: r.paid,
         // نفس منطق cart_screen: رصيد الزبون بعد هذه الفاتورة (0 إن لم تُربط بزبون)
-        remainingBalance: r.customer != null ? prevBalance + debt : 0.0,
+        remainingBalance: newCustomerBalance,
       );
 
       await DataService.saveOrder(order);
 
-      // ✅ تسجيل الدين على الزبون مع ربطه بالفاتورة (لمزامنته عند تعديلها)
-      if (r.customer != null && debt > 0) {
-        try {
-          await DataService.addDebtTransaction(
-            customerId: r.customer!.id,
-            type: 'charge',
-            amount: debt,
-            note:
-            'دين متبقي من فاتورة بيع سريع رقم #${orderId.substring(orderId.length - 4)}',
-            orderId: orderId,
-          );
-        } catch (e) {
-          debugPrint('❌ فشل تسجيل الدين: $e');
-          _snack(
-              '⚠️ الفاتورة حُفظت لكن تسجيل الدين فشل. سجّله يدوياً على ${r.customer!.name}.',
-              Colors.orange);
+      // ✅ تسجيل الدين أو التسديد على الزبون مع ربطه بالفاتورة (لمزامنته عند تعديلها)
+      if (r.customer != null) {
+        if (remaining > 0.05) {
+          try {
+            await DataService.addDebtTransaction(
+              customerId: r.customer!.id,
+              type: 'charge',
+              amount: remaining,
+              note:
+              'دين متبقي من فاتورة بيع سريع رقم #${orderId.substring(orderId.length - 4)}',
+              orderId: orderId,
+            );
+          } catch (e) {
+            debugPrint('❌ فشل تسجيل الدين: $e');
+            _snack(
+                '⚠️ الفاتورة حُفظت لكن تسجيل الدين فشل. سجّله يدوياً على ${r.customer!.name}.',
+                Colors.orange);
+          }
+        } else if (remaining < -0.05) {
+          try {
+            await DataService.addDebtTransaction(
+              customerId: r.customer!.id,
+              type: 'payment',
+              amount: remaining.abs(),
+              note:
+              'تسديد زائد من فاتورة بيع سريع رقم #${orderId.substring(orderId.length - 4)}',
+              orderId: orderId,
+            );
+          } catch (e) {
+            debugPrint('❌ فشل تسجيل تسديد الدين: $e');
+          }
         }
       }
 

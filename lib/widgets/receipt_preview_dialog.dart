@@ -444,12 +444,36 @@ class _ReceiptPreviewDialogState extends State<ReceiptPreviewDialog> {
                                     ),
                                   ],
                                 ),
+                              ] else if (remaining < 0) ...[
+                                const SizedBox(height: 4),
+                                Row(
+                                  mainAxisAlignment:
+                                  MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      prevDebt > 0 ? 'Déduit du solde :' : 'Rendu (Monnaie) :',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: 12,
+                                        color: Colors.black,
+                                      ),
+                                    ),
+                                    Text(
+                                      '${_money(-remaining)} DA',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: 13,
+                                        color: Colors.black,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ],
                             ],
                           ),
                         ),
 
-                        if (prevDebt > 0 || (prevDebt + (remaining > 0 ? remaining : 0)) > 0) ...[
+                        if (prevDebt > 0 || (prevDebt + remaining) > 0 || ((prevDebt + remaining) < 0 && widget.customerDebtBalance != null)) ...[
                           const SizedBox(height: 8),
                           Container(
                             padding: const EdgeInsets.all(9),
@@ -496,7 +520,7 @@ class _ReceiptPreviewDialogState extends State<ReceiptPreviewDialog> {
                                       ),
                                     ),
                                     Text(
-                                      '${_money(prevDebt + (remaining > 0 ? remaining : 0))} DA',
+                                      '${_money(prevDebt + remaining)} DA',
                                       style: const TextStyle(
                                         fontWeight: FontWeight.w900,
                                         fontSize: 14,

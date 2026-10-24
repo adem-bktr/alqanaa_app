@@ -41,7 +41,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
   List<Order> _filterOrders(List<Order> orders) {
     final q = searchController.text.toLowerCase();
-    final now = DateTime.now();
+    final now = DateTime.now().toLocal();
 
     List<Order> filtered = orders.where((o) {
       return o.customerName.toLowerCase().contains(q) ||
@@ -50,23 +50,24 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
     if (selectedFilter != 'all') {
       filtered = filtered.where((o) {
-        final d = o.createdAt ?? o.dateTime;
+        final d = (o.createdAt ?? o.dateTime)?.toLocal();
         
-        // محاولة فحص التاريخ كنص لضمان العمل في كل الحالات (خاصة الآيفون والأنظمة القديمة)
         final todayStr = DateFormat('dd/MM/yyyy', 'en_US').format(now);
         final isTodayText = o.date.startsWith(todayStr);
 
         if (selectedFilter == 'today') {
+          if (isTodayText) return true;
           if (d != null) {
             return d.year == now.year && d.month == now.month && d.day == now.day;
           }
-          return isTodayText;
+          return false;
         } else if (selectedFilter == 'week') {
-          if (d != null) return now.difference(d).inDays <= 7;
+          if (d != null) return now.difference(d).inDays <= 7 && !d.isAfter(now.add(const Duration(days: 1)));
           return false;
         } else if (selectedFilter == 'month') {
           if (d != null) return d.year == now.year && d.month == now.month;
-          return false;
+          final monthStr = DateFormat('MM/yyyy', 'en_US').format(now);
+          return o.date.contains(monthStr);
         }
         return true;
       }).toList();

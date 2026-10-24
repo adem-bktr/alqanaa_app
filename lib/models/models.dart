@@ -612,29 +612,34 @@ class Order {
     _ => '⏳ قيد المراجعة',
   };
 
-  /// ✅ تاريخ الطلب كـ DateTime (createdAt أولاً ثم فكّ نص date)
+  /// ✅ تاريخ الطلب كـ DateTime (createdAt أولاً ثم فكّ نص date ثم المعرّف)
   DateTime? get dateTime {
-    if (createdAt != null) return createdAt;
+    if (createdAt != null) return createdAt!.toLocal();
     try {
       final parts = date.split(' - ');
       final dp = parts[0].split('/');
-      if (dp.length < 3) return null;
-      int h = 0, m = 0;
-      if (parts.length > 1) {
-        final tp = parts[1].split(':');
-        h = int.tryParse(tp[0]) ?? 0;
-        if (tp.length > 1) m = int.tryParse(tp[1]) ?? 0;
+      if (dp.length >= 3) {
+        int h = 0, m = 0;
+        if (parts.length > 1) {
+          final tp = parts[1].split(':');
+          h = int.tryParse(tp[0]) ?? 0;
+          if (tp.length > 1) m = int.tryParse(tp[1]) ?? 0;
+        }
+        return DateTime(
+          int.parse(dp[2]),
+          int.parse(dp[1]),
+          int.parse(dp[0]),
+          h,
+          m,
+        );
       }
-      return DateTime(
-        int.parse(dp[2]),
-        int.parse(dp[1]),
-        int.parse(dp[0]),
-        h,
-        m,
-      );
-    } catch (_) {
-      return null;
+    } catch (_) {}
+
+    final idMs = int.tryParse(id);
+    if (idMs != null && idMs > 1600000000000) {
+      return DateTime.fromMillisecondsSinceEpoch(idMs).toLocal();
     }
+    return null;
   }
 
   @override

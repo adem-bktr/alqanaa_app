@@ -507,12 +507,22 @@ class _CartScreenState extends State<CartScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '• المتبقي على الفاتورة: ${formatPrice(remainingOrder > 0 ? remainingOrder : 0)}',
-                    style: const TextStyle(fontSize: 12, color: Colors.orange, fontWeight: FontWeight.bold),
+                    remainingOrder > 0
+                        ? '• المتبقي على الفاتورة: ${formatPrice(remainingOrder)}'
+                        : remainingOrder < 0
+                            ? '• المدفوع الزائد (خصم من الدين): ${formatPrice(-remainingOrder)}'
+                            : '• الفاتورة مسددة بالكامل',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: remainingOrder > 0
+                          ? Colors.orange
+                          : Colors.green.shade800,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '• رصيد الزبون الجديد (كم تبقى له / ذمته الإجمالية): ${formatPrice(newTotalBalance)}',
+                    '• رصيد الزبون الجديد (ذمته الإجمالية): ${formatPrice(newTotalBalance)}',
                     style: TextStyle(
                       fontSize: 13,
                       color: newTotalBalance > 0 ? Colors.red.shade700 : Colors.green.shade700,
@@ -790,7 +800,7 @@ class _CartScreenState extends State<CartScreen> {
       }
 
       final prevBal = targetCustomer?.balance ?? 0.0;
-      final customerBalance = targetCustomer != null ? prevBal + (remaining > 0 ? remaining : 0) : 0.0;
+      final customerBalance = targetCustomer != null ? prevBal + remaining : 0.0;
 
       final order = Order(
         id: orderId,
@@ -822,6 +832,7 @@ class _CartScreenState extends State<CartScreen> {
         status: 'pending',
         paidAmount: paid,
         remainingBalance: customerBalance,
+        createdAt: DateTime.now(),
       );
 
       // ✅ إذا اختار الأدمن "طباعة وتأكيد": نطبع أولاً، وإذا فشلت الطباعة
@@ -849,9 +860,9 @@ class _CartScreenState extends State<CartScreen> {
       await DataService.saveOrder(order);
       debugPrint('✅ الطلب محفوظ: $orderId');
 
-      // ✅ تسجيل الدين إذا الطلبية مربوطة بزبون ومازال باقي مبلغ
+      // ✅ تسجيل الدين أو التسديد إذا الطلبية مربوطة بزبون
       if (targetCustomer != null) {
-        if (remaining > 0.05) { // استخدام هامش بسيط لتجنب فروقات الكسور
+        if (remaining > 0.05) { // دين متبقي
           try {
             await DataService.addDebtTransaction(
               customerId: targetCustomer.id,
@@ -863,7 +874,19 @@ class _CartScreenState extends State<CartScreen> {
             debugPrint('💳 دين مسجّل بنجاح: $remaining على ${targetCustomer.name}');
           } catch (e) {
             debugPrint('❌ فشل تسجيل الدين في السيرفر: $e');
-            // هنا يمكن إضافة تنبيه للمستخدم بأن الفاتورة حفظت لكن الدين لم يسجل
+          }
+        } else if (remaining < -0.05) { // تسديد زائد يخصم من الدين
+          try {
+            await DataService.addDebtTransaction(
+              customerId: targetCustomer.id,
+              type: 'payment',
+              amount: remaining.abs(),
+              note: 'تسديد من فاتورة هاتف رقم #$orderId',
+              orderId: orderId,
+            );
+            debugPrint('💳 تسديد دين مسجّل بنجاح: ${remaining.abs()} للزبون ${targetCustomer.name}');
+          } catch (e) {
+            debugPrint('❌ فشل تسجيل تسديد الدين في السيرفر: $e');
           }
         }
       }

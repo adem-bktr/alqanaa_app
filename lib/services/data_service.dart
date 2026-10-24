@@ -1044,11 +1044,23 @@ class DataService {
         for (var p in productsList) p.id: p.unitsPerCarton
       };
 
-      final now = DateTime.now();
-      final targetDate = specificDate ?? now;
+      final nowLocal = DateTime.now().toLocal();
+      final targetDateLocal = (specificDate ?? nowLocal).toLocal();
 
-      bool sameDay(DateTime a, DateTime b) =>
-          a.year == b.year && a.month == b.month && a.day == b.day;
+      bool isOrderOnDay(app_models.Order o, DateTime targetDay) {
+        final dayStr = DateFormat('dd/MM/yyyy', 'en_US').format(targetDay.toLocal());
+        if (o.date.isNotEmpty && o.date.startsWith(dayStr)) {
+          return true;
+        }
+        final d = (o.createdAt ?? o.dateTime)?.toLocal();
+        if (d != null) {
+          final tLocal = targetDay.toLocal();
+          return d.year == tLocal.year &&
+                 d.month == tLocal.month &&
+                 d.day == tLocal.day;
+        }
+        return false;
+      }
 
       final todayOrdersList = <app_models.Order>[];
       final week = <app_models.Order>[];
@@ -1056,14 +1068,17 @@ class DataService {
       final targetDayOrders = <app_models.Order>[];
 
       for (final o in orders) {
-        final d = o.createdAt ?? o.dateTime;
-        if (d == null) continue;
+        if (isOrderOnDay(o, nowLocal)) todayOrdersList.add(o);
+        if (isOrderOnDay(o, targetDateLocal)) targetDayOrders.add(o);
 
-        if (sameDay(d, now)) todayOrdersList.add(o);
-        if (sameDay(d, targetDate)) targetDayOrders.add(o);
-
-        if (now.difference(d).inDays <= 7) week.add(o);
-        if (d.year == now.year && d.month == now.month) month.add(o);
+        final d = (o.createdAt ?? o.dateTime)?.toLocal();
+        if (d != null) {
+          if (nowLocal.difference(d).inDays <= 7 && !d.isAfter(nowLocal.add(const Duration(days: 1)))) week.add(o);
+          if (d.year == nowLocal.year && d.month == nowLocal.month) month.add(o);
+        } else {
+          final monthStr = DateFormat('MM/yyyy', 'en_US').format(nowLocal);
+          if (o.date.contains(monthStr)) month.add(o);
+        }
       }
 
       // حساب صافي الربح لليوم المختار
@@ -1091,15 +1106,17 @@ class DataService {
           entry['quantity'] = (entry['quantity'] as double) + qty;
           entry['revenue'] = (entry['revenue'] as double) + (sellPrice * qty);
 
-          if (pid.isNotEmpty && buyPrices.containsKey(pid)) {
-            final buyPrice = buyPrices[pid]!;
-            if (buyPrice > 0) {
-              // ✅ إصلاح 2: تكلفة الكرتون = سعر الحبة × عدد الحبات في الكرتون
-              final isCarton = it['isCarton'] == true;
-              final upc = unitsPerCartonMap[pid] ?? 1;
-              final unitCost = isCarton ? (buyPrice * upc) : buyPrice;
-              targetDayProfit += (sellPrice - unitCost) * qty;
-            }
+          final storedCost = toDouble(it['cost']);
+          final isCarton = it['isCarton'] == true;
+          final upc = unitsPerCartonMap[pid] ?? 1;
+          final unitCost = storedCost > 0
+              ? storedCost
+              : (pid.isNotEmpty && buyPrices.containsKey(pid)
+                  ? buyPrices[pid]! * (isCarton ? upc : 1)
+                  : 0.0);
+
+          if (sellPrice > 0 || unitCost > 0) {
+            targetDayProfit += (sellPrice - unitCost) * qty;
           }
         }
       }

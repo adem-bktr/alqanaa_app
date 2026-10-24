@@ -140,22 +140,35 @@ class _ProfitsScreenState extends State<ProfitsScreen> {
     return _Cost(unit, false);
   }
 
-  bool _inPeriod(DateTime? d) {
+  bool _inPeriod(DateTime? d, String dateStr) {
     if (_period == _Period.all) return true;
-    if (d == null) return false;
-    final now = DateTime.now();
+    final now = DateTime.now().toLocal();
     final today = DateTime(now.year, now.month, now.day);
+    final todayStr = DateFormat('dd/MM/yyyy', 'en_US').format(now);
+    final ld = d?.toLocal();
+
     switch (_period) {
       case _Period.today:
-        return !d.isBefore(today);
+        if (dateStr.isNotEmpty && dateStr.startsWith(todayStr)) return true;
+        if (ld != null) {
+          return ld.year == now.year && ld.month == now.month && ld.day == now.day;
+        }
+        return false;
       case _Period.week:
-        return !d.isBefore(today.subtract(const Duration(days: 6)));
+        if (ld != null) return !ld.isBefore(today.subtract(const Duration(days: 6))) && !ld.isAfter(now.add(const Duration(days: 1)));
+        return false;
       case _Period.month:
-        return d.year == now.year && d.month == now.month;
+        if (ld != null) return ld.year == now.year && ld.month == now.month;
+        final monthStr = DateFormat('MM/yyyy', 'en_US').format(now);
+        return dateStr.contains(monthStr);
       case _Period.custom:
         if (_range == null) return true;
-        return !d.isBefore(_range!.start) &&
-            d.isBefore(_range!.end.add(const Duration(days: 1)));
+        if (ld != null) {
+          final start = DateTime(_range!.start.year, _range!.start.month, _range!.start.day);
+          final end = DateTime(_range!.end.year, _range!.end.month, _range!.end.day, 23, 59, 59);
+          return !ld.isBefore(start) && !ld.isAfter(end);
+        }
+        return false;
       case _Period.all:
         return true;
     }
@@ -170,7 +183,7 @@ class _ProfitsScreenState extends State<ProfitsScreen> {
     for (final o in _orders) {
       if (o.isRejected) continue; // المرفوضة لا تُحتسب
       final date = o.createdAt ?? o.dateTime;
-      if (!_inPeriod(date)) continue;
+      if (!_inPeriod(date, o.date)) continue;
 
       final op = _OrderProfit(o, date);
       for (final it in o.items) {

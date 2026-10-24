@@ -214,6 +214,10 @@ class ReceiptRenderer {
       y += 2 * s;
       addRow('Reste Facture :', '${_money(remaining)} DA', 13, 13.5,
           lBold: true, rBold: true);
+    } else if (remaining < 0) {
+      y += 2 * s;
+      addRow(prevDebt > 0 ? 'Déduit du solde :' : 'Rendu (Monnaie) :', '${_money(-remaining)} DA', 13, 13.5,
+          lBold: true, rBold: true);
     }
     y += 4 * s;
     final totalBoxBottom = y;
@@ -227,7 +231,8 @@ class ReceiptRenderer {
       );
     });
 
-    if (prevDebt > 0) {
+    final newSolde = prevDebt + remaining;
+    if (prevDebt > 0 || newSolde > 0 || newSolde < 0) {
       y += 8 * s;
       final boxTop = y;
       y += 4 * s;
@@ -237,7 +242,7 @@ class ReceiptRenderer {
           lBold: true, rBold: true);
       y += 3 * s;
       addRow('NOUVEAU SOLDE :',
-          '${_money(prevDebt + (remaining > 0 ? remaining : 0))} DA', 13.5, 15,
+          '${_money(newSolde)} DA', 13.5, 15,
           lBold: true, rBold: true);
       y += 4 * s;
       final boxBottom = y;
