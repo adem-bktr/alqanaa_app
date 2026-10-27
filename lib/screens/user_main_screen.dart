@@ -702,7 +702,7 @@ class _UserMainScreenState extends State<UserMainScreen>
         height: 170,
         child: PageView.builder(
           controller: _bannerController,
-          onPageChanged: (index) => setState(() => _currentBannerIndex = index),
+          onPageChanged: (index) => _currentBannerIndex = index,
           itemCount: displayBanners.length,
           itemBuilder: (context, index) {
             final banner = displayBanners[index];
@@ -722,6 +722,7 @@ class _UserMainScreenState extends State<UserMainScreen>
                       width: double.infinity,
                       height: double.infinity,
                       fit: BoxFit.cover,
+                      memCacheWidth: 800,
                       placeholder: (context, url) => _buildBannerBg(banner),
                       errorWidget: (_, __, ___) => _buildBannerBg(banner),
                     )
@@ -1045,6 +1046,8 @@ class _UserMainScreenState extends State<UserMainScreen>
                             ? CachedNetworkImage(
                           imageUrl: p.imagePath,
                           fit: BoxFit.cover,
+                          memCacheWidth: 200,
+                          memCacheHeight: 200,
                           placeholder: (context, url) => Shimmer.fromColors(
                             baseColor: Colors.grey[300]!,
                             highlightColor: Colors.grey[100]!,
@@ -1816,6 +1819,8 @@ class _ProductMiniCardState extends State<_ProductMiniCard> {
                               ? CachedNetworkImage(
                             imageUrl: widget.product.imagePath,
                             fit: BoxFit.cover,
+                            memCacheWidth: 350,
+                            memCacheHeight: 350,
                             placeholder: (context, url) => Shimmer.fromColors(
                               baseColor: Colors.grey[300]!,
                               highlightColor: Colors.grey[100]!,
@@ -2024,6 +2029,8 @@ class _AnimatedBrandCardState extends State<_AnimatedBrandCard> {
                     width: 56,
                     height: 56,
                     fit: BoxFit.cover,
+                    memCacheWidth: 150,
+                    memCacheHeight: 150,
                     placeholder: (context, url) => Shimmer.fromColors(
                       baseColor: Colors.grey[300]!,
                       highlightColor: Colors.grey[100]!,

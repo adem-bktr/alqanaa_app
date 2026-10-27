@@ -663,6 +663,7 @@ class UserModel {
   final double? latitude;
   final double? longitude;
   final String? address;
+  final List<String> visitDays;
 
   UserModel({
     required this.id,
@@ -675,6 +676,7 @@ class UserModel {
     this.latitude,
     this.longitude,
     this.address,
+    this.visitDays = const [],
   });
 
   bool get isAdmin => role == 'admin';
@@ -706,6 +708,7 @@ class UserModel {
     'latitude': latitude,
     'longitude': longitude,
     'address': address,
+    'visitDays': visitDays,
   };
 
   factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
@@ -719,9 +722,18 @@ class UserModel {
     latitude: json['latitude'] == null ? null : _d(json['latitude']),
     longitude: json['longitude'] == null ? null : _d(json['longitude']),
     address: json['address'] == null ? null : _s(json['address']),
+    visitDays: (json['visitDays'] as List<dynamic>?)
+            ?.map((e) => e.toString())
+            .toList() ??
+        const [],
   );
 
-  UserModel copyWith({String? role, String? name, String? phone}) =>
+  UserModel copyWith({
+    String? role,
+    String? name,
+    String? phone,
+    List<String>? visitDays,
+  }) =>
       UserModel(
         id: id,
         name: name ?? this.name,
@@ -733,6 +745,7 @@ class UserModel {
         latitude: latitude,
         longitude: longitude,
         address: address,
+        visitDays: visitDays ?? this.visitDays,
       );
 
   @override

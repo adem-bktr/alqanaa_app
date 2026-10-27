@@ -296,4 +296,703 @@ extension AdminUsersTabX on _AdminScreenState {
   }
 
 // ══════════════════════════════════
+//    تبويب: برنامج الأيام للهاتف
+// ══════════════════════════════════
+  Widget _buildDaysScheduleTab(bool isDark) {
+    final weekDays = [
+      'الكل',
+      'السبت',
+      'الأحد',
+      'الإثنين',
+      'الثلاثاء',
+      'الأربعاء',
+      'الخميس',
+      'الجمعة',
+      'غير محدد'
+    ];
+
+    // تصفية الزبائن
+    final query = _scheduleSearchController.text.trim().toLowerCase();
+    final filteredUsers = users.where((u) {
+      bool matchesDay;
+      if (_selectedScheduleDay == 'الكل') {
+        matchesDay = true;
+      } else if (_selectedScheduleDay == 'غير محدد') {
+        matchesDay = u.visitDays.isEmpty;
+      } else {
+        matchesDay = u.visitDays.contains(_selectedScheduleDay);
+      }
+
+      if (!matchesDay) return false;
+      if (query.isEmpty) return true;
+
+      return u.name.toLowerCase().contains(query) ||
+          u.phone.contains(query) ||
+          (u.address?.toLowerCase().contains(query) ?? false);
+    }).toList();
+
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(isDesktop ? 20 : 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // بطاقة العنوان والبحث
+          _buildCard(
+            isDark: isDark,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2E7D32).withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        Icons.calendar_month,
+                        color: Color(0xFF2E7D32),
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'برنامج زبائن التوزيع بالأيام',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          Text(
+                            'تحديد وتصفية خط سير التوزيع اليومي للزبائن',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.refresh, color: Color(0xFF2E7D32)),
+                      onPressed: loadUsers,
+                      tooltip: 'تحديث البيانات',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+
+                // حقل البحث السريع
+                TextField(
+                  controller: _scheduleSearchController,
+                  onChanged: (_) => setState(() {}),
+                  decoration: InputDecoration(
+                    hintText: 'بحث باسم الزبون، الهاتف، أو المنطقة...',
+                    hintStyle: const TextStyle(fontSize: 13),
+                    prefixIcon: const Icon(Icons.search, size: 20),
+                    suffixIcon: _scheduleSearchController.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear, size: 18),
+                            onPressed: () {
+                              _scheduleSearchController.clear();
+                              setState(() {});
+                            },
+                          )
+                        : null,
+                    filled: true,
+                    fillColor: isDark ? const Color(0xFF1E1E2E) : Colors.grey.shade100,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                // شريط تصفية الأيام الأفقي
+                SizedBox(
+                  height: 40,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: weekDays.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    itemBuilder: (context, index) {
+                      final day = weekDays[index];
+                      final isSelected = _selectedScheduleDay == day;
+
+                      int count = 0;
+                      if (day == 'الكل') {
+                        count = users.length;
+                      } else if (day == 'غير محدد') {
+                        count = users.where((u) => u.visitDays.isEmpty).length;
+                      } else {
+                        count = users.where((u) => u.visitDays.contains(day)).length;
+                      }
+
+                      return ChoiceChip(
+                        label: Text('$day ($count)'),
+                        selected: isSelected,
+                        onSelected: (selected) {
+                          if (selected) {
+                            setState(() => _selectedScheduleDay = day);
+                          }
+                        },
+                        selectedColor: const Color(0xFF2E7D32),
+                        backgroundColor: isDark ? const Color(0xFF1E1E2E) : Colors.grey.shade100,
+                        labelStyle: TextStyle(
+                          color: isSelected
+                              ? Colors.white
+                              : (isDark ? Colors.grey.shade300 : Colors.black87),
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          fontSize: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                          side: BorderSide(
+                            color: isSelected ? const Color(0xFF2E7D32) : Colors.transparent,
+                          ),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          // عدد الزبائن المصفين
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'الزبائن المسجلون: ${filteredUsers.length}',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: isDark ? Colors.grey.shade300 : Colors.black87,
+                ),
+              ),
+              if (_selectedScheduleDay != 'الكل')
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2E7D32).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    'يوم: $_selectedScheduleDay',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF2E7D32),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+
+          const SizedBox(height: 10),
+
+          // قائمة بطاقات الزبائن
+          filteredUsers.isEmpty
+              ? Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(30),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF2A2A3E) : Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.calendar_today_outlined,
+                        size: 48,
+                        color: Colors.grey.shade400,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'لا يوجد زبائن مخصصون لهذا اليوم',
+                        style: TextStyle(
+                          color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'يمكنك تخصيص الأيام للزبائن بالضغط على زر الأيام بجانب أي زبون',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: isDark ? Colors.grey.shade500 : Colors.grey.shade500,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: filteredUsers.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  itemBuilder: (context, index) {
+                    final user = filteredUsers[index];
+                    return _buildScheduleUserCard(user, isDark);
+                  },
+                ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildScheduleUserCard(UserModel user, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF2A2A3E) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+        border: Border.all(
+          color: user.visitDays.contains(_selectedScheduleDay)
+              ? const Color(0xFF2E7D32).withOpacity(0.4)
+              : (isDark ? Colors.grey.shade800 : Colors.grey.shade200),
+          width: 1.2,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // الصف الأول: معلومات الزبون والدور
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 22,
+                backgroundColor: user.isAdmin
+                    ? const Color(0xFF2E7D32)
+                    : user.isSpecial
+                        ? Colors.amber.shade700
+                        : Colors.blue,
+                child: Text(
+                  user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      user.name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
+                    ),
+                    if (user.phone.isNotEmpty)
+                      Text(
+                        user.phone,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: user.isAdmin
+                      ? const Color(0xFFE8F5E9)
+                      : user.isSpecial
+                          ? const Color(0xFFFFF8E1)
+                          : const Color(0xFFE3F2FD),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  user.roleLabel,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: user.isAdmin
+                        ? const Color(0xFF2E7D32)
+                        : user.isSpecial
+                            ? Colors.amber.shade800
+                            : Colors.blue,
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          if (user.address != null && user.address!.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.location_on_outlined, size: 14, color: Colors.grey),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    user.address!,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ],
+
+          const SizedBox(height: 10),
+
+          // شارات الأيام المحددة للزبون
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const Icon(Icons.event, size: 14, color: Color(0xFF2E7D32)),
+              const SizedBox(width: 6),
+              Expanded(
+                child: user.visitDays.isEmpty
+                    ? Text(
+                        'لم يتم تحديد أيام توزيع لهذا الزبون',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.orange.shade700,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      )
+                    : Wrap(
+                        spacing: 4,
+                        runSpacing: 4,
+                        children: user.visitDays.map((day) {
+                          final isCurrentDay = day == _selectedScheduleDay;
+                          return Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: isCurrentDay
+                                  ? const Color(0xFF2E7D32)
+                                  : (isDark ? const Color(0xFF1E1E2E) : Colors.grey.shade200),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              day,
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: isCurrentDay
+                                    ? Colors.white
+                                    : (isDark ? Colors.grey.shade300 : Colors.black87),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+              ),
+            ],
+          ),
+
+          const Divider(height: 18),
+
+          // أزرار الإجراءات السريعة
+          Row(
+            children: [
+              // 📞 زر الاتصال
+              Expanded(
+                child: InkWell(
+                  onTap: () => _makePhoneCall(user.phone),
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.green.shade200),
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.phone, size: 16, color: Colors.green),
+                        SizedBox(width: 4),
+                        Text(
+                          'اتصال',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+
+              // 📍 زر فتح الخريطة
+              Expanded(
+                child: InkWell(
+                  onTap: () => _openLocationOnMap(user),
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.blue.shade200),
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.map_outlined, size: 16, color: Colors.blue),
+                        SizedBox(width: 4),
+                        Text(
+                          'الموقع',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+
+              // ✏️ زر تعديل أيام الزيارة
+              Expanded(
+                child: InkWell(
+                  onTap: () => _showEditVisitDaysSheet(user),
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade50,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.amber.shade300),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.edit_calendar, size: 16, color: Colors.amber.shade900),
+                        const SizedBox(width: 4),
+                        Text(
+                          'الأيام',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.amber.shade900,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 📞 اتصال هاتفي
+  Future<void> _makePhoneCall(String phone) async {
+    if (phone.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('رقم الهاتف غير مسجل لهذا الزبون')),
+      );
+      return;
+    }
+    final uri = Uri.parse('tel:${phone.trim()}');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('تعذر إجراء اتصال برقم: $phone')),
+        );
+      }
+    }
+  }
+
+  // 📍 فتح الموقع على الخريطة
+  Future<void> _openLocationOnMap(UserModel user) async {
+    Uri uri;
+    if (user.latitude != null && user.longitude != null) {
+      uri = Uri.parse(
+          'https://www.google.com/maps/search/?api=1&query=${user.latitude},${user.longitude}');
+    } else if (user.address != null && user.address!.isNotEmpty) {
+      final encoded = Uri.encodeComponent(user.address!);
+      uri = Uri.parse('https://www.google.com/maps/search/?api=1&query=$encoded');
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('لا يوجد موقع أو عنوان مسجل لهذا الزبون')),
+      );
+      return;
+    }
+
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تعذر فتح تطبيق الخرائط')),
+        );
+      }
+    }
+  }
+
+  // ✏️ النافذة السفلية لتعديل أيام التوزيع
+  void _showEditVisitDaysSheet(UserModel user) {
+    final allDays = ['السبت', 'الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة'];
+    List<String> tempSelected = List.from(user.visitDays);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                top: 20,
+                left: 16,
+                right: 16,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.edit_calendar, color: Color(0xFF2E7D32)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'أيام التوزيع: ${user.name}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  const Text(
+                    'اختر الأيام التي يتم فيها توزيع/تزويد هذا الزبون:',
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 12),
+                  const Divider(),
+                  ...allDays.map((day) {
+                    final isChecked = tempSelected.contains(day);
+                    return CheckboxListTile(
+                      activeColor: const Color(0xFF2E7D32),
+                      title: Text(
+                        day,
+                        style: TextStyle(
+                          fontWeight: isChecked ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ),
+                      value: isChecked,
+                      onChanged: (val) {
+                        setSheetState(() {
+                          if (val == true) {
+                            if (!tempSelected.contains(day)) tempSelected.add(day);
+                          } else {
+                            tempSelected.remove(day);
+                          }
+                        });
+                      },
+                    );
+                  }),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF2E7D32),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      icon: const Icon(Icons.check, color: Colors.white),
+                      label: const Text(
+                        'حفظ التغيرات',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                      ),
+                      onPressed: () async {
+                        Navigator.pop(ctx);
+                        try {
+                          await AuthService.updateUserVisitDays(user.id, tempSelected);
+                          await loadUsers();
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('تم تحديث أيام التوزيع للزبون ${user.name} بنجاح'),
+                                backgroundColor: const Color(0xFF2E7D32),
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('حدث خطأ أثناء الحفظ: $e'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+// ══════════════════════════════════
 }

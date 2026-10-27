@@ -1160,14 +1160,6 @@ class PrinterService {
                           'Reste Facture :',
                           style: pw.TextStyle(
                             fontWeight: pw.FontWeight.bold,
-                  if (remaining > 0)
-                    pw.Row(
-                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                      children: [
-                        pw.Text(
-                          'Reste Facture :',
-                          style: pw.TextStyle(
-                            fontWeight: pw.FontWeight.bold,
                             fontSize: 9,
                           ),
                         ),
@@ -1200,8 +1192,7 @@ class PrinterService {
                         ),
                       ],
                     ),
-                  final newSolde = prevDebt + remaining;
-                  if (prevDebt > 0 || newSolde > 0 || newSolde < 0) ...[
+                  if (prevDebt > 0 || (prevDebt + remaining) != 0) ...[
                     pw.SizedBox(height: 2),
                     pw.Row(
                       mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
@@ -1223,7 +1214,7 @@ class PrinterService {
                           ),
                         ),
                         pw.Text(
-                          '${_money(newSolde)} DA',
+                          '${_money(prevDebt + remaining)} DA',
                           style: pw.TextStyle(
                             fontWeight: pw.FontWeight.bold,
                             fontSize: 9,

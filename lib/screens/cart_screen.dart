@@ -54,6 +54,14 @@ class _CartScreenState extends State<CartScreen> {
     return groups.values.toList();
   }
 
+  double get cartonTotal => widget.cart
+      .where((item) => item.isCarton)
+      .fold(0.0, (sum, item) => sum + item.totalPrice);
+
+  double get unitTotal => widget.cart
+      .where((item) => !item.isCarton)
+      .fold(0.0, (sum, item) => sum + item.totalPrice);
+
   @override
   void initState() {
     super.initState();
@@ -508,10 +516,10 @@ class _CartScreenState extends State<CartScreen> {
                 children: [
                   Text(
                     remainingOrder > 0
-                        ? '• المتبقي على الفاتورة: ${formatPrice(remainingOrder)}'
+                        ? 'المتبقي على الفاتورة: ${formatPrice(remainingOrder)}'
                         : remainingOrder < 0
-                            ? '• المدفوع الزائد (خصم من الدين): ${formatPrice(-remainingOrder)}'
-                            : '• الفاتورة مسددة بالكامل',
+                            ? 'المدفوع الزائد (خصم من الدين): ${formatPrice(-remainingOrder)}'
+                            : 'الفاتورة مسددة بالكامل',
                     style: TextStyle(
                       fontSize: 12,
                       color: remainingOrder > 0
@@ -522,7 +530,7 @@ class _CartScreenState extends State<CartScreen> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '• رصيد الزبون الجديد (ذمته الإجمالية): ${formatPrice(newTotalBalance)}',
+                    'رصيد الزبون الجديد (ذمته الإجمالية): ${formatPrice(newTotalBalance)}',
                     style: TextStyle(
                       fontSize: 13,
                       color: newTotalBalance > 0 ? Colors.red.shade700 : Colors.green.shade700,
@@ -1391,26 +1399,48 @@ class _CartScreenState extends State<CartScreen> {
           // ✅ ربط بزبون (اختياري - أدمن فقط)
           _buildCustomerLinkSection(isDark),
 
-          // المجموع
+          // المجموع وتفاصيل الكرتون/الحبة
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFFE8F5E9),
+              color: isDark ? const Color(0xFF1E2E20) : const Color(0xFFE8F5E9),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
                   color: const Color(0xFF2E7D32).withOpacity(0.3)),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Column(
               children: [
-                const Text('المجموع الكلي:',
-                    style: TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 16)),
-                Text(formatPrice(total),
-                    style: const TextStyle(
-                        color: Color(0xFF2E7D32),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 22)),
+                if (cartonTotal > 0 && unitTotal > 0) ...[
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('مجموع الكرتون:', style: TextStyle(fontSize: 12, color: isDark ? Colors.grey.shade300 : Colors.grey.shade800)),
+                      Text(formatPrice(cartonTotal), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF2E7D32))),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('مجموع الحبات:', style: TextStyle(fontSize: 12, color: isDark ? Colors.grey.shade300 : Colors.grey.shade800)),
+                      Text(formatPrice(unitTotal), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blue)),
+                    ],
+                  ),
+                  const Divider(height: 12),
+                ],
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('المجموع الكلي:',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 16)),
+                    Text(formatPrice(total),
+                        style: const TextStyle(
+                            color: Color(0xFF2E7D32),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 22)),
+                  ],
+                ),
               ],
             ),
           ),
@@ -1678,21 +1708,44 @@ class _CartScreenState extends State<CartScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                      color: const Color(0xFFE8F5E9),
-                      borderRadius: BorderRadius.circular(8)),
-                  child: Row(
-                    mainAxisAlignment:
-                    MainAxisAlignment.spaceBetween,
+                      color: isDark ? const Color(0xFF1E2E20) : const Color(0xFFE8F5E9),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFF2E7D32).withOpacity(0.3)),
+                  ),
+                  child: Column(
                     children: [
-                      const Text('المجموع:',
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16)),
-                      Text(formatPrice(total),
-                          style: const TextStyle(
-                              color: Color(0xFF2E7D32),
-                              fontWeight: FontWeight.bold,
-                              fontSize: 20)),
+                      if (cartonTotal > 0 && unitTotal > 0) ...[
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('مجموع الكرتون:', style: TextStyle(fontSize: 12, color: isDark ? Colors.grey.shade300 : Colors.grey.shade800)),
+                            Text(formatPrice(cartonTotal), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF2E7D32))),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('مجموع الحبات:', style: TextStyle(fontSize: 12, color: isDark ? Colors.grey.shade300 : Colors.grey.shade800)),
+                            Text(formatPrice(unitTotal), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blue)),
+                          ],
+                        ),
+                        const Divider(height: 10),
+                      ],
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('المجموع:',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16)),
+                          Text(formatPrice(total),
+                              style: const TextStyle(
+                                  color: Color(0xFF2E7D32),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 20)),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -1795,11 +1848,11 @@ class _CartScreenState extends State<CartScreen> {
               : widget.cart.isEmpty
               ? _buildEmptyCart(isDark)
               : ListView.builder(
-            padding: const EdgeInsets.all(8),
-            itemCount: _groupedCartItems.length,
-            itemBuilder: (context, index) => _buildCartItem(
-                _groupedCartItems[index], isDark, cardColor, textColor),
-          ),
+                  padding: const EdgeInsets.all(8),
+                  itemCount: _groupedCartItems.length,
+                  itemBuilder: (context, index) => _buildCartItem(
+                      _groupedCartItems[index], isDark, cardColor, textColor),
+                ),
         ),
       ),
     );
@@ -1840,11 +1893,21 @@ class _CartScreenState extends State<CartScreen> {
     final first = items.first;
     final totalPrice = items.fold(0.0, (s, i) => s + i.totalPrice);
 
+    final isCarton = first.isCarton;
+    final badgeColor = isCarton ? const Color(0xFF2E7D32) : Colors.blue.shade700;
+    final badgeBg = isCarton ? const Color(0xFFE8F5E9) : const Color(0xFFE3F2FD);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isCarton
+              ? const Color(0xFF2E7D32).withOpacity(0.2)
+              : Colors.blue.withOpacity(0.2),
+          width: 1,
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(isDark ? 0.3 : 0.06),
@@ -1861,6 +1924,12 @@ class _CartScreenState extends State<CartScreen> {
             // ── العنوان والنوع ──
             Row(
               children: [
+                Icon(
+                  isCarton ? Icons.inventory_2_rounded : Icons.shopping_bag_rounded,
+                  size: 20,
+                  color: badgeColor,
+                ),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     first.product.name,
@@ -1871,16 +1940,16 @@ class _CartScreenState extends State<CartScreen> {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: first.isCarton ? const Color(0xFFE8F5E9) : const Color(0xFFE3F2FD),
-                    borderRadius: BorderRadius.circular(6),
+                    color: badgeBg,
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    first.typeLabel,
+                    isCarton ? 'كرتون' : 'حبة',
                     style: TextStyle(
                         fontSize: 11,
-                        color: first.isCarton ? const Color(0xFF2E7D32) : Colors.blue,
+                        color: badgeColor,
                         fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -1897,12 +1966,12 @@ class _CartScreenState extends State<CartScreen> {
                     if (item.product.hasFlavors)
                       Expanded(
                         child: Text(
-                          item.flavor != null && item.flavor!.isNotEmpty ? "• ${item.flavor}" : "• طعم غير محدد",
+                          item.flavor != null && item.flavor!.isNotEmpty ? item.flavor! : "طعم غير محدد",
                           style: const TextStyle(fontSize: 13, color: Colors.purple, fontWeight: FontWeight.w500),
                         ),
                       )
                     else
-                      const Expanded(child: Text("• الكمية", style: TextStyle(fontSize: 13, color: Colors.grey))),
+                      const Expanded(child: Text("الكمية", style: TextStyle(fontSize: 13, color: Colors.grey))),
 
                     Row(
                       mainAxisSize: MainAxisSize.min,

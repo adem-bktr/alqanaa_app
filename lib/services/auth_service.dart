@@ -263,6 +263,23 @@ class AuthService {
   }
 
   // ══════════════════════════════════
+  //    تحديث أيام الزيارة/التوزيع للزبون
+  // ══════════════════════════════════
+  static Future<void> updateUserVisitDays(
+      String userId, List<String> visitDays) async {
+    await _queuedWrite(
+        _db.collection('users').doc(userId).update({'visitDays': visitDays}));
+    final local = await _getLocalUser();
+    if (local != null && local.id == userId) {
+      final patched = local.copyWith(visitDays: visitDays);
+      _cachedUser = patched;
+      await _saveUserLocally(patched);
+    } else if (_cachedUser?.id == userId) {
+      _cachedUser = _cachedUser!.copyWith(visitDays: visitDays);
+    }
+  }
+
+  // ══════════════════════════════════
   //    حذف مستخدم
   // ══════════════════════════════════
   static Future<void> deleteUser(String userId) async {

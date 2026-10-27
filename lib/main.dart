@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -15,6 +16,20 @@ import 'dart:io';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // ✅ كبح ذاكرة الصور لجميع الأجهزة لمنع مسح الصور أثناء التمرير ولمنع نفاد الذاكرة في iOS
+  PaintingBinding.instance.imageCache.maximumSizeBytes = 200 * 1024 * 1024; // 200 MB
+  PaintingBinding.instance.imageCache.maximumSize = 250;
+
+  // ✅ معالجة الأخطاء العالمية غير المعالجة لمنع انهيار iOS/Android الفجائي
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    debugPrint('⚠️ FlutterError caught: ${details.exception}');
+  };
+  PlatformDispatcher.instance.onError = (error, stack) {
+    debugPrint('⚠️ PlatformDispatcher error caught: $error');
+    return true;
+  };
 
   if (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
     await windowManager.ensureInitialized();
@@ -38,7 +53,7 @@ void main() async {
     try {
       FirebaseFirestore.instance.settings = const Settings(
         persistenceEnabled: true,
-        cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+        cacheSizeBytes: 50 * 1024 * 1024, // 50 MB بدلاً من UNLIMITED لمنع تضخم الذاكرة على iOS
       );
     } catch (_) {}
   }

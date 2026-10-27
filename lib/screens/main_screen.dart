@@ -338,7 +338,7 @@ class _MainScreenState extends State<MainScreen>
                     child: SizedBox(
                       width: 60, height: 60,
                       child: p.imagePath.isNotEmpty
-                          ? CachedNetworkImage(imageUrl: p.imagePath, fit: BoxFit.cover)
+                          ? CachedNetworkImage(imageUrl: p.imagePath, fit: BoxFit.cover, memCacheWidth: 200, memCacheHeight: 200)
                           : Container(color: Colors.grey.shade100, child: const Icon(Icons.image, color: Colors.grey)),
                     ),
                   ),
@@ -436,7 +436,7 @@ class _MainScreenState extends State<MainScreen>
                               child: ClipRRect(
                                   borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
                                   child: p.imagePath.isNotEmpty
-                                      ? CachedNetworkImage(imageUrl: p.imagePath, fit: BoxFit.cover, errorWidget: (_,__,___) => const Icon(Icons.image, size: 50))
+                                      ? CachedNetworkImage(imageUrl: p.imagePath, fit: BoxFit.cover, memCacheWidth: 350, memCacheHeight: 350, errorWidget: (_,__,___) => const Icon(Icons.image, size: 50))
                                       : Container(color: Colors.grey.shade100, child: const Icon(Icons.image, size: 50))
                               ),
                             ),
@@ -555,7 +555,7 @@ class _MainScreenState extends State<MainScreen>
     return Opacity(opacity: p.isAvailable ? 1.0 : 0.5, child: Container(margin: const EdgeInsets.only(bottom: 10), padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(15)),
         child: Column(children: [
           Row(children: [
-            ClipRRect(borderRadius: BorderRadius.circular(10), child: p.imagePath.isNotEmpty ? CachedNetworkImage(imageUrl: p.imagePath, width: 60, height: 60, fit: BoxFit.cover, placeholder: (c, u) => Container(width: 60, height: 60, color: Colors.grey.shade200), errorWidget: (c, u, e) => Container(width: 60, height: 60, color: Colors.grey.shade200, child: const Icon(Icons.image))) : Container(width: 60, height: 60, color: Colors.grey.shade200, child: const Icon(Icons.image))),
+            ClipRRect(borderRadius: BorderRadius.circular(10), child: p.imagePath.isNotEmpty ? CachedNetworkImage(imageUrl: p.imagePath, width: 60, height: 60, fit: BoxFit.cover, memCacheWidth: 200, memCacheHeight: 200, placeholder: (c, u) => Container(width: 60, height: 60, color: Colors.grey.shade200), errorWidget: (c, u, e) => Container(width: 60, height: 60, color: Colors.grey.shade200, child: const Icon(Icons.image))) : Container(width: 60, height: 60, color: Colors.grey.shade200, child: const Icon(Icons.image))),
             const SizedBox(width: 12),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),

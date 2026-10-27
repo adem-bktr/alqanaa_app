@@ -367,6 +367,8 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen>
                           ? CachedNetworkImage(
                         imageUrl: product.imagePath,
                         fit: BoxFit.cover,
+                        memCacheWidth: 350,
+                        memCacheHeight: 350,
                         placeholder: (context, url) => Shimmer.fromColors(
                           baseColor: Colors.grey[300]!,
                           highlightColor: Colors.grey[100]!,
@@ -510,6 +512,8 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen>
                           ? CachedNetworkImage(
                               imageUrl: product.imagePath,
                               fit: BoxFit.cover,
+                              memCacheWidth: 200,
+                              memCacheHeight: 200,
                               placeholder: (context, url) => Shimmer.fromColors(
                                 baseColor: Colors.grey[300]!,
                                 highlightColor: Colors.grey[100]!,
@@ -611,6 +615,8 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen>
                       ? CachedNetworkImage(
                         imageUrl: product.imagePath,
                         fit: BoxFit.cover,
+                        memCacheWidth: 250,
+                        memCacheHeight: 250,
                         placeholder: (context, url) => Shimmer.fromColors(
                           baseColor: Colors.grey[300]!,
                           highlightColor: Colors.grey[100]!,

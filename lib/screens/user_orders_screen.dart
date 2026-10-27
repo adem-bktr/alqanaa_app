@@ -21,6 +21,7 @@ class _UserOrdersScreenState extends State<UserOrdersScreen>
 
   late Stream<List<app_models.Order>> _ordersStream;
   StreamSubscription? _notificationSub;
+  StreamSubscription? _openedAppSub;
   late AnimationController _listController;
 
   // ✅ Scroll + Keyboard
@@ -41,6 +42,7 @@ class _UserOrdersScreenState extends State<UserOrdersScreen>
   @override
   void dispose() {
     _notificationSub?.cancel();
+    _openedAppSub?.cancel();
     _listController.dispose();
     _scrollController.dispose();
     _keyboardFocus.dispose();
@@ -88,11 +90,22 @@ class _UserOrdersScreenState extends State<UserOrdersScreen>
     _ordersStream = FirebaseFirestore.instance
         .collection('orders')
         .where('userId', isEqualTo: widget.userId)
-        .orderBy('createdAt', descending: true)
+        .limit(30)
         .snapshots()
-        .map((snap) => snap.docs
-        .map((doc) => app_models.Order.fromJson({...doc.data(), 'id': doc.id}))
-        .toList());
+        .map((snap) {
+      final list = snap.docs
+          .map((doc) => app_models.Order.fromJson({...doc.data(), 'id': doc.id}))
+          .toList();
+      list.sort((a, b) {
+        final da = a.createdAt;
+        final db = b.createdAt;
+        if (da != null && db != null) return db.compareTo(da);
+        if (da != null) return -1;
+        if (db != null) return 1;
+        return b.date.compareTo(a.date);
+      });
+      return list;
+    });
   }
 
   void _listenNotifications() {
@@ -101,7 +114,7 @@ class _UserOrdersScreenState extends State<UserOrdersScreen>
         _showStatusBar(message.data['status'] ?? '');
       }
     });
-    FirebaseMessaging.onMessageOpenedApp.listen((message) {
+    _openedAppSub = FirebaseMessaging.onMessageOpenedApp.listen((message) {
       if (message.data['type'] == 'order_status' && mounted) {
         _showStatusBar(message.data['status'] ?? '');
       }
@@ -179,7 +192,7 @@ class _UserOrdersScreenState extends State<UserOrdersScreen>
 
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.0, end: 1.0),
-      duration: Duration(milliseconds: 400 + (index * 100)),
+      duration: Duration(milliseconds: 300 + ((index % 6) * 50)),
       curve: Curves.easeOutCubic,
       builder: (_, value, child) => Opacity(
         opacity: value,

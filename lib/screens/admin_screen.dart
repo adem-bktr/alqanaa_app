@@ -5,6 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart'; // ✅ أضفنا هذا الاستيراد
+import 'package:url_launcher/url_launcher.dart';
 import '../models/models.dart';
 import '../services/auth_service.dart';
 import '../services/data_service.dart';
@@ -52,6 +53,29 @@ class _AdminScreenState extends State<AdminScreen>
   final purchasePriceCartonController = TextEditingController(); // ✅ جديد
   final stockQuantityController = TextEditingController();
   final unitsPerCartonController = TextEditingController(text: '1'); // ✅ جديد
+  final _scheduleSearchController = TextEditingController(); // ✅ خاص بجدول الأيام
+  late String _selectedScheduleDay; // ✅ اليوم المختار في جدول الأيام
+
+  String _getTodayArabicName() {
+    switch (DateTime.now().weekday) {
+      case DateTime.saturday:
+        return 'السبت';
+      case DateTime.sunday:
+        return 'الأحد';
+      case DateTime.monday:
+        return 'الإثنين';
+      case DateTime.tuesday:
+        return 'الثلاثاء';
+      case DateTime.wednesday:
+        return 'الأربعاء';
+      case DateTime.thursday:
+        return 'الخميس';
+      case DateTime.friday:
+        return 'الجمعة';
+      default:
+        return 'السبت';
+    }
+  }
 
   List<Brand> brands = [];
   List<Product> products = [];
@@ -124,6 +148,7 @@ class _AdminScreenState extends State<AdminScreen>
   void initState() {
     super.initState();
     _currentTab = widget.initialTab; // ✅
+    _selectedScheduleDay = _getTodayArabicName(); // ✅ تهيئة اليوم الحالي لجدول الأيام
     WidgetsBinding.instance.addObserver(this);
     _fadeController = AnimationController(
       vsync: this,
@@ -449,6 +474,7 @@ class _AdminScreenState extends State<AdminScreen>
     stockQuantityController.dispose();
     unitsPerCartonController.dispose();
     purchasePriceCartonController.dispose(); // ✅ جديد
+    _scheduleSearchController.dispose(); // ✅ جديد
     _adminPasswordController.dispose();
     _adminPasswordConfirmController.dispose();
     _fadeController.dispose();
@@ -2165,6 +2191,7 @@ class _AdminScreenState extends State<AdminScreen>
                       const StatsScreen(),
                       _buildUsersTab(isDark),
                       const InventoryScreen(),
+                      _buildDaysScheduleTab(isDark), // ✅ Index 6: برنامج الأيام
                     ],
                   ),
                 ),
@@ -2222,6 +2249,7 @@ class _AdminScreenState extends State<AdminScreen>
             const StatsScreen(),
             _buildUsersTab(isDark),
             const InventoryScreen(),
+            _buildDaysScheduleTab(isDark), // ✅ Index 6: برنامج الأيام
           ],
         ),
       ),
@@ -2262,6 +2290,11 @@ class _AdminScreenState extends State<AdminScreen>
             activeIcon: Icon(Icons.inventory_rounded),
             label: 'المخزون',
           ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.calendar_month_outlined),
+            activeIcon: Icon(Icons.calendar_month),
+            label: 'الأيام',
+          ),
         ],
       ),
     );
@@ -2280,6 +2313,7 @@ class _AdminScreenState extends State<AdminScreen>
       {'icon': Icons.bar_chart_rounded, 'label': 'تقارير المبيعات', 'index': 3},
       {'icon': Icons.people_rounded, 'label': 'المستخدمون', 'index': 4},
       {'icon': Icons.inventory_rounded, 'label': 'المخزون', 'index': 5},
+      {'icon': Icons.calendar_month_rounded, 'label': 'برنامج الأيام', 'index': 6},
     ];
     return Container(
       width: 220,
@@ -2487,7 +2521,8 @@ class _AdminScreenState extends State<AdminScreen>
       'سجل الطلبات',
       'تقارير المبيعات',
       'إدارة المستخدمين',
-      'المخزون'
+      'المخزون',
+      'جدول الأيام والزبائن',
     ];
     return Container(
       height: 56,

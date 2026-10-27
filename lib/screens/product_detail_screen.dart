@@ -965,6 +965,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     ? CachedNetworkImage(
                   imageUrl: widget.product.imagePath,
                   fit: BoxFit.cover,
+                  memCacheWidth: 800,
                   placeholder: (context, url) => Shimmer.fromColors(
                     baseColor: Colors.grey[300]!,
                     highlightColor: Colors.grey[100]!,
@@ -1069,6 +1070,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             ? CachedNetworkImage(
                           imageUrl: widget.product.imagePath,
                           fit: BoxFit.cover,
+                          memCacheWidth: 800,
                           placeholder: (context, url) => Shimmer.fromColors(
                             baseColor: Colors.grey[300]!,
                             highlightColor: Colors.grey[100]!,

@@ -667,6 +667,8 @@ extension AdminManageTabX on _AdminScreenState {
                         child: CachedNetworkImage(
                           imageUrl: product.imagePath,
                           fit: BoxFit.cover,
+                          memCacheWidth: 200,
+                          memCacheHeight: 200,
                           errorWidget: (_, __, ___) => Icon(
                             product.isFeatured ? Icons.star : Icons.inventory_2,
                             color: product.isFeatured ? Colors.amber : const Color(0xFF2E7D32),

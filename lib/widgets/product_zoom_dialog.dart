@@ -27,6 +27,7 @@ void showProductZoomDialog(BuildContext context, String imageUrl, String product
               child: CachedNetworkImage(
                 imageUrl: imageUrl,
                 fit: BoxFit.contain,
+                memCacheWidth: 1000,
                 placeholder: (_, __) => const CircularProgressIndicator(color: Colors.white),
                 errorWidget: (_, __, ___) => const Column(
                   mainAxisSize: MainAxisSize.min,

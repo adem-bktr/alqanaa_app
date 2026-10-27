@@ -506,7 +506,7 @@ class _DesktopPosViewState extends State<DesktopPosView> {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(8),
                   child: p.imagePath.isNotEmpty
-                      ? CachedNetworkImage(imageUrl: p.imagePath, width: 55, height: 55, fit: BoxFit.cover)
+                      ? CachedNetworkImage(imageUrl: p.imagePath, width: 55, height: 55, fit: BoxFit.cover, memCacheWidth: 180, memCacheHeight: 180)
                       : Container(width: 55, height: 55, color: Colors.grey.shade100, child: const Icon(Icons.fastfood, color: Colors.grey)),
                 ),
               ),
