@@ -1137,8 +1137,52 @@ extension AdminUsersTabX on _AdminScreenState {
     );
   }
 
-// ══════════════════════════════════
-}
+  // 📞 اتصال هاتفي
+  Future<void> _makePhoneCall(String phone) async {
+    if (phone.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('رقم الهاتف غير مسجل لهذا الزبون')),
+      );
+      return;
+    }
+    final uri = Uri.parse('tel:${phone.trim()}');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('تعذر إجراء اتصال برقم: $phone')),
+        );
+      }
+    }
+  }
+
+  // 📍 فتح الموقع على الخريطة لمستخدم
+  Future<void> _openLocationOnMap(UserModel user) async {
+    Uri uri;
+    if (user.latitude != null && user.longitude != null) {
+      uri = Uri.parse(
+          'https://www.google.com/maps/search/?api=1&query=${user.latitude},${user.longitude}');
+    } else if (user.address != null && user.address!.isNotEmpty) {
+      final encoded = Uri.encodeComponent(user.address!);
+      uri = Uri.parse('https://www.google.com/maps/search/?api=1&query=$encoded');
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('لا يوجد موقع أو عنوان مسجل لهذا الزبون')),
+      );
+      return;
+    }
+
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تعذر فتح تطبيق الخرائط')),
+        );
+      }
+    }
+  }
 
 // ══════════════════════════════════
 }
