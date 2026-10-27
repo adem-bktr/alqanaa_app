@@ -1410,6 +1410,7 @@ class DataService {
       'phone': customer.phone,
       'address': customer.address ?? '',
       'balance': customer.balance,
+      'visitDays': customer.visitDays,
       'createdAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true)));
     debugPrint('✅ زبون محفوظ: ${customer.name}');
@@ -1421,9 +1422,19 @@ class DataService {
       'name': customer.name,
       'phone': customer.phone,
       'address': customer.address ?? '',
+      'visitDays': customer.visitDays,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true)));
     debugPrint('✏️ تم تعديل بيانات الزبون: ${customer.name}');
+  }
+
+  static Future<void> updateCustomerVisitDays(
+      String customerId, List<String> visitDays) async {
+    await _queued(_db.collection('customers').doc(customerId).set({
+      'visitDays': visitDays,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true)));
+    debugPrint('✏️ تم تعديل أيام الزيارة للزبون: $customerId');
   }
 
   static Future<void> deleteCustomer(String customerId) async {

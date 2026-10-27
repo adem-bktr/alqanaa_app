@@ -823,6 +823,7 @@ class CustomerModel {
   final String? address;
   final double balance; // إجمالي الدين الحالي (موجب = عليه دين للمحل)
   final DateTime? createdAt;
+  final List<String> visitDays;
 
   CustomerModel({
     required this.id,
@@ -831,6 +832,7 @@ class CustomerModel {
     this.address,
     this.balance = 0,
     this.createdAt,
+    this.visitDays = const [],
   });
 
   bool get hasDebt => balance > 0;
@@ -840,6 +842,7 @@ class CustomerModel {
     'phone': phone,
     'address': address ?? '',
     'balance': balance,
+    'visitDays': visitDays,
   };
 
   factory CustomerModel.fromJson(Map<String, dynamic> json) => CustomerModel(
@@ -849,6 +852,10 @@ class CustomerModel {
     address: _s(json['address']).isEmpty ? null : _s(json['address']),
     balance: _d(json['balance']),
     createdAt: _dt(json['createdAt']),
+    visitDays: (json['visitDays'] as List<dynamic>?)
+            ?.map((e) => e.toString())
+            .toList() ??
+        const [],
   );
 
   CustomerModel copyWith({
@@ -856,6 +863,7 @@ class CustomerModel {
     String? phone,
     String? address,
     double? balance,
+    List<String>? visitDays,
   }) =>
       CustomerModel(
         id: id,
@@ -864,6 +872,7 @@ class CustomerModel {
         address: address ?? this.address,
         balance: balance ?? this.balance,
         createdAt: createdAt,
+        visitDays: visitDays ?? this.visitDays,
       );
 
   @override
