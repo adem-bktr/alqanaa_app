@@ -1146,12 +1146,6 @@ class _MainScreenState extends State<MainScreen>
       ),
     );
   }
-    return Column(children: actions.map((a) => Padding(padding: const EdgeInsets.only(bottom: 10), child: GestureDetector(onTap: a['onTap'] as VoidCallback, child: Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(gradient: LinearGradient(colors: a['colors'] as List<Color>), borderRadius: BorderRadius.circular(16)), child: Row(children: [
-      Container(width: 44, height: 44, decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(12)), child: Icon(a['icon'] as IconData, color: Colors.white, size: 24)), const SizedBox(width: 14),
-      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(a['label'] as String, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)), Text(a['subtitle'] as String, style: const TextStyle(color: Colors.white70, fontSize: 11))])),
-      const Icon(Icons.arrow_forward_ios, color: Colors.white70, size: 16),
-    ]))))).toList());
-  }
 
   Widget _buildOrderCard(Order order, bool isDark, Color cardBg, Color textColor, Color subColor) {
     return Container(
