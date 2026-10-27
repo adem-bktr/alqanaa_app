@@ -324,39 +324,17 @@ class _MainScreenState extends State<MainScreen>
         padding: const EdgeInsets.all(12),
         child: Row(
           children: [
-            Stack(
-              children: [
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () {
-                    if (p.imagePath.isNotEmpty) {
-                      showProductZoomDialog(context, p.imagePath, p.name);
-                    }
-                  },
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: SizedBox(
-                      width: 60, height: 60,
-                      child: p.imagePath.isNotEmpty
-                          ? CachedNetworkImage(imageUrl: p.imagePath, fit: BoxFit.cover, memCacheWidth: 200, memCacheHeight: 200)
-                          : Container(color: Colors.grey.shade100, child: const Icon(Icons.image, color: Colors.grey)),
-                    ),
-                  ),
-                ),
-                if (p.imagePath.isNotEmpty)
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.6),
-                        borderRadius: const BorderRadius.only(topLeft: Radius.circular(6)),
-                      ),
-                      child: const Icon(Icons.zoom_in, color: Colors.white, size: 14),
-                    ),
-                  ),
-              ],
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                width: 65,
+                height: 65,
+                color: Colors.white,
+                padding: const EdgeInsets.all(4),
+                child: p.imagePath.isNotEmpty
+                    ? CachedNetworkImage(imageUrl: p.imagePath, fit: BoxFit.contain, memCacheWidth: 200, memCacheHeight: 200)
+                    : Container(color: Colors.grey.shade100, child: const Icon(Icons.image, color: Colors.grey)),
+              ),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -423,43 +401,16 @@ class _MainScreenState extends State<MainScreen>
             child: Column(
                 children: [
                   Expanded(
-                      child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onTap: () {
-                                if (p.imagePath.isNotEmpty) {
-                                  showProductZoomDialog(context, p.imagePath, p.name);
-                                }
-                              },
-                              child: ClipRRect(
-                                  borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                                  child: p.imagePath.isNotEmpty
-                                      ? CachedNetworkImage(imageUrl: p.imagePath, fit: BoxFit.cover, memCacheWidth: 350, memCacheHeight: 350, errorWidget: (_,__,___) => const Icon(Icons.image, size: 50))
-                                      : Container(color: Colors.grey.shade100, child: const Icon(Icons.image, size: 50))
-                              ),
-                            ),
-                            if (p.imagePath.isNotEmpty)
-                              Positioned(
-                                top: 8,
-                                right: 8,
-                                child: GestureDetector(
-                                  onTap: () {
-                                    showProductZoomDialog(context, p.imagePath, p.name);
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.all(4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.black.withOpacity(0.6),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: const Icon(Icons.zoom_in, color: Colors.white, size: 16),
-                                  ),
-                                ),
-                              ),
-                          ]
-                      )
+                    child: Container(
+                      color: Colors.white,
+                      padding: const EdgeInsets.all(6),
+                      child: ClipRRect(
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                        child: p.imagePath.isNotEmpty
+                            ? CachedNetworkImage(imageUrl: p.imagePath, fit: BoxFit.contain, memCacheWidth: 350, memCacheHeight: 350, errorWidget: (_,__,___) => const Icon(Icons.image, size: 50))
+                            : Container(color: Colors.grey.shade100, child: const Icon(Icons.image, size: 50)),
+                      ),
+                    ),
                   ),
                   Padding(
                       padding: const EdgeInsets.all(12),
