@@ -113,100 +113,171 @@ extension AdminUsersTabX on _AdminScreenState {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color:
-        isDark ? const Color(0xFF2A2A3E) : Colors.grey.shade50,
+        color: isDark ? const Color(0xFF2A2A3E) : Colors.grey.shade50,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: user.isAdmin
               ? const Color(0xFF2E7D32).withOpacity(0.3)
               : user.isSpecial
-              ? Colors.amber.withOpacity(0.3)
-              : Colors.blue.withOpacity(0.3),
+                  ? Colors.amber.withOpacity(0.3)
+                  : Colors.blue.withOpacity(0.3),
         ),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          CircleAvatar(
-            backgroundColor: user.isAdmin
-                ? const Color(0xFF2E7D32)
-                : user.isSpecial
-                ? Colors.amber.shade700
-                : Colors.blue,
-            child: Text(
-              user.name.isNotEmpty
-                  ? user.name[0].toUpperCase()
-                  : '?',
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(user.name,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold),
-                    overflow: TextOverflow.ellipsis),
-                Text(user.email,
-                    style: const TextStyle(
-                        fontSize: 11, color: Colors.grey),
-                    overflow: TextOverflow.ellipsis),
-              ],
-            ),
-          ),
-          GestureDetector(
-            onTap: () => _showChangeRoleDialog(user),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: user.isAdmin
-                    ? const Color(0xFFE8F5E9)
+          Row(
+            children: [
+              CircleAvatar(
+                backgroundColor: user.isAdmin
+                    ? const Color(0xFF2E7D32)
                     : user.isSpecial
-                    ? const Color(0xFFFFF8E1)
-                    : const Color(0xFFE3F2FD),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: user.isAdmin
-                      ? const Color(0xFF2E7D32)
-                      : user.isSpecial
-                      ? Colors.amber
-                      : Colors.blue,
+                        ? Colors.amber.shade700
+                        : Colors.blue,
+                child: Text(
+                  user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
+                  style: const TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.bold),
                 ),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    user.roleLabel,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(user.name,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                        overflow: TextOverflow.ellipsis),
+                    Text(user.email,
+                        style: const TextStyle(fontSize: 11, color: Colors.grey),
+                        overflow: TextOverflow.ellipsis),
+                  ],
+                ),
+              ),
+              GestureDetector(
+                onTap: () => _showChangeRoleDialog(user),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: user.isAdmin
+                        ? const Color(0xFFE8F5E9)
+                        : user.isSpecial
+                            ? const Color(0xFFFFF8E1)
+                            : const Color(0xFFE3F2FD),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
                       color: user.isAdmin
                           ? const Color(0xFF2E7D32)
                           : user.isSpecial
-                          ? Colors.amber.shade800
-                          : Colors.blue,
+                              ? Colors.amber
+                              : Colors.blue,
                     ),
                   ),
-                  const SizedBox(width: 4),
-                  Icon(
-                    Icons.edit,
-                    size: 11,
-                    color: user.isAdmin
-                        ? const Color(0xFF2E7D32)
-                        : user.isSpecial
-                        ? Colors.amber.shade800
-                        : Colors.blue,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        user.roleLabel,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: user.isAdmin
+                              ? const Color(0xFF2E7D32)
+                              : user.isSpecial
+                                  ? Colors.amber.shade800
+                                  : Colors.blue,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.edit,
+                        size: 11,
+                        color: user.isAdmin
+                            ? const Color(0xFF2E7D32)
+                            : user.isSpecial
+                                ? Colors.amber.shade800
+                                : Colors.blue,
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
+            ],
+          ),
+          if (user.address != null && user.address!.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              '📍 ${user.address}',
+              style: TextStyle(
+                fontSize: 11,
+                color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
+          ],
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              if (user.phone.isNotEmpty) ...[
+                InkWell(
+                  onTap: () => _makePhoneCall(user.phone),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.green.shade200),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.phone, size: 12, color: Colors.green),
+                        SizedBox(width: 4),
+                        Text(
+                          'اتصال',
+                          style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.green,
+                              fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+              ],
+              InkWell(
+                onTap: () => _openLocationOnMap(user),
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.blue.shade200),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.map_outlined, size: 12, color: Colors.blue),
+                      SizedBox(width: 4),
+                      Text(
+                        'الموقع',
+                        style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.blue,
+                            fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -214,83 +285,180 @@ extension AdminUsersTabX on _AdminScreenState {
   }
 
   Widget _buildUserListTile(UserModel user) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: CircleAvatar(
-        backgroundColor: user.isAdmin
-            ? const Color(0xFF2E7D32)
-            : user.isSpecial
-            ? Colors.amber.shade700
-            : Colors.blue,
-        child: Text(
-          user.name.isNotEmpty
-              ? user.name[0].toUpperCase()
-              : '?',
-          style: const TextStyle(
-              color: Colors.white, fontWeight: FontWeight.bold),
-        ),
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(12),
       ),
-      title: Text(user.name,
-          style: const TextStyle(fontWeight: FontWeight.bold)),
-      subtitle: Column(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(user.email,
-              style: const TextStyle(fontSize: 12)),
-          Text(user.phone,
-              style: const TextStyle(
-                  fontSize: 12, color: Colors.grey)),
-        ],
-      ),
-      trailing: GestureDetector(
-        onTap: () => _showChangeRoleDialog(user),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(
-              horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: user.isAdmin
-                ? const Color(0xFFE8F5E9)
-                : user.isSpecial
-                ? const Color(0xFFFFF8E1)
-                : const Color(0xFFE3F2FD),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: user.isAdmin
-                  ? const Color(0xFF2E7D32)
-                  : user.isSpecial
-                  ? Colors.amber
-                  : Colors.blue,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
+          Row(
             children: [
-              Text(
-                user.roleLabel,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: user.isAdmin
-                      ? const Color(0xFF2E7D32)
-                      : user.isSpecial
-                      ? Colors.amber.shade800
-                      : Colors.blue,
-                ),
-              ),
-              const SizedBox(width: 4),
-              Icon(
-                Icons.edit,
-                size: 12,
-                color: user.isAdmin
+              CircleAvatar(
+                backgroundColor: user.isAdmin
                     ? const Color(0xFF2E7D32)
                     : user.isSpecial
-                    ? Colors.amber.shade800
-                    : Colors.blue,
+                        ? Colors.amber.shade700
+                        : Colors.blue,
+                child: Text(
+                  user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
+                  style: const TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(user.name,
+                        style: const TextStyle(fontWeight: FontWeight.bold)),
+                    if (user.email.isNotEmpty)
+                      Text(user.email,
+                          style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                    if (user.phone.isNotEmpty)
+                      Text(user.phone,
+                          style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                  ],
+                ),
+              ),
+              // زر تغيير الدور
+              GestureDetector(
+                onTap: () => _showChangeRoleDialog(user),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: user.isAdmin
+                        ? const Color(0xFFE8F5E9)
+                        : user.isSpecial
+                            ? const Color(0xFFFFF8E1)
+                            : const Color(0xFFE3F2FD),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: user.isAdmin
+                          ? const Color(0xFF2E7D32)
+                          : user.isSpecial
+                              ? Colors.amber
+                              : Colors.blue,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        user.roleLabel,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: user.isAdmin
+                              ? const Color(0xFF2E7D32)
+                              : user.isSpecial
+                                  ? Colors.amber.shade800
+                                  : Colors.blue,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.edit,
+                        size: 12,
+                        color: user.isAdmin
+                            ? const Color(0xFF2E7D32)
+                            : user.isSpecial
+                                ? Colors.amber.shade800
+                                : Colors.blue,
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),
-        ),
+          if (user.address != null && user.address!.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                const Icon(Icons.location_on_outlined, size: 13, color: Colors.grey),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    user.address!,
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              if (user.phone.isNotEmpty) ...[
+                Expanded(
+                  child: InkWell(
+                    onTap: () => _makePhoneCall(user.phone),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.green.shade200),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.phone, size: 14, color: Colors.green),
+                          SizedBox(width: 4),
+                          Text(
+                            'اتصال',
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.green,
+                                fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+              Expanded(
+                child: InkWell(
+                  onTap: () => _openLocationOnMap(user),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blue.shade200),
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.map_outlined, size: 14, color: Colors.blue),
+                        SizedBox(width: 4),
+                        Text(
+                          'الموقع',
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.blue,
+                              fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
