@@ -2219,6 +2219,11 @@ class _AdminScreenState extends State<AdminScreen>
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.today_rounded, color: Colors.white),
+            tooltip: 'دور زبائن اليوم',
+            onPressed: _showTodaysCustomersSheet,
+          ),
+          IconButton(
             icon: const Icon(Icons.lock_reset, color: Colors.white),
             tooltip: 'تغيير كلمة السر',
             onPressed: _showChangePasswordDialog,

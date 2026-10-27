@@ -1031,17 +1031,14 @@ class _UserMainScreenState extends State<UserMainScreen>
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(10),
-                child: Container(
-                  width: 65,
-                  height: 65,
-                  color: Colors.white,
-                  padding: const EdgeInsets.all(4),
+                child: SizedBox(
+                  width: 60,
+                  height: 60,
                   child: p.imagePath.isNotEmpty
                       ? CachedNetworkImage(
                           imageUrl: p.imagePath,
-                          fit: BoxFit.contain,
-                          memCacheWidth: 200,
-                          memCacheHeight: 200,
+                          fit: BoxFit.cover,
+                          filterQuality: FilterQuality.high,
                           placeholder: (context, url) => Shimmer.fromColors(
                             baseColor: Colors.grey[300]!,
                             highlightColor: Colors.grey[100]!,
@@ -1787,33 +1784,28 @@ class _ProductMiniCardState extends State<_ProductMiniCard> {
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      Container(
-                        color: Colors.white,
-                        padding: const EdgeInsets.all(6),
-                        child: ClipRRect(
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                          child: widget.product.imagePath.isNotEmpty
-                              ? CachedNetworkImage(
-                            imageUrl: widget.product.imagePath,
-                            fit: BoxFit.contain,
-                            memCacheWidth: 350,
-                            memCacheHeight: 350,
-                            placeholder: (context, url) => Shimmer.fromColors(
-                              baseColor: Colors.grey[300]!,
-                              highlightColor: Colors.grey[100]!,
-                              child: Container(color: Colors.white),
-                            ),
-                            errorWidget: (context, url, error) => Container(
-                              color: const Color(0xFFE8F5E9),
-                              child: const Icon(Icons.inventory_2_rounded,
-                                  color: Color(0xFF2E7D32), size: 32),
-                            ),
-                          )
-                              : Container(
-                              color: const Color(0xFFE8F5E9),
-                              child: const Center(child: Icon(Icons.inventory_2_rounded,
-                                  color: Color(0xFF2E7D32), size: 32))),
-                        ),
+                      ClipRRect(
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                        child: widget.product.imagePath.isNotEmpty
+                            ? CachedNetworkImage(
+                          imageUrl: widget.product.imagePath,
+                          fit: BoxFit.cover,
+                          filterQuality: FilterQuality.high,
+                          placeholder: (context, url) => Shimmer.fromColors(
+                            baseColor: Colors.grey[300]!,
+                            highlightColor: Colors.grey[100]!,
+                            child: Container(color: Colors.white),
+                          ),
+                          errorWidget: (context, url, error) => Container(
+                            color: const Color(0xFFE8F5E9),
+                            child: const Icon(Icons.inventory_2_rounded,
+                                color: Color(0xFF2E7D32), size: 32),
+                          ),
+                        )
+                            : Container(
+                            color: const Color(0xFFE8F5E9),
+                            child: const Center(child: Icon(Icons.inventory_2_rounded,
+                                color: Color(0xFF2E7D32), size: 32))),
                       ),
                       if (widget.product.discount > 0)
                         Positioned(
