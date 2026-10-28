@@ -7,6 +7,7 @@ import '../models/models.dart';
 import '../services/data_service.dart';
 import '../services/auth_service.dart';
 import '../utils/converters.dart';
+import '../widgets/product_zoom_dialog.dart';
 import 'product_detail_screen.dart';
 import 'cart_screen.dart';
 import 'package:badges/badges.dart' as badges;
@@ -1033,32 +1034,55 @@ class _AnimatedProductCardState extends State<_AnimatedProductCard>
                       ClipRRect(
                         borderRadius: const BorderRadius.vertical(
                             top: Radius.circular(16)),
-                        child: widget.product.imagePath.isNotEmpty
-                            ? CachedNetworkImage(
-                          imageUrl: widget.product.imagePath,
-                          fit: BoxFit.cover,
-                          memCacheWidth: 400,
-                          placeholder: (context, url) => Shimmer.fromColors(
-                            baseColor: Colors.grey[300]!,
-                            highlightColor: Colors.grey[100]!,
-                            child: Container(color: Colors.white),
-                          ),
-                          errorWidget: (context, url, error) => Container(
-                            color: const Color(0xFFE8F5E9),
-                            child: const Icon(Icons.image,
-                                size: 50,
-                                color: Color(0xFF2E7D32)),
-                          ),
-                        )
-                            : Container(
-                          color: const Color(0xFFE8F5E9),
-                          child: const Center(
-                            child: Icon(Icons.inventory_2,
-                                size: 50,
-                                color: Color(0xFF2E7D32)),
-                          ),
+                        child: Container(
+                          color: widget.isDark ? const Color(0xFF252536) : const Color(0xFFF4F6F8),
+                          child: widget.product.imagePath.isNotEmpty
+                              ? Padding(
+                                  padding: const EdgeInsets.all(6.0),
+                                  child: CachedNetworkImage(
+                                    imageUrl: widget.product.imagePath,
+                                    fit: BoxFit.contain,
+                                    filterQuality: FilterQuality.high,
+                                    memCacheWidth: 400,
+                                    placeholder: (context, url) => Shimmer.fromColors(
+                                      baseColor: Colors.grey[300]!,
+                                      highlightColor: Colors.grey[100]!,
+                                      child: Container(color: Colors.white),
+                                    ),
+                                    errorWidget: (context, url, error) => Container(
+                                      color: const Color(0xFFE8F5E9),
+                                      child: const Icon(Icons.inventory_2_rounded,
+                                          size: 40,
+                                          color: Color(0xFF2E7D32)),
+                                    ),
+                                  ),
+                                )
+                              : Container(
+                                  color: const Color(0xFFE8F5E9),
+                                  child: const Center(
+                                    child: Icon(Icons.inventory_2_rounded,
+                                        size: 40,
+                                        color: Color(0xFF2E7D32)),
+                                  ),
+                                ),
                         ),
                       ),
+                      if (widget.isAdmin && widget.product.imagePath.isNotEmpty)
+                        Positioned(
+                          bottom: 8,
+                          left: 8,
+                          child: GestureDetector(
+                            onTap: () => showProductZoomDialog(context, widget.product.imagePath, widget.product.name),
+                            child: Container(
+                              padding: const EdgeInsets.all(5),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.5),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.zoom_in_rounded, color: Colors.white, size: 16),
+                            ),
+                          ),
+                        ),
                       if (widget.product.discount > 0)
                         Positioned(
                           top: 8,

@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:shimmer/shimmer.dart';
 import '../models/models.dart';
 import '../services/data_service.dart';
 import '../services/auth_service.dart';
@@ -1563,32 +1565,97 @@ class _CartScreenState extends State<CartScreen> {
     );
   }
 
+  Widget _buildMobileCustomerHeaderCard(bool isDark, Color cardColor, Color textColor) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.3 : 0.06),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.person_pin_rounded, color: Color(0xFF2E7D32), size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'بيانات الزبون والطلب',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textColor),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: nameController,
+            style: TextStyle(color: textColor, fontSize: 13),
+            decoration: InputDecoration(
+              hintText: 'اسم الزبون',
+              labelText: 'اسم الزبون',
+              isDense: true,
+              hintStyle: TextStyle(color: isDark ? Colors.grey.shade500 : Colors.grey, fontSize: 12),
+              filled: true,
+              fillColor: isDark ? const Color(0xFF2A2A3E) : const Color(0xFFF5F5F5),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+              prefixIcon: Icon(Icons.person, color: isDark ? Colors.green.shade400 : const Color(0xFF2E7D32), size: 18),
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: phoneController,
+            keyboardType: TextInputType.phone,
+            style: TextStyle(color: textColor, fontSize: 13),
+            decoration: InputDecoration(
+              hintText: 'رقم الهاتف',
+              labelText: 'رقم الهاتف',
+              isDense: true,
+              hintStyle: TextStyle(color: isDark ? Colors.grey.shade500 : Colors.grey, fontSize: 12),
+              filled: true,
+              fillColor: isDark ? const Color(0xFF2A2A3E) : const Color(0xFFF5F5F5),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+              prefixIcon: Icon(Icons.phone, color: isDark ? Colors.green.shade400 : const Color(0xFF2E7D32), size: 18),
+            ),
+          ),
+          const SizedBox(height: 8),
+          _buildCustomerLinkSection(isDark),
+        ],
+      ),
+    );
+  }
+
   // ══════════════════════════════════
   //  Mobile Layout
   // ══════════════════════════════════
   Widget _buildMobileLayout(
       bool isDark, Color bgColor, Color cardColor, Color textColor) {
+    final grouped = _groupedCartItems;
+
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
         backgroundColor: const Color(0xFF2E7D32),
         title: Row(
           children: [
-            const Text('السلة',
-                style: TextStyle(color: Colors.white)),
+            const Text('السلة', style: TextStyle(color: Colors.white)),
             if (widget.cart.isNotEmpty) ...[
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 8, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(10)),
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
                 child: Text('${widget.cart.length} صنف',
                     style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold)),
+                        color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
               ),
             ],
           ],
@@ -1615,28 +1682,25 @@ class _CartScreenState extends State<CartScreen> {
             ),
           if (widget.cart.isNotEmpty)
             IconButton(
-              icon: const Icon(Icons.delete_sweep,
-                  color: Colors.white),
+              icon: const Icon(Icons.delete_sweep, color: Colors.white),
               onPressed: () => showDialog(
                 context: context,
                 builder: (_) => AlertDialog(
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   title: const Text('تفريغ السلة'),
-                  content:
-                  const Text('هل تريد حذف جميع المنتجات؟'),
+                  content: const Text('هل تريد حذف جميع المنتجات؟'),
                   actions: [
                     TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('إلغاء')),
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('إلغاء'),
+                    ),
                     TextButton(
                       onPressed: () async {
                         setState(() => widget.cart.clear());
                         await CartService.clearCart();
                         if (mounted) Navigator.pop(context);
                       },
-                      child: const Text('تفريغ',
-                          style: TextStyle(color: Colors.red)),
+                      child: const Text('تفريغ', style: TextStyle(color: Colors.red)),
                     ),
                   ],
                 ),
@@ -1647,184 +1711,95 @@ class _CartScreenState extends State<CartScreen> {
       ),
       bottomNavigationBar: widget.cart.isEmpty
           ? null
-          : SafeArea(
-        child: Container(
-          color: cardColor,
-          padding: EdgeInsets.fromLTRB(
-              16, 12, 16, 8 + MediaQuery.of(context).viewInsets.bottom),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameController,
-                  style: TextStyle(color: textColor),
-                  decoration: InputDecoration(
-                    hintText: 'اسم الزبون',
-                    hintStyle: TextStyle(
-                        color: isDark
-                            ? Colors.grey.shade500
-                            : Colors.grey),
-                    filled: true,
-                    fillColor: isDark
-                        ? const Color(0xFF2A2A3E)
-                        : const Color(0xFFF5F5F5),
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none),
-                    prefixIcon: Icon(Icons.person,
-                        color: isDark
-                            ? Colors.green.shade400
-                            : const Color(0xFF2E7D32)),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: phoneController,
-                  keyboardType: TextInputType.phone,
-                  style: TextStyle(color: textColor),
-                  decoration: InputDecoration(
-                    hintText: 'رقم الهاتف',
-                    hintStyle: TextStyle(
-                        color: isDark
-                            ? Colors.grey.shade500
-                            : Colors.grey),
-                    filled: true,
-                    fillColor: isDark
-                        ? const Color(0xFF2A2A3E)
-                        : const Color(0xFFF5F5F5),
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none),
-                    prefixIcon: Icon(Icons.phone,
-                        color: isDark
-                            ? Colors.green.shade400
-                            : const Color(0xFF2E7D32)),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                // ✅ ربط بزبون (اختياري - أدمن فقط)
-                _buildCustomerLinkSection(isDark),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF1E2E20) : const Color(0xFFE8F5E9),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFF2E7D32).withOpacity(0.3)),
-                  ),
-                  child: Column(
-                    children: [
-                      if (cartonTotal > 0 && unitTotal > 0) ...[
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text('مجموع الكرتون:', style: TextStyle(fontSize: 12, color: isDark ? Colors.grey.shade300 : Colors.grey.shade800)),
-                            Text(formatPrice(cartonTotal), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF2E7D32))),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text('مجموع الحبات:', style: TextStyle(fontSize: 12, color: isDark ? Colors.grey.shade300 : Colors.grey.shade800)),
-                            Text(formatPrice(unitTotal), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blue)),
-                          ],
-                        ),
-                        const Divider(height: 10),
-                      ],
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('المجموع:',
-                              style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16)),
-                          Text(formatPrice(total),
-                              style: const TextStyle(
-                                  color: Color(0xFF2E7D32),
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 20)),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 8),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      final missingFlavor =
-                      widget.cart.any((item) =>
-                      item.product.hasFlavors &&
-                          (item.flavor == null ||
-                              item.flavor!.isEmpty));
-                      if (missingFlavor) {
-                        _showSnackBar(
-                            'يرجى اختيار الطعم لجميع المنتجات',
-                            Colors.orange);
-                        return;
-                      }
-                      _saveOrder();
-                    },
-                    icon: const Icon(Icons.check_circle,
-                        color: Colors.white),
-                    label: const Text('تأكيد الطلبية',
-                        style: TextStyle(
-                            color: Colors.white, fontSize: 16)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF2E7D32),
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 14),
-                      shape: RoundedRectangleBorder(
-                          borderRadius:
-                          BorderRadius.circular(12)),
-                    ),
-                  ),
-                ),
-                // ✅ زر الطباعة الحرارية — يطبع الوصل ويؤكد الطلبية تلقائيًا (أدمن فقط)
-                if (widget.isAdmin) ...[
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: isLoading
-                          ? null
-                          : () {
-                        final missingFlavor =
-                        widget.cart.any((item) =>
-                        item.product.hasFlavors &&
-                            (item.flavor == null ||
-                                item.flavor!.isEmpty));
-                        if (missingFlavor) {
-                          _showSnackBar(
-                              'يرجى اختيار الطعم لجميع المنتجات',
-                              Colors.orange);
-                          return;
-                        }
-                        _saveOrder(printThermal: true);
-                      },
-                      icon: const Icon(Icons.print_rounded,
-                          color: Colors.white),
-                      label: const Text('طباعة حرارية وتأكيد',
-                          style: TextStyle(
-                              color: Colors.white, fontSize: 15)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
-                        padding: const EdgeInsets.symmetric(
-                            vertical: 12),
-                        shape: RoundedRectangleBorder(
-                            borderRadius:
-                            BorderRadius.circular(12)),
-                      ),
-                    ),
+          : Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: cardColor,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.08),
+                    blurRadius: 10,
+                    offset: const Offset(0, -3),
                   ),
                 ],
-              ],
+              ),
+              child: SafeArea(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('المجموع الكلي:',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                        Text(
+                          formatPrice(total),
+                          style: const TextStyle(
+                              color: Color(0xFF2E7D32), fontWeight: FontWeight.bold, fontSize: 20),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              final missingFlavor = widget.cart.any((item) =>
+                                  item.product.hasFlavors &&
+                                  (item.flavor == null || item.flavor!.isEmpty));
+                              if (missingFlavor) {
+                                _showSnackBar('يرجى اختيار الطعم لجميع المنتجات', Colors.orange);
+                                return;
+                              }
+                              _saveOrder();
+                            },
+                            icon: const Icon(Icons.check_circle, color: Colors.white, size: 18),
+                            label: const Text('تأكيد الطلبية',
+                                style: TextStyle(
+                                    color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF2E7D32),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                          ),
+                        ),
+                        if (widget.isAdmin) ...[
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: isLoading
+                                  ? null
+                                  : () {
+                                      final missingFlavor = widget.cart.any((item) =>
+                                          item.product.hasFlavors &&
+                                          (item.flavor == null || item.flavor!.isEmpty));
+                                      if (missingFlavor) {
+                                        _showSnackBar(
+                                            'يرجى اختيار الطعم لجميع المنتجات', Colors.orange);
+                                        return;
+                                      }
+                                      _saveOrder(printThermal: true);
+                                    },
+                              icon: const Icon(Icons.print_rounded, color: Colors.white, size: 18),
+                              label: const Text('طباعة حرارية',
+                                  style: TextStyle(
+                                      color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blue,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ),
-        ),
-      ),
       floatingActionButton: MediaQuery.of(context).viewInsets.bottom > 0
           ? FloatingActionButton.extended(
               onPressed: () => FocusScope.of(context).unfocus(),
@@ -1843,16 +1818,75 @@ class _CartScreenState extends State<CartScreen> {
           maintainBottomViewPadding: true,
           child: isLoading
               ? const Center(
-              child: CircularProgressIndicator(
-                  color: Color(0xFF2E7D32)))
+                  child: CircularProgressIndicator(color: Color(0xFF2E7D32)))
               : widget.cart.isEmpty
-              ? _buildEmptyCart(isDark)
-              : ListView.builder(
-                  padding: const EdgeInsets.all(8),
-                  itemCount: _groupedCartItems.length,
-                  itemBuilder: (context, index) => _buildCartItem(
-                      _groupedCartItems[index], isDark, cardColor, textColor),
-                ),
+                  ? _buildEmptyCart(isDark)
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(12),
+                      itemCount: 1 + grouped.length + 1,
+                      itemBuilder: (context, index) {
+                        if (index == 0) {
+                          return _buildMobileCustomerHeaderCard(isDark, cardColor, textColor);
+                        } else if (index == 1 + grouped.length) {
+                          return Container(
+                            margin: const EdgeInsets.only(top: 4, bottom: 16),
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: isDark ? const Color(0xFF1E2E20) : const Color(0xFFE8F5E9),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: const Color(0xFF2E7D32).withOpacity(0.3)),
+                            ),
+                            child: Column(
+                              children: [
+                                if (cartonTotal > 0 && unitTotal > 0) ...[
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text('مجموع الكرتون:',
+                                          style: TextStyle(
+                                              fontSize: 12,
+                                              color: isDark ? Colors.grey.shade300 : Colors.grey.shade800)),
+                                      Text(formatPrice(cartonTotal),
+                                          style: const TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                              color: Color(0xFF2E7D32))),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text('مجموع الحبات:',
+                                          style: TextStyle(
+                                              fontSize: 12,
+                                              color: isDark ? Colors.grey.shade300 : Colors.grey.shade800)),
+                                      Text(formatPrice(unitTotal),
+                                          style: const TextStyle(
+                                              fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blue)),
+                                    ],
+                                  ),
+                                  const Divider(height: 12),
+                                ],
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text('المجموع الإجمالي:',
+                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                                    Text(formatPrice(total),
+                                        style: const TextStyle(
+                                            color: Color(0xFF2E7D32),
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 18)),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+                        return _buildCartItem(grouped[index - 1], isDark, cardColor, textColor);
+                      },
+                    ),
         ),
       ),
     );
@@ -1917,25 +1951,48 @@ class _CartScreenState extends State<CartScreen> {
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // ── العنوان والنوع ──
             Row(
               children: [
-                Icon(
-                  isCarton ? Icons.inventory_2_rounded : Icons.shopping_bag_rounded,
-                  size: 20,
-                  color: badgeColor,
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    color: isDark ? const Color(0xFF252536) : const Color(0xFFF4F6F8),
+                    child: first.product.imagePath.isNotEmpty
+                        ? CachedNetworkImage(
+                            imageUrl: first.product.imagePath,
+                            fit: BoxFit.contain,
+                            placeholder: (c, u) => Shimmer.fromColors(
+                              baseColor: Colors.grey[300]!,
+                              highlightColor: Colors.grey[100]!,
+                              child: Container(color: Colors.white),
+                            ),
+                            errorWidget: (c, u, e) => Icon(
+                              isCarton ? Icons.inventory_2_rounded : Icons.shopping_bag_rounded,
+                              size: 22,
+                              color: badgeColor,
+                            ),
+                          )
+                        : Icon(
+                            isCarton ? Icons.inventory_2_rounded : Icons.shopping_bag_rounded,
+                            size: 22,
+                            color: badgeColor,
+                          ),
+                  ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     first.product.name,
                     style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        fontSize: 15,
+                        fontSize: 14,
                         color: textColor),
                   ),
                 ),
@@ -2004,7 +2061,7 @@ class _CartScreenState extends State<CartScreen> {
               );
             }),
 
-            const Divider(height: 20),
+            const Divider(height: 16),
 
             // ── السعر والإجمالي للفئة ──
             Row(
@@ -2016,11 +2073,11 @@ class _CartScreenState extends State<CartScreen> {
                   children: [
                     Text(
                       'إجمالي: ${formatPrice(totalPrice)}',
-                      style: const TextStyle(color: Color(0xFF2E7D32), fontWeight: FontWeight.bold, fontSize: 16),
+                      style: const TextStyle(color: Color(0xFF2E7D32), fontWeight: FontWeight.bold, fontSize: 15),
                     ),
                     Text(
                       '${formatPrice(first.unitPrice)} / ${first.typeLabel}',
-                      style: TextStyle(color: isDark ? Colors.grey.shade400 : Colors.grey, fontSize: 12),
+                      style: TextStyle(color: isDark ? Colors.grey.shade400 : Colors.grey, fontSize: 11),
                     ),
                   ],
                 ),
@@ -2032,7 +2089,7 @@ class _CartScreenState extends State<CartScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF2E7D32).withOpacity(0.1),
                       elevation: 0,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
                   ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:badges/badges.dart' as badges;
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:shimmer/shimmer.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/models.dart';
 import '../services/data_service.dart';
@@ -301,7 +302,7 @@ class _MainScreenState extends State<MainScreen>
       Expanded(child: isDesktop
           ? ListView.builder(padding: const EdgeInsets.all(12), itemCount: _storeFilteredProducts.length, itemBuilder: (context, i) => _buildDesktopProductRow(_storeFilteredProducts[i], isDark, cardColor, textColor))
           : (crossAxisCount > 1
-          ? GridView.builder(padding: const EdgeInsets.all(12), gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: crossAxisCount, crossAxisSpacing: 10, mainAxisSpacing: 12, childAspectRatio: 0.70), itemCount: _storeFilteredProducts.length, itemBuilder: (context, i) => _buildAdvancedProductCard(_storeFilteredProducts[i], isDark, cardColor, textColor))
+          ? GridView.builder(padding: const EdgeInsets.all(12), gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: crossAxisCount, crossAxisSpacing: 10, mainAxisSpacing: 12, childAspectRatio: 0.65), itemCount: _storeFilteredProducts.length, itemBuilder: (context, i) => _buildAdvancedProductCard(_storeFilteredProducts[i], isDark, cardColor, textColor))
           : ListView.builder(padding: const EdgeInsets.all(10), itemCount: _storeFilteredProducts.length, itemBuilder: (context, i) => _buildFastProductCard(_storeFilteredProducts[i], isDark, cardColor, textColor)))),
       _buildFloatingCartBar(),
     ]);
@@ -312,6 +313,7 @@ class _MainScreenState extends State<MainScreen>
     final bool isCarton = _isCartonMode(p);
     final price = _cardPrice(p, isCarton);
     final sellable = p.isAvailable && (!p.hasFlavors || p.availableFlavors.isNotEmpty);
+    final bool isAdmin = _adminUser?.isAdmin == true || AuthService.currentUser?.isAdmin == true;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -325,14 +327,53 @@ class _MainScreenState extends State<MainScreen>
         padding: const EdgeInsets.all(12),
         child: Row(
           children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: SizedBox(
-                width: 60,
-                height: 60,
-                child: p.imagePath.isNotEmpty
-                    ? CachedNetworkImage(imageUrl: p.imagePath, fit: BoxFit.cover, filterQuality: FilterQuality.high)
-                    : Container(color: Colors.grey.shade100, child: const Icon(Icons.image, color: Colors.grey)),
+            GestureDetector(
+              onTap: isAdmin && p.imagePath.isNotEmpty
+                  ? () => showProductZoomDialog(context, p.imagePath, p.name)
+                  : null,
+              child: Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      width: 60,
+                      height: 60,
+                      color: isDark ? const Color(0xFF252536) : const Color(0xFFF4F6F8),
+                      child: p.imagePath.isNotEmpty
+                          ? CachedNetworkImage(
+                              imageUrl: p.imagePath,
+                              fit: BoxFit.contain,
+                              filterQuality: FilterQuality.high,
+                              placeholder: (context, url) => Shimmer.fromColors(
+                                baseColor: Colors.grey[300]!,
+                                highlightColor: Colors.grey[100]!,
+                                child: Container(color: Colors.white),
+                              ),
+                              errorWidget: (context, url, error) => Container(
+                                color: const Color(0xFFE8F5E9),
+                                child: const Icon(Icons.inventory_2_rounded, color: Color(0xFF2E7D32), size: 28),
+                              ),
+                            )
+                          : Container(
+                              color: const Color(0xFFE8F5E9),
+                              child: const Icon(Icons.inventory_2_rounded, color: Color(0xFF2E7D32), size: 28),
+                            ),
+                    ),
+                  ),
+                  if (isAdmin && p.imagePath.isNotEmpty)
+                    Positioned(
+                      top: 2,
+                      left: 2,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.5),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.zoom_in_rounded, color: Colors.white, size: 12),
+                      ),
+                    ),
+                ],
               ),
             ),
             const SizedBox(width: 16),
@@ -388,6 +429,7 @@ class _MainScreenState extends State<MainScreen>
     final price = _cardPrice(p, isCarton);   // ✅ السعر الخاص/العادي + الخصم
     // ✅ المنتج ذو الأذواق وكلها غير متوفرة يُعتبر غير متوفر
     final bool sellable = p.isAvailable && (!p.hasFlavors || p.availableFlavors.isNotEmpty);
+    final bool isAdmin = _adminUser?.isAdmin == true || AuthService.currentUser?.isAdmin == true;
 
     return Opacity(
         opacity: sellable ? 1.0 : 0.6,
@@ -400,11 +442,86 @@ class _MainScreenState extends State<MainScreen>
             child: Column(
                 children: [
                   Expanded(
-                    child: ClipRRect(
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                      child: p.imagePath.isNotEmpty
-                          ? CachedNetworkImage(imageUrl: p.imagePath, fit: BoxFit.cover, filterQuality: FilterQuality.high, errorWidget: (_,__,___) => const Icon(Icons.image, size: 50))
-                          : Container(color: Colors.grey.shade100, child: const Icon(Icons.image, size: 50)),
+                    child: GestureDetector(
+                      onTap: isAdmin && p.imagePath.isNotEmpty
+                          ? () => showProductZoomDialog(context, p.imagePath, p.name)
+                          : null,
+                      child: ClipRRect(
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                        child: Container(
+                          width: double.infinity,
+                          color: isDark ? const Color(0xFF252536) : const Color(0xFFF4F6F8),
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              p.imagePath.isNotEmpty
+                                  ? Padding(
+                                      padding: const EdgeInsets.all(8.0),
+                                      child: CachedNetworkImage(
+                                        imageUrl: p.imagePath,
+                                        fit: BoxFit.contain,
+                                        filterQuality: FilterQuality.high,
+                                        placeholder: (context, url) => Shimmer.fromColors(
+                                          baseColor: Colors.grey[300]!,
+                                          highlightColor: Colors.grey[100]!,
+                                          child: Container(color: Colors.white),
+                                        ),
+                                        errorWidget: (_, __, ___) => Container(
+                                          color: const Color(0xFFE8F5E9),
+                                          child: const Center(
+                                            child: Icon(Icons.inventory_2_rounded, size: 40, color: Color(0xFF2E7D32)),
+                                          ),
+                                        ),
+                                      ),
+                                    )
+                                  : Container(
+                                      color: const Color(0xFFE8F5E9),
+                                      child: const Center(
+                                        child: Icon(Icons.inventory_2_rounded, size: 40, color: Color(0xFF2E7D32)),
+                                      ),
+                                    ),
+                              if (isAdmin && p.imagePath.isNotEmpty)
+                                Positioned(
+                                  top: 8,
+                                  left: 8,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(5),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withOpacity(0.5),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.zoom_in_rounded,
+                                      color: Colors.white,
+                                      size: 16,
+                                    ),
+                                  ),
+                                ),
+                              Positioned(
+                                top: 8,
+                                right: 8,
+                                child: _buildStockPill(p),
+                              ),
+                              if (p.discount > 0)
+                                Positioned(
+                                  bottom: 8,
+                                  right: 8,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.red,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      '-${p.discount.toInt()}%',
+                                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                   Padding(
@@ -498,10 +615,60 @@ class _MainScreenState extends State<MainScreen>
 
   Widget _buildFastProductCard(Product p, bool isDark, Color cardColor, Color textColor) {
     bool isCarton = _itemIsCartonMap[p.id] ?? true;
+    final bool isAdmin = _adminUser?.isAdmin == true || AuthService.currentUser?.isAdmin == true;
     return Opacity(opacity: p.isAvailable ? 1.0 : 0.5, child: Container(margin: const EdgeInsets.only(bottom: 10), padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(15)),
         child: Column(children: [
           Row(children: [
-            ClipRRect(borderRadius: BorderRadius.circular(10), child: p.imagePath.isNotEmpty ? CachedNetworkImage(imageUrl: p.imagePath, width: 60, height: 60, fit: BoxFit.cover, memCacheWidth: 200, memCacheHeight: 200, placeholder: (c, u) => Container(width: 60, height: 60, color: Colors.grey.shade200), errorWidget: (c, u, e) => Container(width: 60, height: 60, color: Colors.grey.shade200, child: const Icon(Icons.image))) : Container(width: 60, height: 60, color: Colors.grey.shade200, child: const Icon(Icons.image))),
+            GestureDetector(
+              onTap: isAdmin && p.imagePath.isNotEmpty
+                  ? () => showProductZoomDialog(context, p.imagePath, p.name)
+                  : null,
+              child: Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      width: 60,
+                      height: 60,
+                      color: isDark ? const Color(0xFF252536) : const Color(0xFFF4F6F8),
+                      child: p.imagePath.isNotEmpty
+                          ? CachedNetworkImage(
+                              imageUrl: p.imagePath,
+                              fit: BoxFit.contain,
+                              memCacheWidth: 200,
+                              memCacheHeight: 200,
+                              placeholder: (c, u) => Shimmer.fromColors(
+                                baseColor: Colors.grey[300]!,
+                                highlightColor: Colors.grey[100]!,
+                                child: Container(color: Colors.white),
+                              ),
+                              errorWidget: (c, u, e) => Container(
+                                color: const Color(0xFFE8F5E9),
+                                child: const Icon(Icons.inventory_2_rounded, size: 28, color: Color(0xFF2E7D32)),
+                              ),
+                            )
+                          : Container(
+                              color: const Color(0xFFE8F5E9),
+                              child: const Icon(Icons.inventory_2_rounded, size: 28, color: Color(0xFF2E7D32)),
+                            ),
+                    ),
+                  ),
+                  if (isAdmin && p.imagePath.isNotEmpty)
+                    Positioned(
+                      top: 2,
+                      left: 2,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.5),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.zoom_in_rounded, color: Colors.white, size: 12),
+                      ),
+                    ),
+                ],
+              ),
+            ),
             const SizedBox(width: 12),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
