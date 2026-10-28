@@ -322,7 +322,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen>
         ? product.discountedPrice(product.priceCartonSpecial)
         : product.discountedPrice(product.priceCartonNormal);
     final maxReached = _isMaxQtyReached(product);
-    final bool isAdmin = currentUser?.isAdmin == true || AuthService.currentUser?.isAdmin == true;
+    final bool isAdmin = currentUser?.isAdmin == true;
 
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.0, end: 1.0),
@@ -408,13 +408,6 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen>
                           ),
                         ),
                       ),
-                        ),
-                      )
-                          : Container(
-                        color: const Color(0xFFE8F5E9),
-                        child: const Center(child: Icon(Icons.inventory_2, size: 50, color: Color(0xFF2E7D32))),
-                      ),
-                    ),
                     if (product.discount > 0)
                       Positioned(
                         top: 8, right: 8,

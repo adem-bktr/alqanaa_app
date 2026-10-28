@@ -313,7 +313,7 @@ class _MainScreenState extends State<MainScreen>
     final bool isCarton = _isCartonMode(p);
     final price = _cardPrice(p, isCarton);
     final sellable = p.isAvailable && (!p.hasFlavors || p.availableFlavors.isNotEmpty);
-    final bool isAdmin = _adminUser?.isAdmin == true || AuthService.currentUser?.isAdmin == true;
+    final bool isAdmin = _adminUser?.isAdmin ?? true;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -429,7 +429,7 @@ class _MainScreenState extends State<MainScreen>
     final price = _cardPrice(p, isCarton);   // ✅ السعر الخاص/العادي + الخصم
     // ✅ المنتج ذو الأذواق وكلها غير متوفرة يُعتبر غير متوفر
     final bool sellable = p.isAvailable && (!p.hasFlavors || p.availableFlavors.isNotEmpty);
-    final bool isAdmin = _adminUser?.isAdmin == true || AuthService.currentUser?.isAdmin == true;
+    final bool isAdmin = _adminUser?.isAdmin ?? true;
 
     return Opacity(
         opacity: sellable ? 1.0 : 0.6,
@@ -615,7 +615,7 @@ class _MainScreenState extends State<MainScreen>
 
   Widget _buildFastProductCard(Product p, bool isDark, Color cardColor, Color textColor) {
     bool isCarton = _itemIsCartonMap[p.id] ?? true;
-    final bool isAdmin = _adminUser?.isAdmin == true || AuthService.currentUser?.isAdmin == true;
+    final bool isAdmin = _adminUser?.isAdmin ?? true;
     return Opacity(opacity: p.isAvailable ? 1.0 : 0.5, child: Container(margin: const EdgeInsets.only(bottom: 10), padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(15)),
         child: Column(children: [
           Row(children: [

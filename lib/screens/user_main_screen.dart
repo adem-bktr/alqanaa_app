@@ -964,6 +964,7 @@ class _UserMainScreenState extends State<UserMainScreen>
           final product = displayedProducts[index];
           return _ProductMiniCard(
             product: product, index: index, isDark: isDark,
+            isAdmin: widget.user.isAdmin || widget.isPreviewMode,
             cardBg: cardBg, textColor: textColor,
             onTap: () => Navigator.push(context,
               SlidePageRoute(page: ProductDetailScreen(
@@ -1251,6 +1252,7 @@ class _UserMainScreenState extends State<UserMainScreen>
                           final product = displayedProducts[index];
                           return _ProductMiniCard(
                             product: product, index: index, isDark: isDark,
+                            isAdmin: widget.user.isAdmin || widget.isPreviewMode,
                             cardBg: cardBg, textColor: textColor,
                             onTap: () => Navigator.push(context,
                               SlidePageRoute(page: ProductDetailScreen(
@@ -1722,13 +1724,14 @@ class _ProductMiniCard extends StatefulWidget {
   final Product product;
   final int index;
   final bool isDark;
+  final bool isAdmin;
   final Color cardBg;
   final Color textColor;
   final VoidCallback onTap;
 
   const _ProductMiniCard({
     required this.product, required this.index, required this.isDark,
-    required this.cardBg, required this.textColor, required this.onTap,
+    required this.isAdmin, required this.cardBg, required this.textColor, required this.onTap,
   });
 
   @override
@@ -1813,7 +1816,7 @@ class _ProductMiniCardState extends State<_ProductMiniCard> {
                                       color: Color(0xFF2E7D32), size: 32))),
                         ),
                       ),
-                      if ((widget.user.isAdmin || widget.isPreviewMode || AuthService.currentUser?.isAdmin == true) && widget.product.imagePath.isNotEmpty)
+                      if (widget.isAdmin && widget.product.imagePath.isNotEmpty)
                         Positioned(
                           bottom: 6,
                           left: 6,

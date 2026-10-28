@@ -675,6 +675,7 @@ class _ProductsScreenState extends State<ProductsScreen>
           product: product,
           index: index,
           isDark: isDark,
+          isAdmin: widget.isAdmin,
           isSpecialPrice: isSpecialPrice,
           maxReached: _isMaxQtyReached(product),
           onAdd: () => addToCart(product),
@@ -923,6 +924,7 @@ class _AnimatedProductCard extends StatefulWidget {
   final Product product;
   final int index;
   final bool isDark;
+  final bool isAdmin;
   final VoidCallback onAdd;
   final VoidCallback onTap;
   final bool isSpecialPrice;
@@ -932,6 +934,7 @@ class _AnimatedProductCard extends StatefulWidget {
     required this.product,
     required this.index,
     required this.isDark,
+    required this.isAdmin,
     required this.onAdd,
     required this.onTap,
     required this.isSpecialPrice,
