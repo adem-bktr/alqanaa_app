@@ -925,7 +925,7 @@ class _MainScreenState extends State<MainScreen>
 
   Widget _buildQuickActionsList(bool isDark, Color cardBg) {
     final actions = [
-      {'icon': Icons.calendar_today_rounded, 'label': 'خط سير الزبائن (دور اليوم)', 'subtitle': 'عرض وتوزيع زبائن اليوم للمندوب', 'colors': [const Color(0xFFE65100), const Color(0xFFF57C00)], 'onTap': () => _showTodaysRouteSheet(context)},
+      {'icon': Icons.calendar_today_rounded, 'label': 'خط سير الزبائن (دور اليوم)', 'subtitle': 'عرض وتوزيع زبائن اليوم', 'colors': [const Color(0xFFE65100), const Color(0xFFF57C00)], 'onTap': () => _showTodaysRouteSheet(context)},
       {'icon': Icons.camera_enhance_rounded, 'label': 'سكان فاتورة مورد', 'subtitle': 'تحديث المخزن', 'colors': [const Color(0xFF006064), const Color(0xFF00ACC1)], 'onTap': () => Navigator.push(context, SlidePageRoute(page: const ScanInvoiceScreen()))},
       {'icon': Icons.receipt_long_rounded, 'label': 'طلبات اليوم', 'subtitle': 'عرض طلبات نهار اليوم', 'colors': [const Color(0xFF2E7D32), const Color(0xFF43A047)], 'onTap': () => Navigator.push(context, SlidePageRoute(page: const OrdersScreen(showTodayOnly: true))).then((_) => _loadPendingOrders())},
       {'icon': Icons.people_alt_rounded, 'label': 'الزبائن والديون', 'subtitle': 'سجل الديون والزبائن', 'colors': [const Color(0xFFAD1457), const Color(0xFFEC407A)], 'onTap': () => Navigator.push(context, SlidePageRoute(page: const DebtsScreen()))},
@@ -1008,7 +1008,7 @@ class _MainScreenState extends State<MainScreen>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'خط سير زبائن المندوب: $todayName',
+                          'خط سير الزبائن: $todayName',
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 17,
