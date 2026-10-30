@@ -1037,38 +1037,31 @@ class _AnimatedProductCardState extends State<_AnimatedProductCard>
                       ClipRRect(
                         borderRadius: const BorderRadius.vertical(
                             top: Radius.circular(16)),
-                        child: Container(
-                          color: widget.isDark ? const Color(0xFF252536) : const Color(0xFFF4F6F8),
-                          child: widget.product.imagePath.isNotEmpty
-                              ? Padding(
-                                  padding: const EdgeInsets.all(6.0),
-                                  child: CachedNetworkImage(
-                                    imageUrl: widget.product.imagePath,
-                                    fit: BoxFit.contain,
-                                    filterQuality: FilterQuality.high,
-                                    memCacheWidth: 400,
-                                    placeholder: (context, url) => Shimmer.fromColors(
-                                      baseColor: Colors.grey[300]!,
-                                      highlightColor: Colors.grey[100]!,
-                                      child: Container(color: Colors.white),
-                                    ),
-                                    errorWidget: (context, url, error) => Container(
-                                      color: const Color(0xFFE8F5E9),
-                                      child: const Icon(Icons.inventory_2_rounded,
-                                          size: 40,
-                                          color: Color(0xFF2E7D32)),
-                                    ),
-                                  ),
-                                )
-                              : Container(
-                                  color: const Color(0xFFE8F5E9),
-                                  child: const Center(
-                                    child: Icon(Icons.inventory_2_rounded,
-                                        size: 40,
-                                        color: Color(0xFF2E7D32)),
-                                  ),
+                        child: widget.product.imagePath.isNotEmpty
+                            ? CachedNetworkImage(
+                                imageUrl: widget.product.imagePath,
+                                fit: BoxFit.cover,
+                                filterQuality: FilterQuality.high,
+                                placeholder: (context, url) => Shimmer.fromColors(
+                                  baseColor: Colors.grey[300]!,
+                                  highlightColor: Colors.grey[100]!,
+                                  child: Container(color: Colors.white),
                                 ),
-                        ),
+                                errorWidget: (context, url, error) => Container(
+                                  color: const Color(0xFFE8F5E9),
+                                  child: const Icon(Icons.inventory_2_rounded,
+                                      size: 40,
+                                      color: Color(0xFF2E7D32)),
+                                ),
+                              )
+                            : Container(
+                                color: const Color(0xFFE8F5E9),
+                                child: const Center(
+                                  child: Icon(Icons.inventory_2_rounded,
+                                      size: 40,
+                                      color: Color(0xFF2E7D32)),
+                                ),
+                              ),
                       ),
                       if (widget.isAdmin && widget.product.imagePath.isNotEmpty)
                         Positioned(
@@ -1273,34 +1266,7 @@ class _AnimatedProductCardState extends State<_AnimatedProductCard>
     );
   }
 
-  Widget _buildStockPill(Product p) {
-    Color color = Colors.green;
-    String label = 'متوفر';
-    if (!p.isAvailable || p.stockQuantity <= 0) {
-      color = Colors.red;
-      label = 'نفد';
-    } else if (p.stockQuantity <= 5 * (p.unitsPerCarton > 0 ? p.unitsPerCarton : 1)) {
-      color = Colors.orange;
-      label = 'قليل';
-    }
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.85),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4)],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(width: 5, height: 5, decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle)),
-          const SizedBox(width: 4),
-          Text(label, style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
-        ],
-      ),
-    );
-  }
 }
 
 // ══════════════════════════════════

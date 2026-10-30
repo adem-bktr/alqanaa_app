@@ -1789,32 +1789,26 @@ class _ProductMiniCardState extends State<_ProductMiniCard> {
                     children: [
                       ClipRRect(
                         borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                        child: Container(
-                          color: widget.isDark ? const Color(0xFF252536) : const Color(0xFFF4F6F8),
-                          child: widget.product.imagePath.isNotEmpty
-                              ? Padding(
-                                  padding: const EdgeInsets.all(6.0),
-                                  child: CachedNetworkImage(
-                                    imageUrl: widget.product.imagePath,
-                                    fit: BoxFit.contain,
-                                    filterQuality: FilterQuality.high,
-                                    placeholder: (context, url) => Shimmer.fromColors(
-                                      baseColor: Colors.grey[300]!,
-                                      highlightColor: Colors.grey[100]!,
-                                      child: Container(color: Colors.white),
-                                    ),
-                                    errorWidget: (context, url, error) => Container(
-                                      color: const Color(0xFFE8F5E9),
-                                      child: const Icon(Icons.inventory_2_rounded,
-                                          color: Color(0xFF2E7D32), size: 32),
-                                    ),
-                                  ),
-                                )
-                              : Container(
+                        child: widget.product.imagePath.isNotEmpty
+                            ? CachedNetworkImage(
+                                imageUrl: widget.product.imagePath,
+                                fit: BoxFit.cover,
+                                filterQuality: FilterQuality.high,
+                                placeholder: (context, url) => Shimmer.fromColors(
+                                  baseColor: Colors.grey[300]!,
+                                  highlightColor: Colors.grey[100]!,
+                                  child: Container(color: Colors.white),
+                                ),
+                                errorWidget: (context, url, error) => Container(
                                   color: const Color(0xFFE8F5E9),
-                                  child: const Center(child: Icon(Icons.inventory_2_rounded,
-                                      color: Color(0xFF2E7D32), size: 32))),
-                        ),
+                                  child: const Icon(Icons.inventory_2_rounded,
+                                      color: Color(0xFF2E7D32), size: 32),
+                                ),
+                              )
+                            : Container(
+                                color: const Color(0xFFE8F5E9),
+                                child: const Center(child: Icon(Icons.inventory_2_rounded,
+                                    color: Color(0xFF2E7D32), size: 32))),
                       ),
                       if (widget.isAdmin && widget.product.imagePath.isNotEmpty)
                         Positioned(

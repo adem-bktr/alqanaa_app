@@ -335,14 +335,13 @@ class _MainScreenState extends State<MainScreen>
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(10),
-                    child: Container(
+                    child: SizedBox(
                       width: 60,
                       height: 60,
-                      color: isDark ? const Color(0xFF252536) : const Color(0xFFF4F6F8),
                       child: p.imagePath.isNotEmpty
                           ? CachedNetworkImage(
                               imageUrl: p.imagePath,
-                              fit: BoxFit.contain,
+                              fit: BoxFit.cover,
                               filterQuality: FilterQuality.high,
                               placeholder: (context, url) => Shimmer.fromColors(
                                 baseColor: Colors.grey[300]!,
@@ -446,31 +445,25 @@ class _MainScreenState extends State<MainScreen>
                       onTap: isAdmin && p.imagePath.isNotEmpty
                           ? () => showProductZoomDialog(context, p.imagePath, p.name)
                           : null,
-                      child: ClipRRect(
-                        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                        child: Container(
-                          width: double.infinity,
-                          color: isDark ? const Color(0xFF252536) : const Color(0xFFF4F6F8),
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              p.imagePath.isNotEmpty
-                                  ? Padding(
-                                      padding: const EdgeInsets.all(8.0),
-                                      child: CachedNetworkImage(
-                                        imageUrl: p.imagePath,
-                                        fit: BoxFit.contain,
-                                        filterQuality: FilterQuality.high,
-                                        placeholder: (context, url) => Shimmer.fromColors(
-                                          baseColor: Colors.grey[300]!,
-                                          highlightColor: Colors.grey[100]!,
-                                          child: Container(color: Colors.white),
-                                        ),
-                                        errorWidget: (_, __, ___) => Container(
-                                          color: const Color(0xFFE8F5E9),
-                                          child: const Center(
-                                            child: Icon(Icons.inventory_2_rounded, size: 40, color: Color(0xFF2E7D32)),
-                                          ),
+                      child: Stack(
+                        children: [
+                          Positioned.fill(
+                            child: ClipRRect(
+                              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                              child: p.imagePath.isNotEmpty
+                                  ? CachedNetworkImage(
+                                      imageUrl: p.imagePath,
+                                      fit: BoxFit.cover,
+                                      filterQuality: FilterQuality.high,
+                                      placeholder: (context, url) => Shimmer.fromColors(
+                                        baseColor: Colors.grey[300]!,
+                                        highlightColor: Colors.grey[100]!,
+                                        child: Container(color: Colors.white),
+                                      ),
+                                      errorWidget: (_, __, ___) => Container(
+                                        color: const Color(0xFFE8F5E9),
+                                        child: const Center(
+                                          child: Icon(Icons.inventory_2_rounded, size: 40, color: Color(0xFF2E7D32)),
                                         ),
                                       ),
                                     )
@@ -480,47 +473,42 @@ class _MainScreenState extends State<MainScreen>
                                         child: Icon(Icons.inventory_2_rounded, size: 40, color: Color(0xFF2E7D32)),
                                       ),
                                     ),
-                              if (isAdmin && p.imagePath.isNotEmpty)
-                                Positioned(
-                                  top: 8,
-                                  left: 8,
-                                  child: Container(
-                                    padding: const EdgeInsets.all(5),
-                                    decoration: BoxDecoration(
-                                      color: Colors.black.withOpacity(0.5),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(
-                                      Icons.zoom_in_rounded,
-                                      color: Colors.white,
-                                      size: 16,
-                                    ),
-                                  ),
-                                ),
-                              Positioned(
-                                top: 8,
-                                right: 8,
-                                child: _buildStockPill(p),
-                              ),
-                              if (p.discount > 0)
-                                Positioned(
-                                  bottom: 8,
-                                  right: 8,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: Colors.red,
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Text(
-                                      '-${p.discount.toInt()}%',
-                                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                                    ),
-                                  ),
-                                ),
-                            ],
+                            ),
                           ),
-                        ),
+                          if (isAdmin && p.imagePath.isNotEmpty)
+                            Positioned(
+                              top: 8,
+                              left: 8,
+                              child: Container(
+                                padding: const EdgeInsets.all(5),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.5),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.zoom_in_rounded,
+                                  color: Colors.white,
+                                  size: 16,
+                                ),
+                              ),
+                            ),
+                          if (p.discount > 0)
+                            Positioned(
+                              bottom: 8,
+                              right: 8,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.red,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  '-${p.discount.toInt()}%',
+                                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                   ),
@@ -592,26 +580,7 @@ class _MainScreenState extends State<MainScreen>
     );
   }
 
-  Widget _buildStockPill(Product p) {
-    Color color = Colors.green;
-    String label = 'متوفر';
-    if (!p.isAvailable || p.stockQuantity <= 0 || (p.hasFlavors && p.availableFlavors.isEmpty)) {
-      color = Colors.red;
-      label = 'نفد';
-    } else if (p.stockQuantity <= 5 * (p.unitsPerCarton > 0 ? p.unitsPerCarton : 1)) {
-      color = Colors.orange;
-      label = 'قليل';
-    }
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.85),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(label, style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
-    );
-  }
 
   Widget _buildFastProductCard(Product p, bool isDark, Color cardColor, Color textColor) {
     bool isCarton = _itemIsCartonMap[p.id] ?? true;
@@ -627,16 +596,14 @@ class _MainScreenState extends State<MainScreen>
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(10),
-                    child: Container(
+                    child: SizedBox(
                       width: 60,
                       height: 60,
-                      color: isDark ? const Color(0xFF252536) : const Color(0xFFF4F6F8),
                       child: p.imagePath.isNotEmpty
                           ? CachedNetworkImage(
                               imageUrl: p.imagePath,
-                              fit: BoxFit.contain,
-                              memCacheWidth: 200,
-                              memCacheHeight: 200,
+                              fit: BoxFit.cover,
+                              filterQuality: FilterQuality.high,
                               placeholder: (c, u) => Shimmer.fromColors(
                                 baseColor: Colors.grey[300]!,
                                 highlightColor: Colors.grey[100]!,
