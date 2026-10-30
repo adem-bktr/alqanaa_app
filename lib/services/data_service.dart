@@ -356,6 +356,15 @@ class DataService {
   // ══════════════════════════════════════════════════════
   //   📦 المنتجات
   // ══════════════════════════════════════════════════════
+  static List<app_models.Product>? _cachedAllProducts;
+  static DateTime? _lastProductsFetchTime;
+  static const Duration _cacheDuration = Duration(minutes: 5);
+
+  static void invalidateProductsCache() {
+    _cachedAllProducts = null;
+    _lastProductsFetchTime = null;
+  }
+
   static Future<List<app_models.Product>> getProducts(String brandId) async {
     try {
       if (brandId.isEmpty) return [];
@@ -373,16 +382,23 @@ class DataService {
     }
   }
 
-  static Future<List<app_models.Product>> getAllProducts() async {
+  static Future<List<app_models.Product>> getAllProducts({bool forceRefresh = false}) async {
+    if (!forceRefresh && _cachedAllProducts != null && _lastProductsFetchTime != null) {
+      if (DateTime.now().difference(_lastProductsFetchTime!) < _cacheDuration) {
+        return _cachedAllProducts!;
+      }
+    }
     try {
       final snap = await _getQ(_db.collection('products'));
       final list =
       snap.docs.map((d) => app_models.Product.fromJson(_qDoc(d))).toList();
       list.sort((a, b) => a.name.compareTo(b.name));
+      _cachedAllProducts = list;
+      _lastProductsFetchTime = DateTime.now();
       return list;
     } catch (e) {
       debugPrint('❌ getAllProducts: $e');
-      return [];
+      return _cachedAllProducts ?? [];
     }
   }
 
@@ -482,6 +498,7 @@ class DataService {
       ..._productMap(product, url),
       'createdAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+    invalidateProductsCache();
     debugPrint('✅ منتج محفوظ: ${product.name}');
   }
 
@@ -503,6 +520,7 @@ class DataService {
       ..._productMap(product, url),
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+    invalidateProductsCache();
     debugPrint('✏️ تم تعديل المنتج: ${product.name}');
   }
 
@@ -512,6 +530,7 @@ class DataService {
       'isAvailable': isAvailable,
       'updatedAt': FieldValue.serverTimestamp(),
     });
+    invalidateProductsCache();
   }
 
   static Future<void> updateProductFeatured(
@@ -520,6 +539,7 @@ class DataService {
       'isFeatured': isFeatured,
       'updatedAt': FieldValue.serverTimestamp(),
     });
+    invalidateProductsCache();
   }
 
 
@@ -529,6 +549,7 @@ class DataService {
       final doc = await _db.collection('products').doc(productId).get();
       await deleteImageFromStorage(doc.data()?['imagePath'] ?? '');
       await _db.collection('products').doc(productId).delete();
+      invalidateProductsCache();
       debugPrint('🗑️ تم حذف المنتج: $productId');
     } catch (e) {
       debugPrint('❌ deleteProduct: $e');
