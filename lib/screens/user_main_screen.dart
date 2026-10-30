@@ -48,6 +48,7 @@ class _UserMainScreenState extends State<UserMainScreen>
   List<Product>     allProducts = [];
   List<BannerModel> banners     = [];
   List<CartItem>    cart        = [];
+  final ValueNotifier<List<CartItem>> _cartNotifier = ValueNotifier([]);
   final searchController = TextEditingController();
   bool isLoading         = true;
   bool isProductsLoading = true;
@@ -171,6 +172,7 @@ class _UserMainScreenState extends State<UserMainScreen>
       final savedCart = await CartService.loadCart();
       if (savedCart.isNotEmpty && mounted) {
         setState(() => cart = savedCart);
+        _cartNotifier.value = List.from(cart);
       }
     } catch (e) {
       debugPrint('⚠️ فشل استعادة السلة: $e');
@@ -283,6 +285,7 @@ class _UserMainScreenState extends State<UserMainScreen>
 
   @override
   void dispose() {
+    _cartNotifier.dispose();
     searchController.dispose();
     _scrollController.dispose();
     _brandsScrollController.dispose();
@@ -845,7 +848,7 @@ class _UserMainScreenState extends State<UserMainScreen>
                   SlidePageRoute(page: CategoryProductsScreen(
                       category: cat, cart: cart, user: widget.user)),
                 ).then((_) async {
-                  setState(() {});
+                  _cartNotifier.value = List.from(cart);
                   if (!widget.isPreviewMode) await CartService.saveCart(cart);
                 }),
                 child: TweenAnimationBuilder<double>(
@@ -971,9 +974,11 @@ class _UserMainScreenState extends State<UserMainScreen>
                 product: product, cart: cart,
                 isSpecialPrice: widget.user.isSpecial, currentUser: widget.user,
               )),
-            ).then((_) async {
-              setState(() {});
-              if (!widget.isPreviewMode) await CartService.saveCart(cart);
+            ).then((added) async {
+              if (added == true) {
+                setState(() {});
+                if (!widget.isPreviewMode) await CartService.saveCart(cart);
+              }
             }),
           );
         },
@@ -1021,9 +1026,11 @@ class _UserMainScreenState extends State<UserMainScreen>
             product: p, cart: cart,
             isSpecialPrice: widget.user.isSpecial, currentUser: widget.user,
           )),
-        ).then((_) async {
-          setState(() {});
-          if (!widget.isPreviewMode) await CartService.saveCart(cart);
+        ).then((added) async {
+          if (added == true) {
+            setState(() {});
+            if (!widget.isPreviewMode) await CartService.saveCart(cart);
+          }
         }),
         borderRadius: BorderRadius.circular(12),
         child: Padding(
@@ -1259,9 +1266,11 @@ class _UserMainScreenState extends State<UserMainScreen>
                                 product: product, cart: cart,
                                 isSpecialPrice: widget.user.isSpecial, currentUser: widget.user,
                               )),
-                            ).then((_) async {
-                              setState(() {});
-                              if (!widget.isPreviewMode) await CartService.saveCart(cart);
+                            ).then((added) async {
+                              if (added == true) {
+                                setState(() {});
+                                if (!widget.isPreviewMode) await CartService.saveCart(cart);
+                              }
                             }),
                           );
                         },
@@ -1400,7 +1409,7 @@ class _UserMainScreenState extends State<UserMainScreen>
                   SlidePageRoute(page: ProductsScreen(
                       brand: filteredBrands[index], cart: cart, isAdmin: false, user: widget.user)),
                 ).then((_) async {
-                  setState(() {});
+                  _cartNotifier.value = List.from(cart);
                   if (!widget.isPreviewMode) await CartService.saveCart(cart);
                 }),
               ),
@@ -1484,21 +1493,30 @@ class _UserMainScreenState extends State<UserMainScreen>
                         padding: const EdgeInsets.only(left: 8, right: 4),
                         child: MouseRegion(
                           cursor: SystemMouseCursors.click,
-                          child: badges.Badge(
-                            position: badges.BadgePosition.topEnd(top: 2, end: 2),
-                            badgeContent: Text(formatQuantity(cartCount),
-                                style: const TextStyle(color: Colors.white, fontSize: 10)),
-                            showBadge: cart.isNotEmpty,
-                            badgeStyle: const badges.BadgeStyle(badgeColor: Colors.red),
-                            child: IconButton(
-                              icon: const Icon(Icons.shopping_cart_outlined, color: Colors.white, size: 26),
-                              onPressed: () => Navigator.push(context,
-                                SlidePageRoute(
-                                  page: CartScreen(cart: cart, isAdmin: false, user: widget.user),
-                                  direction: SlideDirection.fromBottom,
+                          child: ValueListenableBuilder<List<CartItem>>(
+                            valueListenable: _cartNotifier,
+                            builder: (context, currentCart, child) {
+                              final cartCount = currentCart.fold<double>(0.0, (sum, item) => sum + item.quantity);
+                              return badges.Badge(
+                                position: badges.BadgePosition.topEnd(top: 2, end: 2),
+                                badgeContent: Text(formatQuantity(cartCount),
+                                    style: const TextStyle(color: Colors.white, fontSize: 10)),
+                                showBadge: currentCart.isNotEmpty,
+                                badgeStyle: const badges.BadgeStyle(badgeColor: Colors.red),
+                                child: IconButton(
+                                  icon: const Icon(Icons.shopping_cart_outlined, color: Colors.white, size: 26),
+                                  onPressed: () => Navigator.push(context,
+                                    SlidePageRoute(
+                                      page: CartScreen(cart: currentCart, isAdmin: false, user: widget.user),
+                                      direction: SlideDirection.fromBottom,
+                                    ),
+                                  ).then((_) async {
+                                    if (!widget.isPreviewMode) await CartService.saveCart(currentCart);
+                                    _cartNotifier.value = List.from(currentCart);
+                                  }),
                                 ),
-                              ).then((_) => setState(() {})),
-                            ),
+                              );
+                            },
                           ),
                         ),
                       ),

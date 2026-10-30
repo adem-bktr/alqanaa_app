@@ -233,7 +233,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         const Color(0xFF2E7D32),
       );
     }
-    Navigator.pop(context);
+    Navigator.pop(context, true);
   }
 
   // ══════════════════════════════════
