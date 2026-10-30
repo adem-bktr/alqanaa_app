@@ -964,8 +964,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 child: widget.product.imagePath.isNotEmpty
                     ? CachedNetworkImage(
                   imageUrl: widget.product.imagePath,
+                  cacheKey: widget.product.id,
                   fit: BoxFit.cover,
                   memCacheWidth: 800,
+                  fadeInDuration: Duration.zero,
+                  fadeOutDuration: Duration.zero,
                   placeholder: (context, url) => Shimmer.fromColors(
                     baseColor: Colors.grey[300]!,
                     highlightColor: Colors.grey[100]!,
@@ -1069,8 +1072,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         widget.product.imagePath.isNotEmpty
                             ? CachedNetworkImage(
                           imageUrl: widget.product.imagePath,
+                          cacheKey: widget.product.id,
                           fit: BoxFit.cover,
                           memCacheWidth: 800,
+                          fadeInDuration: Duration.zero,
+                          fadeOutDuration: Duration.zero,
                           placeholder: (context, url) => Shimmer.fromColors(
                             baseColor: Colors.grey[300]!,
                             highlightColor: Colors.grey[100]!,

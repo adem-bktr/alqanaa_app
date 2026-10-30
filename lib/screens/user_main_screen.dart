@@ -202,7 +202,17 @@ class _UserMainScreenState extends State<UserMainScreen>
     setState(() => isProductsLoading = true);
     try {
       final data = await DataService.getAllProducts();
-      if (mounted) setState(() { allProducts = data; isProductsLoading = false; });
+      if (mounted) {
+        setState(() {
+          allProducts = data;
+          isProductsLoading = false;
+        });
+        for (final p in data.take(40)) {
+          if (p.imagePath.isNotEmpty) {
+            precacheImage(CachedNetworkImageProvider(p.imagePath), context).catchError((_) {});
+          }
+        }
+      }
     } catch (e) {
       if (mounted) setState(() => isProductsLoading = false);
     }
@@ -1045,7 +1055,11 @@ class _UserMainScreenState extends State<UserMainScreen>
                   child: p.imagePath.isNotEmpty
                       ? CachedNetworkImage(
                           imageUrl: p.imagePath,
+                          cacheKey: p.id,
                           fit: BoxFit.cover,
+                          memCacheWidth: 200,
+                          fadeInDuration: Duration.zero,
+                          fadeOutDuration: Duration.zero,
                           filterQuality: FilterQuality.high,
                           placeholder: (context, url) => Shimmer.fromColors(
                             baseColor: Colors.grey[300]!,
@@ -1810,7 +1824,11 @@ class _ProductMiniCardState extends State<_ProductMiniCard> {
                         child: widget.product.imagePath.isNotEmpty
                             ? CachedNetworkImage(
                                 imageUrl: widget.product.imagePath,
+                                cacheKey: widget.product.id,
                                 fit: BoxFit.cover,
+                                memCacheWidth: 400,
+                                fadeInDuration: Duration.zero,
+                                fadeOutDuration: Duration.zero,
                                 filterQuality: FilterQuality.high,
                                 placeholder: (context, url) => Shimmer.fromColors(
                                   baseColor: Colors.grey[300]!,
