@@ -1063,22 +1063,7 @@ class _AnimatedProductCardState extends State<_AnimatedProductCard>
                                 ),
                               ),
                       ),
-                      if (widget.isAdmin && widget.product.imagePath.isNotEmpty)
-                        Positioned(
-                          bottom: 8,
-                          left: 8,
-                          child: GestureDetector(
-                            onTap: () => showProductZoomDialog(context, widget.product.imagePath, widget.product.name),
-                            child: Container(
-                              padding: const EdgeInsets.all(5),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.5),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(Icons.zoom_in_rounded, color: Colors.white, size: 16),
-                            ),
-                          ),
-                        ),
+
                       if (widget.product.discount > 0)
                         Positioned(
                           top: 8,

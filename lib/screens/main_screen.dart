@@ -359,19 +359,7 @@ class _MainScreenState extends State<MainScreen>
                             ),
                     ),
                   ),
-                  if (isAdmin && p.imagePath.isNotEmpty)
-                    Positioned(
-                      top: 2,
-                      left: 2,
-                      child: Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.5),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.zoom_in_rounded, color: Colors.white, size: 12),
-                      ),
-                    ),
+
                 ],
               ),
             ),
@@ -475,23 +463,7 @@ class _MainScreenState extends State<MainScreen>
                                     ),
                             ),
                           ),
-                          if (isAdmin && p.imagePath.isNotEmpty)
-                            Positioned(
-                              top: 8,
-                              left: 8,
-                              child: Container(
-                                padding: const EdgeInsets.all(5),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withOpacity(0.5),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(
-                                  Icons.zoom_in_rounded,
-                                  color: Colors.white,
-                                  size: 16,
-                                ),
-                              ),
-                            ),
+
                           if (p.discount > 0)
                             Positioned(
                               bottom: 8,
@@ -620,19 +592,7 @@ class _MainScreenState extends State<MainScreen>
                             ),
                     ),
                   ),
-                  if (isAdmin && p.imagePath.isNotEmpty)
-                    Positioned(
-                      top: 2,
-                      left: 2,
-                      child: Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.5),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.zoom_in_rounded, color: Colors.white, size: 12),
-                      ),
-                    ),
+
                 ],
               ),
             ),

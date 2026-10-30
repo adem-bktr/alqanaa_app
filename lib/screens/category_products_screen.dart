@@ -385,22 +385,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen>
                               child: const Center(child: Icon(Icons.inventory_2_rounded, size: 40, color: Color(0xFF2E7D32))),
                             ),
                     ),
-                    if (isAdmin && product.imagePath.isNotEmpty)
-                      Positioned(
-                        bottom: 8,
-                        left: 8,
-                        child: GestureDetector(
-                          onTap: () => showProductZoomDialog(context, product.imagePath, product.name),
-                          child: Container(
-                            padding: const EdgeInsets.all(5),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.5),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(Icons.zoom_in_rounded, color: Colors.white, size: 16),
-                          ),
-                        ),
-                      ),
+
                     if (product.discount > 0)
                       Positioned(
                         top: 8, right: 8,

@@ -1810,22 +1810,7 @@ class _ProductMiniCardState extends State<_ProductMiniCard> {
                                 child: const Center(child: Icon(Icons.inventory_2_rounded,
                                     color: Color(0xFF2E7D32), size: 32))),
                       ),
-                      if (widget.isAdmin && widget.product.imagePath.isNotEmpty)
-                        Positioned(
-                          bottom: 6,
-                          left: 6,
-                          child: GestureDetector(
-                            onTap: () => showProductZoomDialog(context, widget.product.imagePath, widget.product.name),
-                            child: Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.5),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(Icons.zoom_in_rounded, color: Colors.white, size: 14),
-                            ),
-                          ),
-                        ),
+
                       if (widget.product.discount > 0)
                         Positioned(
                           top: 6, right: 6,
