@@ -182,18 +182,20 @@ class BannerModel {
   final bool isActive;
   final int order;
   final String? productId;
+  final String? categoryId;
   final String? actionUrl;
 
   BannerModel({
     required this.id,
-    required this.title,
-    required this.subtitle,
+    this.title = '',
+    this.subtitle = '',
     this.imageUrl = '',
     this.color = const Color(0xFF2E7D32),
     this.icon = Icons.local_offer,
     this.isActive = true,
     this.order = 0,
     this.productId,
+    this.categoryId,
     this.actionUrl,
   });
 
@@ -211,6 +213,7 @@ class BannerModel {
     'isActive': isActive,
     'order': order,
     'productId': productId,
+    'categoryId': categoryId,
     'actionUrl': actionUrl,
   };
 
@@ -232,6 +235,7 @@ class BannerModel {
       isActive: _b(json['isActive'], def: true),
       order: _i(json['order']),
       productId: json['productId'] != null ? _s(json['productId']) : null,
+      categoryId: json['categoryId'] != null ? _s(json['categoryId']) : null,
       actionUrl: json['actionUrl'] != null ? _s(json['actionUrl']) : null,
     );
   }

@@ -49,6 +49,7 @@ class _AdminScreenState extends State<AdminScreen>
   final bannerTitleController = TextEditingController();
   final bannerSubtitleController = TextEditingController();
   final bannerOrderController = TextEditingController();
+  final bannerActionUrlController = TextEditingController();
   final purchasePriceController = TextEditingController();
   final purchasePriceCartonController = TextEditingController(); // ✅ جديد
   final stockQuantityController = TextEditingController();
@@ -79,6 +80,7 @@ class _AdminScreenState extends State<AdminScreen>
 
   List<Brand> brands = [];
   List<Product> products = [];
+  List<Product> allProductsForAdmin = [];
   List<UserModel> users = [];
   List<Category> categories = [];
   List<BannerModel> banners = [];
@@ -93,6 +95,8 @@ class _AdminScreenState extends State<AdminScreen>
   String? productImagePath;
   String? bannerImagePath;
   String? _selectedBannerProductId;
+  String? _selectedBannerCategoryId;
+  String _selectedBannerLinkType = 'none';
 
   SellType selectedSellType = SellType.cartonOnly;
   List<FlavorModel> newProductFlavors = [];
@@ -471,6 +475,7 @@ class _AdminScreenState extends State<AdminScreen>
     bannerTitleController.dispose();
     bannerSubtitleController.dispose();
     bannerOrderController.dispose();
+    bannerActionUrlController.dispose();
     purchasePriceController.dispose();
     stockQuantityController.dispose();
     unitsPerCartonController.dispose();
@@ -489,6 +494,7 @@ class _AdminScreenState extends State<AdminScreen>
       await Future.wait([
         loadCategories(),
         loadBrands(),
+        loadAllProductsForAdmin(),
         loadPriceSettings(),
         loadUsers(),
         loadBanners(),
@@ -588,6 +594,15 @@ class _AdminScreenState extends State<AdminScreen>
       if (mounted && !_isDisposed) setState(() => banners = data);
     } catch (_) {
       if (mounted && !_isDisposed) setState(() => banners = []);
+    }
+  }
+
+  Future<void> loadAllProductsForAdmin() async {
+    try {
+      final data = await DataService.getAllProducts(forceRefresh: true);
+      if (mounted && !_isDisposed) setState(() => allProductsForAdmin = data);
+    } catch (_) {
+      if (mounted && !_isDisposed) setState(() => allProductsForAdmin = []);
     }
   }
 
@@ -1167,29 +1182,35 @@ class _AdminScreenState extends State<AdminScreen>
   }
 
   Future<void> addBanner() async {
-    if (bannerTitleController.text.trim().isEmpty) {
-      _showSnackBar('أدخل عنوان البانر', Colors.red);
-      return;
-    }
     setState(() => isLoadingBanner = true);
     try {
+      String? pId;
+      String? cId;
+      String? url;
+      if (_selectedBannerLinkType == 'product') pId = _selectedBannerProductId;
+      if (_selectedBannerLinkType == 'category') cId = _selectedBannerCategoryId;
+      if (_selectedBannerLinkType == 'url') url = bannerActionUrlController.text.trim();
+
       final banner = BannerModel(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
-        title: bannerTitleController.text.trim(),
-        subtitle: bannerSubtitleController.text.trim(),
+        title: '',
+        subtitle: '',
         color: _selectedBannerColor,
         icon: _selectedBannerIcon,
         isActive: true,
         order: int.tryParse(bannerOrderController.text.trim()) ?? 0,
-        productId: _selectedBannerProductId,
+        productId: pId,
+        categoryId: cId,
+        actionUrl: url,
       );
       await DataService.saveBanner(banner, imagePath: bannerImagePath);
-      bannerTitleController.clear();
-      bannerSubtitleController.clear();
       bannerOrderController.clear();
+      bannerActionUrlController.clear();
       setState(() {
         bannerImagePath = null;
         _selectedBannerProductId = null;
+        _selectedBannerCategoryId = null;
+        _selectedBannerLinkType = 'none';
         isLoadingBanner = false;
         _selectedBannerColor = const Color(0xFF2E7D32);
         _selectedBannerIcon = Icons.local_offer;
@@ -1203,10 +1224,20 @@ class _AdminScreenState extends State<AdminScreen>
   }
 
   Future<void> _showEditBannerDialog(BannerModel banner) async {
-    final titleCtrl = TextEditingController(text: banner.title);
-    final subtitleCtrl = TextEditingController(text: banner.subtitle);
     final orderCtrl = TextEditingController(text: banner.order.toString());
+    final urlCtrl = TextEditingController(text: banner.actionUrl ?? '');
+
+    String linkType = 'none';
+    if (banner.productId != null && banner.productId!.isNotEmpty) {
+      linkType = 'product';
+    } else if (banner.categoryId != null && banner.categoryId!.isNotEmpty) {
+      linkType = 'category';
+    } else if (banner.actionUrl != null && banner.actionUrl!.isNotEmpty) {
+      linkType = 'url';
+    }
+
     String? editProductId = banner.productId;
+    String? editCategoryId = banner.categoryId;
 
     await showDialog(
       context: context,
@@ -1219,40 +1250,74 @@ class _AdminScreenState extends State<AdminScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 TextField(
-                  controller: titleCtrl,
-                  decoration: const InputDecoration(labelText: 'عنوان البانر'),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: subtitleCtrl,
-                  decoration: const InputDecoration(labelText: 'النص الثانوي'),
-                ),
-                const SizedBox(height: 10),
-                TextField(
                   controller: orderCtrl,
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(labelText: 'الترتيب'),
                 ),
+                const SizedBox(height: 14),
+                DropdownButtonFormField<String>(
+                  value: linkType,
+                  decoration: const InputDecoration(
+                    labelText: 'نوع الربط عند النقر',
+                    prefixIcon: Icon(Icons.link, color: Color(0xFF2E7D32)),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'none', child: Text('بدون رابط (عرض فقط)')),
+                    DropdownMenuItem(value: 'product', child: Text('ربط بمنتج معين')),
+                    DropdownMenuItem(value: 'category', child: Text('ربط بقسم / فئة جديدة')),
+                    DropdownMenuItem(value: 'url', child: Text('رابط خارجي (موقع / صفحة)')),
+                  ],
+                  onChanged: (val) {
+                    if (val != null) {
+                      setSt(() => linkType = val);
+                    }
+                  },
+                ),
                 const SizedBox(height: 10),
-                DropdownButtonFormField<Product>(
-                  value: products.any((p) => p.id == editProductId)
-                      ? products.firstWhere((p) => p.id == editProductId)
-                      : null,
-                  hint: const Text('ربط بمنتج (اختياري)'),
-                  isExpanded: true,
-                  items: [
-                    const DropdownMenuItem<Product>(
-                      value: null,
-                      child: Text('بدون منتج (عرض فقط)'),
-                    ),
-                    ...products.map((p) => DropdownMenuItem<Product>(
+                if (linkType == 'product') ...[
+                  DropdownButtonFormField<Product>(
+                    value: allProductsForAdmin.any((p) => p.id == editProductId)
+                        ? allProductsForAdmin.firstWhere((p) => p.id == editProductId)
+                        : null,
+                    hint: const Text('اختر المنتج المرتبط'),
+                    isExpanded: true,
+                    items: allProductsForAdmin.map((p) => DropdownMenuItem<Product>(
                       value: p,
                       child: Text(p.name),
-                    )),
-                  ],
-                  onChanged: (p) => setSt(() => editProductId = p?.id),
-                  decoration: const InputDecoration(labelText: 'المنتج المرتبط'),
-                ),
+                    )).toList(),
+                    onChanged: (p) => setSt(() => editProductId = p?.id),
+                    decoration: const InputDecoration(labelText: 'المنتج المرتبط'),
+                  ),
+                  const SizedBox(height: 10),
+                ],
+                if (linkType == 'category') ...[
+                  DropdownButtonFormField<Category>(
+                    value: categories.any((c) => c.id == editCategoryId)
+                        ? categories.firstWhere((c) => c.id == editCategoryId)
+                        : null,
+                    hint: const Text('اختر القسم المرتبط'),
+                    isExpanded: true,
+                    items: categories.map((c) => DropdownMenuItem<Category>(
+                      value: c,
+                      child: Text(c.name),
+                    )).toList(),
+                    onChanged: (c) => setSt(() => editCategoryId = c?.id),
+                    decoration: const InputDecoration(labelText: 'القسم المرتبط'),
+                  ),
+                  const SizedBox(height: 10),
+                ],
+                if (linkType == 'url') ...[
+                  TextField(
+                    controller: urlCtrl,
+                    keyboardType: TextInputType.url,
+                    decoration: const InputDecoration(
+                      labelText: 'الرابط الخارجي',
+                      hintText: 'https://...',
+                      prefixIcon: Icon(Icons.language, color: Color(0xFF2E7D32)),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                ],
               ],
             ),
           ),
@@ -1264,21 +1329,28 @@ class _AdminScreenState extends State<AdminScreen>
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2E7D32)),
               onPressed: () async {
-                if (titleCtrl.text.trim().isEmpty) return;
+                String? pId;
+                String? cId;
+                String? url;
+                if (linkType == 'product') pId = editProductId;
+                if (linkType == 'category') cId = editCategoryId;
+                if (linkType == 'url') url = urlCtrl.text.trim();
+
                 final updated = BannerModel(
                   id: banner.id,
-                  title: titleCtrl.text.trim(),
-                  subtitle: subtitleCtrl.text.trim(),
+                  title: '',
+                  subtitle: '',
                   imageUrl: banner.imageUrl,
                   color: banner.color,
                   icon: banner.icon,
                   isActive: banner.isActive,
                   order: int.tryParse(orderCtrl.text.trim()) ?? banner.order,
-                  productId: editProductId,
-                  actionUrl: banner.actionUrl,
+                  productId: pId,
+                  categoryId: cId,
+                  actionUrl: url,
                 );
                 await DataService.saveBanner(updated);
-                Navigator.pop(context);
+                if (context.mounted) Navigator.pop(context);
                 await loadBanners();
                 _showSnackBar('✅ تم تعديل البانر', const Color(0xFF2E7D32));
               },
@@ -3627,36 +3699,6 @@ class _AdminScreenState extends State<AdminScreen>
         ),
         const SizedBox(height: 12),
         TextField(
-          controller: bannerTitleController,
-          decoration: InputDecoration(
-            hintText: 'عنوان البانر',
-            prefixIcon:
-            const Icon(Icons.title, color: Color(0xFF2E7D32)),
-            filled: true,
-            fillColor: fillColor,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
-            ),
-          ),
-        ),
-        const SizedBox(height: 10),
-        TextField(
-          controller: bannerSubtitleController,
-          decoration: InputDecoration(
-            hintText: 'النص الثانوي',
-            prefixIcon: const Icon(Icons.subtitles,
-                color: Color(0xFF2E7D32)),
-            filled: true,
-            fillColor: fillColor,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
-            ),
-          ),
-        ),
-        const SizedBox(height: 10),
-        TextField(
           controller: bannerOrderController,
           keyboardType: TextInputType.number,
           decoration: InputDecoration(
@@ -3672,25 +3714,11 @@ class _AdminScreenState extends State<AdminScreen>
           ),
         ),
         const SizedBox(height: 10),
-        DropdownButtonFormField<Product>(
-          value: products.any((p) => p.id == _selectedBannerProductId)
-              ? products.firstWhere((p) => p.id == _selectedBannerProductId)
-              : null,
-          hint: const Text('ربط بمنتج عند النقر (اختياري)'),
-          isExpanded: true,
-          items: [
-            const DropdownMenuItem<Product>(
-              value: null,
-              child: Text('بدون منتج (عرض فقط)'),
-            ),
-            ...products.map((p) => DropdownMenuItem<Product>(
-              value: p,
-              child: Text(p.name),
-            )),
-          ],
-          onChanged: (p) => setState(() => _selectedBannerProductId = p?.id),
+        DropdownButtonFormField<String>(
+          value: _selectedBannerLinkType,
           decoration: InputDecoration(
-            prefixIcon: const Icon(Icons.shopping_bag, color: Color(0xFF2E7D32)),
+            labelText: 'نوع الربط عند النقر',
+            prefixIcon: const Icon(Icons.link, color: Color(0xFF2E7D32)),
             filled: true,
             fillColor: fillColor,
             border: OutlineInputBorder(
@@ -3698,7 +3726,86 @@ class _AdminScreenState extends State<AdminScreen>
               borderSide: BorderSide.none,
             ),
           ),
+          items: const [
+            DropdownMenuItem(value: 'none', child: Text('بدون رابط (عرض فقط)')),
+            DropdownMenuItem(value: 'product', child: Text('ربط بمنتج معين')),
+            DropdownMenuItem(value: 'category', child: Text('ربط بقسم / فئة جديدة')),
+            DropdownMenuItem(value: 'url', child: Text('رابط خارجي (موقع / صفحة)')),
+          ],
+          onChanged: (val) {
+            if (val != null) {
+              setState(() {
+                _selectedBannerLinkType = val;
+              });
+            }
+          },
         ),
+        const SizedBox(height: 10),
+        if (_selectedBannerLinkType == 'product') ...[
+          DropdownButtonFormField<Product>(
+            value: allProductsForAdmin.any((p) => p.id == _selectedBannerProductId)
+                ? allProductsForAdmin.firstWhere((p) => p.id == _selectedBannerProductId)
+                : null,
+            hint: const Text('اختر المنتج المرتبط'),
+            isExpanded: true,
+            items: allProductsForAdmin.map((p) => DropdownMenuItem<Product>(
+              value: p,
+              child: Text(p.name),
+            )).toList(),
+            onChanged: (p) => setState(() => _selectedBannerProductId = p?.id),
+            decoration: InputDecoration(
+              prefixIcon: const Icon(Icons.shopping_bag, color: Color(0xFF2E7D32)),
+              filled: true,
+              fillColor: fillColor,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+        ],
+        if (_selectedBannerLinkType == 'category') ...[
+          DropdownButtonFormField<Category>(
+            value: categories.any((c) => c.id == _selectedBannerCategoryId)
+                ? categories.firstWhere((c) => c.id == _selectedBannerCategoryId)
+                : null,
+            hint: const Text('اختر القسم المرتبط'),
+            isExpanded: true,
+            items: categories.map((c) => DropdownMenuItem<Category>(
+              value: c,
+              child: Text(c.name),
+            )).toList(),
+            onChanged: (c) => setState(() => _selectedBannerCategoryId = c?.id),
+            decoration: InputDecoration(
+              prefixIcon: const Icon(Icons.category, color: Color(0xFF2E7D32)),
+              filled: true,
+              fillColor: fillColor,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+        ],
+        if (_selectedBannerLinkType == 'url') ...[
+          TextField(
+            controller: bannerActionUrlController,
+            keyboardType: TextInputType.url,
+            decoration: InputDecoration(
+              hintText: 'أدخل الرابط الخارجي (https://...)',
+              prefixIcon: const Icon(Icons.language, color: Color(0xFF2E7D32)),
+              filled: true,
+              fillColor: fillColor,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+        ],
         const SizedBox(height: 12),
         SizedBox(
           width: double.infinity,

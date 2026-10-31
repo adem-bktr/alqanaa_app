@@ -1352,6 +1352,9 @@ class DataService {
       'iconFontFamily': banner.icon.fontFamily ?? 'MaterialIcons',
       'isActive': banner.isActive,
       'order': banner.order,
+      'productId': banner.productId,
+      'categoryId': banner.categoryId,
+      'actionUrl': banner.actionUrl,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
     debugPrint('✅ بانر محفوظ: ${banner.title}');

@@ -444,21 +444,51 @@ extension AdminManageTabX on _AdminScreenState {
                   : Colors.grey.shade200),
           itemBuilder: (context, index) {
             final banner = banners[index];
+            String linkInfo = 'بدون رابط';
+            if (banner.productId != null && banner.productId!.isNotEmpty) {
+              final prod = allProductsForAdmin.firstWhere(
+                (p) => p.id == banner.productId,
+                orElse: () => Product(
+                  id: '', brandId: '', name: 'منتج',
+                  priceCartonNormal: 0, priceUnitNormal: 0,
+                  priceCartonSpecial: 0, priceUnitSpecial: 0,
+                ),
+              );
+              linkInfo = 'مرتبط بمنتج: ${prod.name.isNotEmpty ? prod.name : banner.productId}';
+            } else if (banner.categoryId != null && banner.categoryId!.isNotEmpty) {
+              final cat = categories.firstWhere(
+                (c) => c.id == banner.categoryId,
+                orElse: () => Category(id: '', name: 'قسم', icon: '📦'),
+              );
+              linkInfo = 'مرتبط بقسم: ${cat.name.isNotEmpty ? cat.name : banner.categoryId}';
+            } else if (banner.actionUrl != null && banner.actionUrl!.isNotEmpty) {
+              linkInfo = 'رابط خارجي: ${banner.actionUrl}';
+            }
+
             return ListTile(
               contentPadding: EdgeInsets.zero,
               leading: Container(
-                width: 44,
-                height: 44,
+                width: 46,
+                height: 46,
                 decoration: BoxDecoration(
                   color: banner.color,
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(banner.icon, color: Colors.white),
+                child: banner.imageUrl.isNotEmpty
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: Image.network(
+                          banner.imageUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Icon(banner.icon, color: Colors.white),
+                        ),
+                      )
+                    : Icon(banner.icon, color: Colors.white),
               ),
-              title: Text(banner.title,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold)),
-              subtitle: Text(banner.subtitle),
+              title: Text('بانر #${index + 1} (الترتيب: ${banner.order})',
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: Text(linkInfo),
+              ),
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [

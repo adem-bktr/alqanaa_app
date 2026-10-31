@@ -734,7 +734,7 @@ class _UserMainScreenState extends State<UserMainScreen>
             itemBuilder: (context, index) {
               final banner = displayBanners[index];
               return GestureDetector(
-                onTap: () {
+                onTap: () async {
                   if (banner.productId != null && banner.productId!.isNotEmpty) {
                     final found = allProducts.firstWhere(
                       (p) => p.id == banner.productId,
@@ -753,6 +753,34 @@ class _UserMainScreenState extends State<UserMainScreen>
                           if (!widget.isPreviewMode) await CartService.saveCart(cart);
                         }
                       });
+                    }
+                  } else if (banner.categoryId != null && banner.categoryId!.isNotEmpty) {
+                    final catFound = categories.firstWhere(
+                      (c) => c.id == banner.categoryId,
+                      orElse: () => Category(id: banner.categoryId!, name: 'قسم', icon: '📦'),
+                    );
+                    Navigator.push(
+                      context,
+                      SlidePageRoute(page: CategoryProductsScreen(
+                        category: catFound, cart: cart, user: widget.user,
+                      )),
+                    ).then((_) async {
+                      _cartNotifier.value = List.from(cart);
+                      if (!widget.isPreviewMode) await CartService.saveCart(cart);
+                    });
+                  } else if (banner.actionUrl != null && banner.actionUrl!.isNotEmpty) {
+                    final rawUrl = banner.actionUrl!.trim();
+                    final uri = Uri.tryParse(rawUrl.startsWith('http') ? rawUrl : 'https://$rawUrl');
+                    if (uri != null) {
+                      try {
+                        await launchUrl(uri, mode: LaunchMode.externalApplication);
+                      } catch (_) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('تعذر فتح الرابط الخارجي')),
+                          );
+                        }
+                      }
                     }
                   }
                 },
@@ -775,18 +803,7 @@ class _UserMainScreenState extends State<UserMainScreen>
                             placeholder: (context, url) => _buildBannerBg(banner),
                             errorWidget: (_, __, ___) => _buildBannerBg(banner),
                           )
-                        : Stack(children: [
-                            _buildBannerBg(banner),
-                            Container(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [Colors.black.withOpacity(0.4), Colors.transparent],
-                                  begin: Alignment.bottomCenter, end: Alignment.topCenter,
-                                ),
-                              ),
-                            ),
-                            _buildBannerContent(banner),
-                          ]),
+                        : _buildBannerBg(banner),
                   ),
                 ),
               );
