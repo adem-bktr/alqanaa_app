@@ -1191,6 +1191,12 @@ class DataService {
       double sum(List<app_models.Order> l) =>
           l.fold(0.0, (s, o) => s + o.total);
 
+      double sumPaid(List<app_models.Order> l) =>
+          l.fold(0.0, (s, o) => s + o.paidAmount);
+
+      double sumRemaining(List<app_models.Order> l) =>
+          l.fold(0.0, (s, o) => s + ((o.total - o.paidAmount) > 0 ? (o.total - o.paidAmount) : 0.0));
+
       return {
         'totalOrders': orders.length,
         'todayOrders': todayOrdersList.length,
@@ -1198,6 +1204,8 @@ class DataService {
         'monthOrders': month.length,
         'totalSales': sum(orders),
         'todaySales': sum(todayOrdersList),
+        'todayPaid': sumPaid(todayOrdersList),
+        'todayRemaining': sumRemaining(todayOrdersList),
         'weekSales': sum(week),
         'monthSales': sum(month),
         'topProducts': topProducts,

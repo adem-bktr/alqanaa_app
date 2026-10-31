@@ -325,7 +325,7 @@ class _StatsScreenState extends State<StatsScreen> {
         _statCard(
           title: 'مبيعات اليوم',
           value: '${formatter.format(stats['todaySales'] ?? 0)} DA',
-          subtitle: '${stats['todayOrders'] ?? 0} طلب',
+          subtitle: 'مسدد: ${formatter.format(stats['todayPaid'] ?? 0)} | باقي: ${formatter.format(stats['todayRemaining'] ?? 0)} (${stats['todayOrders'] ?? 0} طلب)',
           icon: Icons.today,
           color: const Color(0xFF2E7D32),
           cardColor: cardColor,

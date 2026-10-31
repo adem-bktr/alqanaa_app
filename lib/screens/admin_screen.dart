@@ -92,6 +92,7 @@ class _AdminScreenState extends State<AdminScreen>
   String? brandLogoPath;
   String? productImagePath;
   String? bannerImagePath;
+  String? _selectedBannerProductId;
 
   SellType selectedSellType = SellType.cartonOnly;
   List<FlavorModel> newProductFlavors = [];
@@ -1180,6 +1181,7 @@ class _AdminScreenState extends State<AdminScreen>
         icon: _selectedBannerIcon,
         isActive: true,
         order: int.tryParse(bannerOrderController.text.trim()) ?? 0,
+        productId: _selectedBannerProductId,
       );
       await DataService.saveBanner(banner, imagePath: bannerImagePath);
       bannerTitleController.clear();
@@ -1187,6 +1189,7 @@ class _AdminScreenState extends State<AdminScreen>
       bannerOrderController.clear();
       setState(() {
         bannerImagePath = null;
+        _selectedBannerProductId = null;
         isLoadingBanner = false;
         _selectedBannerColor = const Color(0xFF2E7D32);
         _selectedBannerIcon = Icons.local_offer;
@@ -1197,6 +1200,94 @@ class _AdminScreenState extends State<AdminScreen>
       if (mounted) setState(() => isLoadingBanner = false);
       _showSnackBar('فشل إضافة البانر: $e', Colors.red);
     }
+  }
+
+  Future<void> _showEditBannerDialog(BannerModel banner) async {
+    final titleCtrl = TextEditingController(text: banner.title);
+    final subtitleCtrl = TextEditingController(text: banner.subtitle);
+    final orderCtrl = TextEditingController(text: banner.order.toString());
+    String? editProductId = banner.productId;
+
+    await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setSt) => AlertDialog(
+          title: const Text('تعديل البانر'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: titleCtrl,
+                  decoration: const InputDecoration(labelText: 'عنوان البانر'),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: subtitleCtrl,
+                  decoration: const InputDecoration(labelText: 'النص الثانوي'),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: orderCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'الترتيب'),
+                ),
+                const SizedBox(height: 10),
+                DropdownButtonFormField<Product>(
+                  value: products.any((p) => p.id == editProductId)
+                      ? products.firstWhere((p) => p.id == editProductId)
+                      : null,
+                  hint: const Text('ربط بمنتج (اختياري)'),
+                  isExpanded: true,
+                  items: [
+                    const DropdownMenuItem<Product>(
+                      value: null,
+                      child: Text('بدون منتج (عرض فقط)'),
+                    ),
+                    ...products.map((p) => DropdownMenuItem<Product>(
+                      value: p,
+                      child: Text(p.name),
+                    )),
+                  ],
+                  onChanged: (p) => setSt(() => editProductId = p?.id),
+                  decoration: const InputDecoration(labelText: 'المنتج المرتبط'),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('إلغاء'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2E7D32)),
+              onPressed: () async {
+                if (titleCtrl.text.trim().isEmpty) return;
+                final updated = BannerModel(
+                  id: banner.id,
+                  title: titleCtrl.text.trim(),
+                  subtitle: subtitleCtrl.text.trim(),
+                  imageUrl: banner.imageUrl,
+                  color: banner.color,
+                  icon: banner.icon,
+                  isActive: banner.isActive,
+                  order: int.tryParse(orderCtrl.text.trim()) ?? banner.order,
+                  productId: editProductId,
+                  actionUrl: banner.actionUrl,
+                );
+                await DataService.saveBanner(updated);
+                Navigator.pop(context);
+                await loadBanners();
+                _showSnackBar('✅ تم تعديل البانر', const Color(0xFF2E7D32));
+              },
+              child: const Text('حفظ', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> deleteCategory(Category category) async {
@@ -3572,6 +3663,34 @@ class _AdminScreenState extends State<AdminScreen>
             hintText: 'الترتيب',
             prefixIcon:
             const Icon(Icons.sort, color: Color(0xFF2E7D32)),
+            filled: true,
+            fillColor: fillColor,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        DropdownButtonFormField<Product>(
+          value: products.any((p) => p.id == _selectedBannerProductId)
+              ? products.firstWhere((p) => p.id == _selectedBannerProductId)
+              : null,
+          hint: const Text('ربط بمنتج عند النقر (اختياري)'),
+          isExpanded: true,
+          items: [
+            const DropdownMenuItem<Product>(
+              value: null,
+              child: Text('بدون منتج (عرض فقط)'),
+            ),
+            ...products.map((p) => DropdownMenuItem<Product>(
+              value: p,
+              child: Text(p.name),
+            )),
+          ],
+          onChanged: (p) => setState(() => _selectedBannerProductId = p?.id),
+          decoration: InputDecoration(
+            prefixIcon: const Icon(Icons.shopping_bag, color: Color(0xFF2E7D32)),
             filled: true,
             fillColor: fillColor,
             border: OutlineInputBorder(

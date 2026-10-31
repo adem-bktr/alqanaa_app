@@ -181,6 +181,8 @@ class BannerModel {
   final IconData icon;
   final bool isActive;
   final int order;
+  final String? productId;
+  final String? actionUrl;
 
   BannerModel({
     required this.id,
@@ -191,6 +193,8 @@ class BannerModel {
     this.icon = Icons.local_offer,
     this.isActive = true,
     this.order = 0,
+    this.productId,
+    this.actionUrl,
   });
 
   bool get hasImage => imageUrl.isNotEmpty;
@@ -206,6 +210,8 @@ class BannerModel {
     'iconFontFamily': icon.fontFamily,
     'isActive': isActive,
     'order': order,
+    'productId': productId,
+    'actionUrl': actionUrl,
   };
 
   factory BannerModel.fromJson(Map<String, dynamic> json) {
@@ -225,6 +231,8 @@ class BannerModel {
           : _s(json['iconFontFamily'])),
       isActive: _b(json['isActive'], def: true),
       order: _i(json['order']),
+      productId: json['productId'] != null ? _s(json['productId']) : null,
+      actionUrl: json['actionUrl'] != null ? _s(json['actionUrl']) : null,
     );
   }
 }

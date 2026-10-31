@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -74,6 +75,8 @@ class _UserMainScreenState extends State<UserMainScreen>
   int  _currentNavIndex   = 0;
   int  _currentBannerIndex = 0;
   bool _showScrollToTop   = false;
+  bool _isBannerTouched   = false;
+  Timer? _bannerTimer;
 
   final ScrollController _scrollController      = ScrollController();
   final ScrollController _brandsScrollController = ScrollController();
@@ -228,17 +231,23 @@ class _UserMainScreenState extends State<UserMainScreen>
   }
 
   void _startBannerAutoPlay() {
-    Future.doWhile(() async {
-      await Future.delayed(const Duration(seconds: 4));
-      if (!mounted) return false;
-      final displayBanners = banners.isEmpty ? _getDefaultBanners() : banners;
-      if (displayBanners.isEmpty) return true;
-      final next = (_currentBannerIndex + 1) % displayBanners.length;
-      if (_bannerController.hasClients) {
-        _bannerController.animateToPage(next,
-            duration: const Duration(milliseconds: 500), curve: Curves.easeInOut);
+    _bannerTimer?.cancel();
+    _bannerTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
       }
-      return true;
+      if (!_isBannerTouched) {
+        final displayBanners = banners.isEmpty ? _getDefaultBanners() : banners;
+        if (displayBanners.isNotEmpty && _bannerController.hasClients) {
+          final next = (_currentBannerIndex + 1) % displayBanners.length;
+          _bannerController.animateToPage(
+            next,
+            duration: const Duration(milliseconds: 500),
+            curve: Curves.easeInOut,
+          );
+        }
+      }
     });
   }
 
@@ -295,6 +304,7 @@ class _UserMainScreenState extends State<UserMainScreen>
 
   @override
   void dispose() {
+    _bannerTimer?.cancel();
     _cartNotifier.dispose();
     searchController.dispose();
     _scrollController.dispose();
@@ -710,68 +720,97 @@ class _UserMainScreenState extends State<UserMainScreen>
     final displayBanners = banners.isEmpty ? _getDefaultBanners() : banners;
     if (displayBanners.isEmpty) return const SizedBox.shrink();
 
-    return Column(children: [
-      SizedBox(
-        height: 170,
-        child: PageView.builder(
-          controller: _bannerController,
-          onPageChanged: (index) => _currentBannerIndex = index,
-          itemCount: displayBanners.length,
-          itemBuilder: (context, index) {
-            final banner = displayBanners[index];
-            return Container(
-              margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [BoxShadow(
-                    color: banner.color.withOpacity(0.4), blurRadius: 14, offset: const Offset(0, 6))],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(20),
-                child: Stack(children: [
-                  if (banner.imageUrl.isNotEmpty)
-                    CachedNetworkImage(
-                      imageUrl: banner.imageUrl,
-                      width: double.infinity,
-                      height: double.infinity,
-                      fit: BoxFit.cover,
-                      memCacheWidth: 800,
-                      placeholder: (context, url) => _buildBannerBg(banner),
-                      errorWidget: (_, __, ___) => _buildBannerBg(banner),
-                    )
-                  else _buildBannerBg(banner),
-                  Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Colors.black.withOpacity(0.4), Colors.transparent],
-                        begin: Alignment.bottomCenter, end: Alignment.topCenter,
-                      ),
-                    ),
+    return Listener(
+      onPointerDown: (_) => setState(() => _isBannerTouched = true),
+      onPointerUp: (_) => setState(() => _isBannerTouched = false),
+      onPointerCancel: (_) => setState(() => _isBannerTouched = false),
+      child: Column(children: [
+        SizedBox(
+          height: 170,
+          child: PageView.builder(
+            controller: _bannerController,
+            onPageChanged: (index) => setState(() => _currentBannerIndex = index),
+            itemCount: displayBanners.length,
+            itemBuilder: (context, index) {
+              final banner = displayBanners[index];
+              return GestureDetector(
+                onTap: () {
+                  if (banner.productId != null && banner.productId!.isNotEmpty) {
+                    final found = allProducts.firstWhere(
+                      (p) => p.id == banner.productId,
+                      orElse: () => allProducts.first,
+                    );
+                    if (allProducts.any((p) => p.id == banner.productId)) {
+                      Navigator.push(
+                        context,
+                        SlidePageRoute(page: ProductDetailScreen(
+                          product: found, cart: cart,
+                          isSpecialPrice: widget.user.isSpecial, currentUser: widget.user,
+                        )),
+                      ).then((added) async {
+                        if (added == true) {
+                          setState(() {});
+                          if (!widget.isPreviewMode) await CartService.saveCart(cart);
+                        }
+                      });
+                    }
+                  }
+                },
+                child: Container(
+                  margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [BoxShadow(
+                        color: banner.color.withOpacity(0.4), blurRadius: 14, offset: const Offset(0, 6))],
                   ),
-                  _buildBannerContent(banner),
-                ]),
-              ),
-            );
-          },
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: banner.imageUrl.isNotEmpty
+                        ? CachedNetworkImage(
+                            imageUrl: banner.imageUrl,
+                            width: double.infinity,
+                            height: double.infinity,
+                            fit: BoxFit.cover,
+                            memCacheWidth: 800,
+                            placeholder: (context, url) => _buildBannerBg(banner),
+                            errorWidget: (_, __, ___) => _buildBannerBg(banner),
+                          )
+                        : Stack(children: [
+                            _buildBannerBg(banner),
+                            Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [Colors.black.withOpacity(0.4), Colors.transparent],
+                                  begin: Alignment.bottomCenter, end: Alignment.topCenter,
+                                ),
+                              ),
+                            ),
+                            _buildBannerContent(banner),
+                          ]),
+                  ),
+                ),
+              );
+            },
+          ),
         ),
-      ),
-      Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: List.generate(
-          displayBanners.length,
-              (index) => AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
-            margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 6),
-            width: _currentBannerIndex == index ? 22 : 7,
-            height: 7,
-            decoration: BoxDecoration(
-              color: _currentBannerIndex == index ? const Color(0xFF2E7D32) : Colors.grey.shade400,
-              borderRadius: BorderRadius.circular(4),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(
+            displayBanners.length,
+                (index) => AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 6),
+              width: _currentBannerIndex == index ? 22 : 7,
+              height: 7,
+              decoration: BoxDecoration(
+                color: _currentBannerIndex == index ? const Color(0xFF2E7D32) : Colors.grey.shade400,
+                borderRadius: BorderRadius.circular(4),
+              ),
             ),
           ),
         ),
-      ),
-    ]);
+      ]),
+    );
   }
 
   Widget _buildBannerBg(BannerModel banner) => Container(

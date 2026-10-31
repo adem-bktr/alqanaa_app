@@ -462,6 +462,11 @@ extension AdminManageTabX on _AdminScreenState {
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined, color: Colors.blue),
+                    onPressed: () => _showEditBannerDialog(banner),
+                    tooltip: 'تعديل البانر',
+                  ),
                   Switch(
                     value: banner.isActive,
                     activeColor: const Color(0xFF2E7D32),
@@ -475,6 +480,7 @@ extension AdminManageTabX on _AdminScreenState {
                     icon: const Icon(Icons.delete_outline,
                         color: Colors.red),
                     onPressed: () => deleteBanner(banner),
+                    tooltip: 'حذف البانر',
                   ),
                 ],
               ),
