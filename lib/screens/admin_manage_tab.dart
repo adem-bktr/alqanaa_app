@@ -488,7 +488,6 @@ extension AdminManageTabX on _AdminScreenState {
               title: Text('بانر #${index + 1} (الترتيب: ${banner.order})',
                   style: const TextStyle(fontWeight: FontWeight.bold)),
               subtitle: Text(linkInfo),
-              ),
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
