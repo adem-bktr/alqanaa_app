@@ -253,12 +253,17 @@ class _MainScreenState extends State<MainScreen>
 
   void _applyStoreFilter() {
     final q = _storeSearchCtrl.text.toLowerCase();
+    final list = _allProducts.where((p) {
+      final matchesBrand = _selectedBrandId.isEmpty || p.brandId == _selectedBrandId;
+      final matchesSearch = q.isEmpty || p.name.toLowerCase().contains(q);
+      return matchesBrand && matchesSearch;
+    }).toList();
+    list.sort((a, b) {
+      if (a.isAvailable != b.isAvailable) return a.isAvailable ? -1 : 1;
+      return a.name.compareTo(b.name);
+    });
     setState(() {
-      _storeFilteredProducts = _allProducts.where((p) {
-        final matchesBrand = _selectedBrandId.isEmpty || p.brandId == _selectedBrandId;
-        final matchesSearch = q.isEmpty || p.name.toLowerCase().contains(q);
-        return matchesBrand && matchesSearch;
-      }).toList();
+      _storeFilteredProducts = list;
     });
   }
 

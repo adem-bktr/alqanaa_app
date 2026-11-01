@@ -374,7 +374,10 @@ class DataService {
           .get();
       final list =
       snap.docs.map((d) => app_models.Product.fromJson(_qDoc(d))).toList();
-      list.sort((a, b) => a.name.compareTo(b.name));
+      list.sort((a, b) {
+        if (a.isAvailable != b.isAvailable) return a.isAvailable ? -1 : 1;
+        return a.name.compareTo(b.name);
+      });
       return list;
     } catch (e) {
       debugPrint('❌ getProducts: $e');
@@ -392,7 +395,10 @@ class DataService {
       final snap = await _getQ(_db.collection('products'));
       final list =
       snap.docs.map((d) => app_models.Product.fromJson(_qDoc(d))).toList();
-      list.sort((a, b) => a.name.compareTo(b.name));
+      list.sort((a, b) {
+        if (a.isAvailable != b.isAvailable) return a.isAvailable ? -1 : 1;
+        return a.name.compareTo(b.name);
+      });
       _cachedAllProducts = list;
       _lastProductsFetchTime = DateTime.now();
       return list;
@@ -412,7 +418,10 @@ class DataService {
           .get();
       final list =
       snap.docs.map((d) => app_models.Product.fromJson(_qDoc(d))).toList();
-      list.sort((a, b) => a.name.compareTo(b.name));
+      list.sort((a, b) {
+        if (a.isAvailable != b.isAvailable) return a.isAvailable ? -1 : 1;
+        return a.name.compareTo(b.name);
+      });
       return list;
     } catch (e) {
       debugPrint('❌ getProductsByCategory: $e');
@@ -430,16 +439,26 @@ class DataService {
           .get();
 
       if (snap.docs.isNotEmpty) {
-        return snap.docs
+        final list = snap.docs
             .map((d) => app_models.Product.fromJson(_qDoc(d)))
             .toList();
+        list.sort((a, b) {
+          if (a.isAvailable != b.isAvailable) return a.isAvailable ? -1 : 1;
+          return a.name.compareTo(b.name);
+        });
+        return list;
       }
 
       // لا يوجد مميز → أعد أول منتجات
       final all = await _db.collection('products').limit(limit).get();
-      return all.docs
+      final list = all.docs
           .map((d) => app_models.Product.fromJson(_qDoc(d)))
           .toList();
+      list.sort((a, b) {
+        if (a.isAvailable != b.isAvailable) return a.isAvailable ? -1 : 1;
+        return a.name.compareTo(b.name);
+      });
+      return list;
     } catch (e) {
       debugPrint('❌ getFeaturedProducts: $e');
       return [];

@@ -205,6 +205,10 @@ class _UserMainScreenState extends State<UserMainScreen>
     setState(() => isProductsLoading = true);
     try {
       final data = await DataService.getAllProducts();
+      data.sort((a, b) {
+        if (a.isAvailable != b.isAvailable) return a.isAvailable ? -1 : 1;
+        return a.name.compareTo(b.name);
+      });
       if (mounted) {
         setState(() {
           allProducts = data;

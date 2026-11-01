@@ -90,10 +90,17 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen>
 
   void _onSearch() {
     final q = searchController.text.toLowerCase();
+    final list = q.isEmpty
+        ? List<Product>.from(products)
+        : products.where((p) => p.name.toLowerCase().contains(q)).toList();
+    list.sort((a, b) {
+      if (a.isAvailable != b.isAvailable) {
+        return a.isAvailable ? -1 : 1;
+      }
+      return a.name.compareTo(b.name);
+    });
     setState(() {
-      filteredProducts = q.isEmpty
-          ? products
-          : products.where((p) => p.name.toLowerCase().contains(q)).toList();
+      filteredProducts = list;
     });
   }
 

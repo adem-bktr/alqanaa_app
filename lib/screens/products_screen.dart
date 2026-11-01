@@ -142,22 +142,21 @@ class _ProductsScreenState extends State<ProductsScreen>
         ? List.from(products)
         : products.where((p) => p.name.toLowerCase().contains(q)).toList();
 
-    switch (selectedSort) {
-      case 'name':
-        filtered.sort((a, b) => a.name.compareTo(b.name));
-        break;
-      case 'priceAsc':
-        filtered.sort(
-                (a, b) => a.priceCartonNormal.compareTo(b.priceCartonNormal));
-        break;
-      case 'priceDesc':
-        filtered.sort(
-                (a, b) => b.priceCartonNormal.compareTo(a.priceCartonNormal));
-        break;
-      case 'available':
-        filtered.sort((a, b) => b.isAvailable ? 1 : -1);
-        break;
-    }
+    filtered.sort((a, b) {
+      if (a.isAvailable != b.isAvailable) {
+        return a.isAvailable ? -1 : 1;
+      }
+      switch (selectedSort) {
+        case 'priceAsc':
+          return a.priceCartonNormal.compareTo(b.priceCartonNormal);
+        case 'priceDesc':
+          return b.priceCartonNormal.compareTo(a.priceCartonNormal);
+        case 'name':
+        case 'available':
+        default:
+          return a.name.compareTo(b.name);
+      }
+    });
     setState(() => filteredProducts = filtered);
   }
 

@@ -67,12 +67,17 @@ class _DesktopPosViewState extends State<DesktopPosView> {
 
   void _applyFilter() {
     final q = searchController.text.toLowerCase().trim();
+    final list = q.isEmpty
+        ? List<Product>.of(allProducts)
+        : allProducts
+        .where((p) => p.name.toLowerCase().contains(q) || p.id.contains(q))
+        .toList();
+    list.sort((a, b) {
+      if (a.isAvailable != b.isAvailable) return a.isAvailable ? -1 : 1;
+      return a.name.compareTo(b.name);
+    });
     setState(() {
-      filteredProducts = q.isEmpty
-          ? List.of(allProducts)
-          : allProducts
-          .where((p) => p.name.toLowerCase().contains(q) || p.id.contains(q))
-          .toList();
+      filteredProducts = list;
     });
   }
 
