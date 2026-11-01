@@ -729,8 +729,8 @@ class _UserMainScreenState extends State<UserMainScreen>
       onPointerUp: (_) => setState(() => _isBannerTouched = false),
       onPointerCancel: (_) => setState(() => _isBannerTouched = false),
       child: Column(children: [
-        SizedBox(
-          height: 170,
+        AspectRatio(
+          aspectRatio: 16 / 9,
           child: PageView.builder(
             controller: _bannerController,
             onPageChanged: (index) => setState(() => _currentBannerIndex = index),

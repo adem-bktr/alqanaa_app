@@ -3671,29 +3671,31 @@ class _AdminScreenState extends State<AdminScreen>
         const SizedBox(height: 16),
         GestureDetector(
           onTap: pickBannerImage,
-          child: Container(
-            width: double.infinity,
-            height: 110,
-            decoration: BoxDecoration(
-              color: _selectedBannerColor.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: _selectedBannerColor),
-            ),
-            child: bannerImagePath != null
-                ? ClipRRect(
+          child: AspectRatio(
+            aspectRatio: 16 / 9,
+            child: Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: _selectedBannerColor.withOpacity(0.15),
                 borderRadius: BorderRadius.circular(14),
-                child: kIsWeb
-                    ? Image.network(bannerImagePath!, fit: BoxFit.cover)
-                    : Image.file(File(bannerImagePath!), fit: BoxFit.cover))
-                : Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.add_photo_alternate,
-                    color: _selectedBannerColor, size: 36),
-                Text('إضافة صورة',
-                    style: TextStyle(
-                        color: _selectedBannerColor)),
-              ],
+                border: Border.all(color: _selectedBannerColor),
+              ),
+              child: bannerImagePath != null
+                  ? ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: kIsWeb
+                      ? Image.network(bannerImagePath!, fit: BoxFit.cover)
+                      : Image.file(File(bannerImagePath!), fit: BoxFit.cover))
+                  : Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.add_photo_alternate,
+                      color: _selectedBannerColor, size: 36),
+                  Text('إضافة صورة',
+                      style: TextStyle(
+                          color: _selectedBannerColor)),
+                ],
+              ),
             ),
           ),
         ),
