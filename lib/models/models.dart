@@ -183,6 +183,7 @@ class BannerModel {
   final int order;
   final String? productId;
   final String? categoryId;
+  final String? brandId;
   final String? actionUrl;
 
   BannerModel({
@@ -196,6 +197,7 @@ class BannerModel {
     this.order = 0,
     this.productId,
     this.categoryId,
+    this.brandId,
     this.actionUrl,
   });
 
@@ -214,6 +216,7 @@ class BannerModel {
     'order': order,
     'productId': productId,
     'categoryId': categoryId,
+    'brandId': brandId,
     'actionUrl': actionUrl,
   };
 
@@ -236,6 +239,7 @@ class BannerModel {
       order: _i(json['order']),
       productId: json['productId'] != null ? _s(json['productId']) : null,
       categoryId: json['categoryId'] != null ? _s(json['categoryId']) : null,
+      brandId: json['brandId'] != null ? _s(json['brandId']) : null,
       actionUrl: json['actionUrl'] != null ? _s(json['actionUrl']) : null,
     );
   }

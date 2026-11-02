@@ -96,6 +96,7 @@ class _AdminScreenState extends State<AdminScreen>
   String? bannerImagePath;
   String? _selectedBannerProductId;
   String? _selectedBannerCategoryId;
+  String? _selectedBannerBrandId;
   String _selectedBannerLinkType = 'none';
 
   SellType selectedSellType = SellType.cartonOnly;
@@ -1186,9 +1187,11 @@ class _AdminScreenState extends State<AdminScreen>
     try {
       String? pId;
       String? cId;
+      String? bId;
       String? url;
       if (_selectedBannerLinkType == 'product') pId = _selectedBannerProductId;
       if (_selectedBannerLinkType == 'category') cId = _selectedBannerCategoryId;
+      if (_selectedBannerLinkType == 'brand') bId = _selectedBannerBrandId;
       if (_selectedBannerLinkType == 'url') url = bannerActionUrlController.text.trim();
 
       final banner = BannerModel(
@@ -1201,6 +1204,7 @@ class _AdminScreenState extends State<AdminScreen>
         order: int.tryParse(bannerOrderController.text.trim()) ?? 0,
         productId: pId,
         categoryId: cId,
+        brandId: bId,
         actionUrl: url,
       );
       await DataService.saveBanner(banner, imagePath: bannerImagePath);
@@ -1210,6 +1214,7 @@ class _AdminScreenState extends State<AdminScreen>
         bannerImagePath = null;
         _selectedBannerProductId = null;
         _selectedBannerCategoryId = null;
+        _selectedBannerBrandId = null;
         _selectedBannerLinkType = 'none';
         isLoadingBanner = false;
         _selectedBannerColor = const Color(0xFF2E7D32);
@@ -1232,12 +1237,15 @@ class _AdminScreenState extends State<AdminScreen>
       linkType = 'product';
     } else if (banner.categoryId != null && banner.categoryId!.isNotEmpty) {
       linkType = 'category';
+    } else if (banner.brandId != null && banner.brandId!.isNotEmpty) {
+      linkType = 'brand';
     } else if (banner.actionUrl != null && banner.actionUrl!.isNotEmpty) {
       linkType = 'url';
     }
 
     String? editProductId = banner.productId;
     String? editCategoryId = banner.categoryId;
+    String? editBrandId = banner.brandId;
 
     await showDialog(
       context: context,
@@ -1265,6 +1273,7 @@ class _AdminScreenState extends State<AdminScreen>
                     DropdownMenuItem(value: 'none', child: Text('بدون رابط (عرض فقط)')),
                     DropdownMenuItem(value: 'product', child: Text('ربط بمنتج معين')),
                     DropdownMenuItem(value: 'category', child: Text('ربط بقسم / فئة جديدة')),
+                    DropdownMenuItem(value: 'brand', child: Text('ربط بعلامة تجارية')),
                     DropdownMenuItem(value: 'url', child: Text('رابط خارجي (موقع / صفحة)')),
                   ],
                   onChanged: (val) {
@@ -1306,6 +1315,22 @@ class _AdminScreenState extends State<AdminScreen>
                   ),
                   const SizedBox(height: 10),
                 ],
+                if (linkType == 'brand') ...[
+                  DropdownButtonFormField<Brand>(
+                    value: brands.any((b) => b.id == editBrandId)
+                        ? brands.firstWhere((b) => b.id == editBrandId)
+                        : null,
+                    hint: const Text('اختر العلامة التجارية المرتبطة'),
+                    isExpanded: true,
+                    items: brands.map((b) => DropdownMenuItem<Brand>(
+                      value: b,
+                      child: Text(b.name),
+                    )).toList(),
+                    onChanged: (b) => setSt(() => editBrandId = b?.id),
+                    decoration: const InputDecoration(labelText: 'العلامة التجارية المرتبطة'),
+                  ),
+                  const SizedBox(height: 10),
+                ],
                 if (linkType == 'url') ...[
                   TextField(
                     controller: urlCtrl,
@@ -1331,9 +1356,11 @@ class _AdminScreenState extends State<AdminScreen>
               onPressed: () async {
                 String? pId;
                 String? cId;
+                String? bId;
                 String? url;
                 if (linkType == 'product') pId = editProductId;
                 if (linkType == 'category') cId = editCategoryId;
+                if (linkType == 'brand') bId = editBrandId;
                 if (linkType == 'url') url = urlCtrl.text.trim();
 
                 final updated = BannerModel(
@@ -1347,6 +1374,7 @@ class _AdminScreenState extends State<AdminScreen>
                   order: int.tryParse(orderCtrl.text.trim()) ?? banner.order,
                   productId: pId,
                   categoryId: cId,
+                  brandId: bId,
                   actionUrl: url,
                 );
                 await DataService.saveBanner(updated);
@@ -3732,6 +3760,7 @@ class _AdminScreenState extends State<AdminScreen>
             DropdownMenuItem(value: 'none', child: Text('بدون رابط (عرض فقط)')),
             DropdownMenuItem(value: 'product', child: Text('ربط بمنتج معين')),
             DropdownMenuItem(value: 'category', child: Text('ربط بقسم / فئة جديدة')),
+            DropdownMenuItem(value: 'brand', child: Text('ربط بعلامة تجارية')),
             DropdownMenuItem(value: 'url', child: Text('رابط خارجي (موقع / صفحة)')),
           ],
           onChanged: (val) {
@@ -3781,6 +3810,30 @@ class _AdminScreenState extends State<AdminScreen>
             onChanged: (c) => setState(() => _selectedBannerCategoryId = c?.id),
             decoration: InputDecoration(
               prefixIcon: const Icon(Icons.category, color: Color(0xFF2E7D32)),
+              filled: true,
+              fillColor: fillColor,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+        ],
+        if (_selectedBannerLinkType == 'brand') ...[
+          DropdownButtonFormField<Brand>(
+            value: brands.any((b) => b.id == _selectedBannerBrandId)
+                ? brands.firstWhere((b) => b.id == _selectedBannerBrandId)
+                : null,
+            hint: const Text('اختر العلامة التجارية المرتبطة'),
+            isExpanded: true,
+            items: brands.map((b) => DropdownMenuItem<Brand>(
+              value: b,
+              child: Text(b.name),
+            )).toList(),
+            onChanged: (b) => setState(() => _selectedBannerBrandId = b?.id),
+            decoration: InputDecoration(
+              prefixIcon: const Icon(Icons.store, color: Color(0xFF2E7D32)),
               filled: true,
               fillColor: fillColor,
               border: OutlineInputBorder(

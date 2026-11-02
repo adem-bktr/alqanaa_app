@@ -461,6 +461,9 @@ extension AdminManageTabX on _AdminScreenState {
                 orElse: () => Category(id: '', name: 'قسم', icon: '📦'),
               );
               linkInfo = 'مرتبط بقسم: ${cat.name.isNotEmpty ? cat.name : banner.categoryId}';
+            } else if (banner.brandId != null && banner.brandId!.isNotEmpty) {
+              final brandFound = _brandById(banner.brandId);
+              linkInfo = 'مرتبط بعلامة تجارية: ${brandFound?.name ?? banner.brandId}';
             } else if (banner.actionUrl != null && banner.actionUrl!.isNotEmpty) {
               linkInfo = 'رابط خارجي: ${banner.actionUrl}';
             }

@@ -772,6 +772,20 @@ class _UserMainScreenState extends State<UserMainScreen>
                       _cartNotifier.value = List.from(cart);
                       if (!widget.isPreviewMode) await CartService.saveCart(cart);
                     });
+                  } else if (banner.brandId != null && banner.brandId!.isNotEmpty) {
+                    final brandFound = brands.firstWhere(
+                      (b) => b.id == banner.brandId,
+                      orElse: () => Brand(id: banner.brandId!, name: 'علامة تجارية'),
+                    );
+                    Navigator.push(
+                      context,
+                      SlidePageRoute(page: ProductsScreen(
+                        brand: brandFound, cart: cart, isAdmin: false, user: widget.user,
+                      )),
+                    ).then((_) async {
+                      _cartNotifier.value = List.from(cart);
+                      if (!widget.isPreviewMode) await CartService.saveCart(cart);
+                    });
                   } else if (banner.actionUrl != null && banner.actionUrl!.isNotEmpty) {
                     final rawUrl = banner.actionUrl!.trim();
                     final uri = Uri.tryParse(rawUrl.startsWith('http') ? rawUrl : 'https://$rawUrl');
