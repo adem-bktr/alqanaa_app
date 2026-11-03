@@ -201,6 +201,53 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
+  Future<void> _promptForPhoneIfNeeded(UserModel user) async {
+    if (user.phone.trim().isNotEmpty) return;
+
+    final phoneController = TextEditingController();
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('أدخل رقم هاتفك لإتمام التسجيل', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF2E7D32))),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('رقم الهاتف مطلوب لمتابعة وتوصيل طلباتك.', style: TextStyle(fontSize: 13, color: Colors.grey)),
+            const SizedBox(height: 16),
+            TextField(
+              controller: phoneController,
+              keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(
+                labelText: 'رقم الهاتف',
+                prefixIcon: Icon(Icons.phone, color: Color(0xFF2E7D32)),
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2E7D32)),
+            onPressed: () async {
+              final phone = phoneController.text.trim();
+              if (phone.length < 9) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('الرجاء إدخال رقم هاتف صحيح')),
+                );
+                return;
+              }
+              await AuthService.updateUserProfile(userId: user.id, phone: phone);
+              Navigator.pop(context);
+            },
+            child: const Text('حفظ ومتابعة', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _registerWithGoogle() async {
     setState(() => isLoading = true);
     try {
@@ -208,22 +255,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (!mounted) return;
 
       if (user != null) {
-        await NotificationService.saveToken(user.id);
+        await _promptForPhoneIfNeeded(user);
+        if (!mounted) return;
+
+        final updatedUser = await AuthService.getUser(user.id) ?? user;
+
+        await NotificationService.saveToken(updatedUser.id);
         if (!mounted) return;
 
         Navigator.pushReplacement(
           context,
           FadeScaleRoute(
             page: UserMainScreen(
-              user: user,
+              user: updatedUser,
               onToggleDarkMode: widget.onToggleDarkMode,
               isDarkMode: widget.isDarkMode,
             ),
           ),
         );
+      } else {
+        setState(() => isLoading = false);
       }
     } catch (e) {
       if (!mounted) return;
+      final err = e.toString();
+      if (err.contains('sign_in_canceled') || err.contains('canceled') || err.contains('Sign in aborted')) {
+        setState(() => isLoading = false);
+        return;
+      }
       _showSnackBar('❌ حدث خطأ أثناء التسجيل بواسطة جوجل', Colors.red);
       setState(() => isLoading = false);
     }

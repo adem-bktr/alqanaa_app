@@ -878,19 +878,31 @@ class _AdminScreenState extends State<AdminScreen>
                 ),
               );
 
-              final sentCount = await NotificationService.broadcastNotificationToCustomers(
-                title: title,
-                body: body,
-              );
-
-              if (context.mounted) {
-                Navigator.pop(context); // close loading
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('✅ تم إرسال الإشعار بنجاح إلى $sentCount زبون'),
-                    backgroundColor: Colors.green,
-                  ),
+              try {
+                final sentCount = await NotificationService.broadcastNotificationToCustomers(
+                  title: title,
+                  body: body,
                 );
+
+                if (context.mounted) {
+                  Navigator.pop(context); // close loading
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('✅ تم إرسال الإشعار بنجاح إلى $sentCount زبون'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  Navigator.pop(context); // close loading
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('❌ خطأ في إرسال الإشعار: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
               }
             },
           ),

@@ -122,7 +122,9 @@ class AuthService {
   // ══════════════════════════════════
   static Future<UserModel?> signInWithGoogle() async {
     try {
-      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+      final GoogleSignInAccount? googleUser = await GoogleSignIn(
+        serverClientId: '665302336531-e4f922bc2c61766f142be6.apps.googleusercontent.com',
+      ).signIn();
       if (googleUser == null) return null;
 
       final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
@@ -146,7 +148,7 @@ class AuthService {
         userModel = UserModel(
           id: firebaseUser.uid,
           name: firebaseUser.displayName ?? googleUser.displayName ?? 'مستخدم جوجل',
-          email: firebaseUser.email ?? googleUser.email ?? '',
+          email: firebaseUser.email ?? '',
           phone: firebaseUser.phoneNumber ?? '',
           role: 'user_normal',
           createdAt: DateTime.now().toIso8601String(),

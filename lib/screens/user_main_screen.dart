@@ -754,6 +754,7 @@ class _UserMainScreenState extends State<UserMainScreen>
                       ).then((added) async {
                         if (added == true) {
                           setState(() {});
+                          _cartNotifier.value = List.from(cart);
                           if (!widget.isPreviewMode) await CartService.saveCart(cart);
                         }
                       });
@@ -1061,6 +1062,7 @@ class _UserMainScreenState extends State<UserMainScreen>
             ).then((added) async {
               if (added == true) {
                 setState(() {});
+                _cartNotifier.value = List.from(cart);
                 if (!widget.isPreviewMode) await CartService.saveCart(cart);
               }
             }),
@@ -1113,6 +1115,7 @@ class _UserMainScreenState extends State<UserMainScreen>
         ).then((added) async {
           if (added == true) {
             setState(() {});
+            _cartNotifier.value = List.from(cart);
             if (!widget.isPreviewMode) await CartService.saveCart(cart);
           }
         }),
@@ -1357,6 +1360,7 @@ class _UserMainScreenState extends State<UserMainScreen>
                             ).then((added) async {
                               if (added == true) {
                                 setState(() {});
+                                _cartNotifier.value = List.from(cart);
                                 if (!widget.isPreviewMode) await CartService.saveCart(cart);
                               }
                             }),

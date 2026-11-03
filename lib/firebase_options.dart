@@ -64,7 +64,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '665302336531',
     projectId: 'alqanaa-f16e4',
     storageBucket: 'alqanaa-f16e4.firebasestorage.app',
-    iosBundleId: 'com.example.alqanaaApp',
+    iosBundleId: 'com.alqanaaapp.grossiste',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
@@ -73,7 +73,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '665302336531',
     projectId: 'alqanaa-f16e4',
     storageBucket: 'alqanaa-f16e4.firebasestorage.app',
-    iosBundleId: 'com.example.alqanaaApp',
+    iosBundleId: 'com.alqanaaapp.grossiste',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(

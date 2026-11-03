@@ -87,5 +87,14 @@
 		<string>sms</string>
 		<string>tel</string>
 	</array>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.665302336531-541d6636ca96223c142be6</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>
