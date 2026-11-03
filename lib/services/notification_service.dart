@@ -301,6 +301,55 @@ class NotificationService {
   }
 
   // ══════════════════════════════════
+  //  إشعار جماعي تذكيري للزبائن ✅
+  // ══════════════════════════════════
+
+  static Future<int> broadcastNotificationToCustomers({
+    required String title,
+    required String body,
+  }) async {
+    try {
+      debugPrint('📤 إرسال إشعار جماعي للزبائن...');
+
+      final snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .get();
+
+      if (snapshot.docs.isEmpty) {
+        debugPrint('⚠️ لا يوجد مستخدمين');
+        return 0;
+      }
+
+      int sent = 0;
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        final role = data['role'] as String? ?? 'customer';
+        if (role == 'admin') continue;
+
+        final token = (data['fcmToken'] as String?) ?? '';
+        if (token.isEmpty) continue;
+
+        final success = await _sendFCMv1(
+          token: token,
+          title: title,
+          body: body,
+          data: {
+            'type': 'broadcast_reminder',
+          },
+        );
+
+        if (success) sent++;
+      }
+
+      debugPrint('✅ تم إرسال الإشعار الجماعي إلى $sent زبون');
+      return sent;
+    } catch (e) {
+      debugPrint('❌ خطأ في broadcastNotificationToCustomers: $e');
+      return 0;
+    }
+  }
+
+  // ══════════════════════════════════
   //  ✅ الإرسال عبر HTTP v1 API (الجديدة)
   // ══════════════════════════════════
 

@@ -10,6 +10,7 @@ import '../models/models.dart';
 import '../services/auth_service.dart';
 import '../services/data_service.dart';
 import '../services/printer_service.dart';
+import '../services/notification_service.dart';
 import '../utils/converters.dart';
 import '../widgets/receipt_preview_dialog.dart';
 import 'stats_screen.dart';
@@ -798,6 +799,100 @@ class _AdminScreenState extends State<AdminScreen>
                 backgroundColor: const Color(0xFF2E7D32)),
             child:
             const Text('كرتون', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showBroadcastNotificationDialog() {
+    final titleController = TextEditingController(text: '🛒 عروض جديدة في تطبيق القناعة!');
+    final bodyController = TextEditingController(text: 'اكتشف أحدث المنتجات والأسعار المميزة الآن، تصفح التطبيق واطلب ما تحتاجه!');
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.campaign_rounded, color: Color(0xFF2E7D32)),
+            SizedBox(width: 8),
+            Text('إرسال إشعار تذكيري للزبائن'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'سيتم إرسال هذا الإشعار الفوري (Push Notification) إلى جميع الزبائن المسجلين في التطبيق.',
+              style: TextStyle(fontSize: 13, color: Colors.grey),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: titleController,
+              decoration: const InputDecoration(
+                labelText: 'عنوان الإشعار',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: bodyController,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: 'نص الرسالة',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('إلغاء'),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF2E7D32),
+              foregroundColor: Colors.white,
+            ),
+            icon: const Icon(Icons.send_rounded, size: 16),
+            label: const Text('إرسال للكل'),
+            onPressed: () async {
+              final title = titleController.text.trim();
+              final body = bodyController.text.trim();
+              if (title.isEmpty || body.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('الرجاء إدخال العنوان والنص')),
+                );
+                return;
+              }
+
+              Navigator.pop(context);
+              
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (_) => const Center(
+                  child: CircularProgressIndicator(color: Color(0xFF2E7D32)),
+                ),
+              );
+
+              final sentCount = await NotificationService.broadcastNotificationToCustomers(
+                title: title,
+                body: body,
+              );
+
+              if (context.mounted) {
+                Navigator.pop(context); // close loading
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('✅ تم إرسال الإشعار بنجاح إلى $sentCount زبون'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              }
+            },
           ),
         ],
       ),
@@ -2409,6 +2504,11 @@ class _AdminScreenState extends State<AdminScreen>
           },
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.campaign_rounded, color: Colors.white),
+            tooltip: 'إرسال إشعار تذكيري',
+            onPressed: _showBroadcastNotificationDialog,
+          ),
           IconButton(
             icon: const Icon(Icons.today_rounded, color: Colors.white),
             tooltip: 'دور زبائن اليوم',

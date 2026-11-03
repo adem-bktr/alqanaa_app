@@ -665,7 +665,7 @@ class _ProductsScreenState extends State<ProductsScreen>
         crossAxisCount: crossAxisCount,
         crossAxisSpacing: 10,
         mainAxisSpacing: 12,
-        childAspectRatio: 0.70,
+        childAspectRatio: 0.65,
       ),
       itemCount: filteredProducts.length,
       itemBuilder: (context, index) {
@@ -751,7 +751,7 @@ class _ProductsScreenState extends State<ProductsScreen>
         crossAxisCount: crossAxisCount,
         crossAxisSpacing: 10,
         mainAxisSpacing: 12,
-        childAspectRatio: 0.70,
+        childAspectRatio: 0.65,
       ),
       itemCount: 4,
       itemBuilder: (context, index) {
@@ -1201,44 +1201,46 @@ class _AnimatedProductCardState extends State<_AnimatedProductCard>
                           ],
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      SizedBox(
-                        width: double.infinity,
-                        child: MouseRegion(
-                          cursor: widget.product.isAvailable && !widget.maxReached
-                              ? SystemMouseCursors.click
-                              : SystemMouseCursors.forbidden,
-                          child: ElevatedButton(
-                            onPressed: widget.product.isAvailable &&
-                                !widget.maxReached
-                                ? widget.onAdd
-                                : null,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: widget.maxReached
-                                  ? Colors.orange
-                                  : widget.product.isAvailable
-                                  ? const Color(0xFF2E7D32)
-                                  : Colors.grey,
-                              padding:
-                              const EdgeInsets.symmetric(vertical: 8),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(widget.maxReached ? Icons.error_outline : Icons.add_shopping_cart, size: 16, color: Colors.white),
-                                const SizedBox(width: 6),
-                                Text(
-                                  widget.maxReached ? 'الحد الأقصى' : 'إضافة',
-                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                      if (widget.isAdmin) ...[
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: double.infinity,
+                          child: MouseRegion(
+                            cursor: widget.product.isAvailable && !widget.maxReached
+                                ? SystemMouseCursors.click
+                                : SystemMouseCursors.forbidden,
+                            child: ElevatedButton(
+                              onPressed: widget.product.isAvailable &&
+                                  !widget.maxReached
+                                  ? widget.onAdd
+                                  : null,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: widget.maxReached
+                                    ? Colors.orange
+                                    : widget.product.isAvailable
+                                    ? const Color(0xFF2E7D32)
+                                    : Colors.grey,
+                                padding:
+                                const EdgeInsets.symmetric(vertical: 8),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
                                 ),
-                              ],
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(widget.maxReached ? Icons.error_outline : Icons.add_shopping_cart, size: 16, color: Colors.white),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    widget.maxReached ? 'الحد الأقصى' : 'إضافة',
+                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ),
