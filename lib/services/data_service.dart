@@ -1373,6 +1373,7 @@ class DataService {
       'order': banner.order,
       'productId': banner.productId,
       'categoryId': banner.categoryId,
+      'brandId': banner.brandId,
       'actionUrl': banner.actionUrl,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
