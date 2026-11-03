@@ -184,6 +184,45 @@ class _LoginScreenState extends State<LoginScreen>
     }
   }
 
+  Future<void> _loginWithGoogle() async {
+    setState(() => isLoading = true);
+    try {
+      final user = await AuthService.signInWithGoogle();
+      if (!mounted) return;
+
+      if (user != null) {
+        await NotificationService.saveToken(user.id);
+
+        if (user.isAdmin) {
+          Navigator.pushReplacement(
+            context,
+            FadeScaleRoute(
+              page: MainScreen(
+                onToggleDarkMode: widget.onToggleDarkMode,
+                isDarkMode: widget.isDarkMode,
+              ),
+            ),
+          );
+        } else {
+          Navigator.pushReplacement(
+            context,
+            FadeScaleRoute(
+              page: UserMainScreen(
+                user: user,
+                onToggleDarkMode: widget.onToggleDarkMode,
+                isDarkMode: widget.isDarkMode,
+              ),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      _showError(_getErrorMessage(e.toString()));
+    } finally {
+      if (mounted) setState(() => isLoading = false);
+    }
+  }
+
   String _getErrorMessage(String error) {
     if (error.contains('user-not-found') ||
         error.contains('invalid-credential') ||
@@ -569,6 +608,7 @@ class _LoginScreenState extends State<LoginScreen>
 
                             // Button
                             _buildLoginButton(isDark),
+                            _buildGoogleButton(isDark),
 
                             const SizedBox(height: 24),
 
@@ -812,6 +852,7 @@ class _LoginScreenState extends State<LoginScreen>
 
                         // Button
                         _buildLoginButton(isDark),
+                        _buildGoogleButton(isDark),
 
                         const SizedBox(height: 24),
 
@@ -1033,6 +1074,64 @@ class _LoginScreenState extends State<LoginScreen>
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildGoogleButton(bool isDark) {
+    return Column(
+      children: [
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(child: Divider(color: isDark ? Colors.grey.shade800 : Colors.grey.shade300)),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Text('أو', style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+            ),
+            Expanded(child: Divider(color: isDark ? Colors.grey.shade800 : Colors.grey.shade300)),
+          ],
+        ),
+        const SizedBox(height: 16),
+        MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTap: isLoading ? null : _loginWithGoogle,
+            child: Container(
+              width: double.infinity,
+              height: 54,
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: isDark ? Colors.grey.shade800 : Colors.grey.shade300,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.g_mobiledata, color: Colors.red, size: 36),
+                  const SizedBox(width: 8),
+                  Text(
+                    'المتابعة باستخدام Google',
+                    style: TextStyle(
+                      color: isDark ? Colors.white : Colors.black87,
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

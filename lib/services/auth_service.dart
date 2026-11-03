@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'dart:convert';
 import '../models/models.dart';
 
@@ -114,6 +115,52 @@ class AuthService {
     // ✅ احفظ محلياً عند التسجيل
     await _saveUserLocally(user);
     return user;
+  }
+
+  // ══════════════════════════════════
+  //    تسجيل الدخول / إنشاء حساب بواسطة Google
+  // ══════════════════════════════════
+  static Future<UserModel?> signInWithGoogle() async {
+    try {
+      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+      if (googleUser == null) return null;
+
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      final UserCredential userCred = await _auth.signInWithCredential(credential);
+      if (userCred.user == null) return null;
+
+      final firebaseUser = userCred.user!;
+
+      final doc = await _db.collection('users').doc(firebaseUser.uid).get();
+
+      UserModel userModel;
+      if (doc.exists) {
+        userModel = UserModel.fromJson({...doc.data()!, 'id': doc.id});
+      } else {
+        userModel = UserModel(
+          id: firebaseUser.uid,
+          name: firebaseUser.displayName ?? googleUser.displayName ?? 'مستخدم جوجل',
+          email: firebaseUser.email ?? googleUser.email ?? '',
+          phone: firebaseUser.phoneNumber ?? '',
+          role: 'user_normal',
+          createdAt: DateTime.now().toIso8601String(),
+        );
+        await _db.collection('users').doc(userModel.id).set(userModel.toJson());
+      }
+
+      _cachedUser = userModel;
+      await _saveUserLocally(userModel);
+      return userModel;
+    } catch (e) {
+      debugPrint('❌ خطأ في signInWithGoogle: $e');
+      rethrow;
+    }
   }
 
   // ══════════════════════════════════

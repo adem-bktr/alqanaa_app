@@ -201,6 +201,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
+  Future<void> _registerWithGoogle() async {
+    setState(() => isLoading = true);
+    try {
+      final user = await AuthService.signInWithGoogle();
+      if (!mounted) return;
+
+      if (user != null) {
+        await NotificationService.saveToken(user.id);
+        if (!mounted) return;
+
+        Navigator.pushReplacement(
+          context,
+          FadeScaleRoute(
+            page: UserMainScreen(
+              user: user,
+              onToggleDarkMode: widget.onToggleDarkMode,
+              isDarkMode: widget.isDarkMode,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      _showSnackBar('❌ حدث خطأ أثناء التسجيل بواسطة جوجل', Colors.red);
+      setState(() => isLoading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -366,6 +394,36 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   color: Colors.white,
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(child: Divider(color: Colors.grey.shade300)),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              child: Text('أو', style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+                            ),
+                            Expanded(child: Divider(color: Colors.grey.shade300)),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: isLoading ? null : _registerWithGoogle,
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              side: BorderSide(color: Colors.grey.shade300),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            icon: const Icon(Icons.g_mobiledata, color: Colors.red, size: 32),
+                            label: const Text(
+                              'التسجيل باستخدام Google',
+                              style: TextStyle(color: Colors.black87, fontSize: 15, fontWeight: FontWeight.bold),
                             ),
                           ),
                         ),
