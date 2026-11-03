@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
@@ -310,19 +309,40 @@ class NotificationService {
     required String body,
   }) async {
     try {
-      debugPrint('📤 إرسال إشعار جماعي للزبائن عبر Cloud Functions...');
+      debugPrint('📤 إرسال إشعار جماعي للزبائن...');
 
-      final callable = FirebaseFunctions.instance.httpsCallable('broadcastReminderToCustomers');
-      final result = await callable.call({
-        'title': title,
-        'body': body,
-      });
+      final snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .get();
 
-      final data = result.data as Map<String, dynamic>?;
-      final sentCount = data?['sentCount'] as int? ?? 0;
+      if (snapshot.docs.isEmpty) {
+        debugPrint('⚠️ لا يوجد مستخدمين');
+        return 0;
+      }
 
-      debugPrint('✅ تم إرسال الإشعار الجماعي إلى $sentCount زبون بنجاح');
-      return sentCount;
+      int sent = 0;
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        final role = data['role'] as String? ?? 'customer';
+        if (role == 'admin') continue;
+
+        final token = (data['fcmToken'] as String?) ?? '';
+        if (token.isEmpty) continue;
+
+        final success = await _sendFCMv1(
+          token: token,
+          title: title,
+          body: body,
+          data: {
+            'type': 'broadcast_reminder',
+          },
+        );
+
+        if (success) sent++;
+      }
+
+      debugPrint('✅ تم إرسال الإشعار الجماعي إلى $sent زبون');
+      return sent;
     } catch (e) {
       debugPrint('❌ خطأ في broadcastNotificationToCustomers: $e');
       return 0;
