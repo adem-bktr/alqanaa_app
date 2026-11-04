@@ -259,6 +259,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
         await _promptForPhoneIfNeeded(user);
         if (!mounted) return;
 
+        if (user.latitude == null) {
+          await _showLocationDialog();
+          final locationData = await _requestLocation();
+          if (locationData['latitude'] != null) {
+            await FirebaseFirestore.instance
+                .collection('users')
+                .doc(user.id)
+                .update({
+              'latitude': locationData['latitude'],
+              'longitude': locationData['longitude'],
+              'address': locationData['address'],
+            });
+          }
+        }
+
         final updatedUser = await AuthService.getUser(user.id) ?? user;
 
         await NotificationService.saveToken(updatedUser.id);

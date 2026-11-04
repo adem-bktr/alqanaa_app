@@ -183,24 +183,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       }
       for (final entry in flavorQuantities.entries) {
         if (entry.value > 0) {
-          final existing = widget.cart.firstWhere(
-                (i) => i.product.id == widget.product.id &&
-                i.isCarton == isCarton && i.flavor == entry.key,
-            orElse: () => CartItem(
-              product: widget.product, quantity: 0.0,
-              isSpecialPrice: widget.isSpecialPrice,
-              isCarton: isCarton, flavor: entry.key,
-            ),
+          final newItem = CartItem(
+            product: widget.product,
+            quantity: entry.value.toDouble(),
+            isSpecialPrice: widget.isSpecialPrice,
+            isCarton: isCarton,
+            flavor: entry.key,
           );
-          if (existing.quantity > 0) {
-            existing.quantity += entry.value.toDouble();
-          } else {
-            widget.cart.add(CartItem(
-              product: widget.product, quantity: entry.value.toDouble(),
-              isSpecialPrice: widget.isSpecialPrice,
-              isCarton: isCarton, flavor: entry.key,
-            ));
-          }
+          CartService.addItem(newItem, save: true);
         }
       }
       _showSnackBar(
@@ -212,22 +202,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         _showSnackBar('❌ لا يمكنك طلب أكثر من $maxQty كرتون', Colors.red);
         return;
       }
-      final existing = widget.cart.firstWhere(
-            (i) => i.product.id == widget.product.id &&
-            i.isCarton == isCarton && i.flavor == null,
-        orElse: () => CartItem(
-          product: widget.product, quantity: 0,
-          isSpecialPrice: widget.isSpecialPrice, isCarton: isCarton,
-        ),
+      final newItem = CartItem(
+        product: widget.product,
+        quantity: quantity,
+        isSpecialPrice: widget.isSpecialPrice,
+        isCarton: isCarton,
       );
-      if (existing.quantity > 0) {
-        existing.quantity += quantity;
-      } else {
-        widget.cart.add(CartItem(
-          product: widget.product, quantity: quantity,
-          isSpecialPrice: widget.isSpecialPrice, isCarton: isCarton,
-        ));
-      }
+      CartService.addItem(newItem, save: true);
       _showSnackBar(
         '✅ تمت الإضافة - ${formatQuantity(quantity)} ${isCarton ? 'كرتون' : 'حبة'}',
         const Color(0xFF2E7D32),

@@ -122,17 +122,33 @@ class AuthService {
   // ══════════════════════════════════
   static Future<UserModel?> signInWithGoogle() async {
     try {
-      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+      final googleSignIn = GoogleSignIn(
+        serverClientId:
+            '665302336531-e4f922bc2c61766f142be6.apps.googleusercontent.com',
+        clientId: kIsWeb
+            ? null
+            : (defaultTargetPlatform == TargetPlatform.iOS
+                ? '665302336531-gbdjt6n98grpt38p4etcepvf3cppas7r.apps.googleusercontent.com'
+                : null),
+      );
+
+      try {
+        await googleSignIn.signOut();
+      } catch (_) {}
+
+      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
       if (googleUser == null) return null;
 
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
 
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 
-      final UserCredential userCred = await _auth.signInWithCredential(credential);
+      final UserCredential userCred =
+          await _auth.signInWithCredential(credential);
       if (userCred.user == null) return null;
 
       final firebaseUser = userCred.user!;
@@ -140,12 +156,14 @@ class AuthService {
       final doc = await _db.collection('users').doc(firebaseUser.uid).get();
 
       UserModel userModel;
-      if (doc.exists) {
+      if (doc.exists && doc.data() != null) {
         userModel = UserModel.fromJson({...doc.data()!, 'id': doc.id});
       } else {
         userModel = UserModel(
           id: firebaseUser.uid,
-          name: firebaseUser.displayName ?? googleUser.displayName ?? 'مستخدم جوجل',
+          name: firebaseUser.displayName ??
+              googleUser.displayName ??
+              'مستخدم جوجل',
           email: firebaseUser.email ?? '',
           phone: firebaseUser.phoneNumber ?? '',
           role: 'user_normal',
@@ -159,6 +177,10 @@ class AuthService {
       return userModel;
     } catch (e) {
       debugPrint('❌ خطأ في signInWithGoogle: $e');
+      final errStr = e.toString().toLowerCase();
+      if (errStr.contains('canceled') || errStr.contains('aborted')) {
+        return null;
+      }
       rethrow;
     }
   }

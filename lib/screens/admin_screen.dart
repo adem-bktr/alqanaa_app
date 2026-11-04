@@ -808,105 +808,106 @@ class _AdminScreenState extends State<AdminScreen>
   void _showBroadcastNotificationDialog() {
     final titleController = TextEditingController(text: '🛒 عروض جديدة في تطبيق القناعة!');
     final bodyController = TextEditingController(text: 'اكتشف أحدث المنتجات والأسعار المميزة الآن، تصفح التطبيق واطلب ما تحتاجه!');
+    bool isSending = false;
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
-          children: [
-            Icon(Icons.campaign_rounded, color: Color(0xFF2E7D32)),
-            SizedBox(width: 8),
-            Text('إرسال إشعار تذكيري للزبائن'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'سيتم إرسال هذا الإشعار الفوري (Push Notification) إلى جميع الزبائن المسجلين في التطبيق.',
-              style: TextStyle(fontSize: 13, color: Colors.grey),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: titleController,
-              decoration: const InputDecoration(
-                labelText: 'عنوان الإشعار',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: bodyController,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                labelText: 'نص الرسالة',
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('إلغاء'),
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.campaign_rounded, color: Color(0xFF2E7D32)),
+              SizedBox(width: 8),
+              Text('إرسال إشعار تذكيري للزبائن'),
+            ],
           ),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2E7D32),
-              foregroundColor: Colors.white,
-            ),
-            icon: const Icon(Icons.send_rounded, size: 16),
-            label: const Text('إرسال للكل'),
-            onPressed: () async {
-              final title = titleController.text.trim();
-              final body = bodyController.text.trim();
-              if (title.isEmpty || body.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('الرجاء إدخال العنوان والنص')),
-                );
-                return;
-              }
-
-              Navigator.pop(context);
-              
-              showDialog(
-                context: context,
-                barrierDismissible: false,
-                builder: (_) => const Center(
-                  child: CircularProgressIndicator(color: Color(0xFF2E7D32)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'سيتم إرسال هذا الإشعار الفوري (Push Notification) إلى جميع الزبائن المسجلين في التطبيق.',
+                style: TextStyle(fontSize: 13, color: Colors.grey),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: titleController,
+                decoration: const InputDecoration(
+                  labelText: 'عنوان الإشعار',
+                  border: OutlineInputBorder(),
                 ),
-              );
-
-              try {
-                final sentCount = await NotificationService.broadcastNotificationToCustomers(
-                  title: title,
-                  body: body,
-                );
-
-                if (context.mounted) {
-                  Navigator.pop(context); // close loading
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('✅ تم إرسال الإشعار بنجاح إلى $sentCount زبون'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  Navigator.pop(context); // close loading
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('❌ خطأ في إرسال الإشعار: $e'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              }
-            },
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: bodyController,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'نص الرسالة',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
           ),
-        ],
+          actions: [
+            TextButton(
+              onPressed: isSending ? null : () => Navigator.pop(dialogContext),
+              child: const Text('إلغاء'),
+            ),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2E7D32),
+                foregroundColor: Colors.white,
+              ),
+              icon: isSending
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : const Icon(Icons.send_rounded, size: 16),
+              label: Text(isSending ? 'جاري الإرسال...' : 'إرسال للكل'),
+              onPressed: isSending
+                  ? null
+                  : () async {
+                      final title = titleController.text.trim();
+                      final body = bodyController.text.trim();
+                      if (title.isEmpty || body.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('الرجاء إدخال العنوان والنص')),
+                        );
+                        return;
+                      }
+
+                      setDialogState(() => isSending = true);
+
+                      try {
+                        await NotificationService.broadcastNotificationToCustomers(
+                          title: title,
+                          body: body,
+                        );
+
+                        if (!dialogContext.mounted) return;
+                        Navigator.pop(dialogContext);
+
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('✅ تم إرسال الإشعار الجماعي بنجاح'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        setDialogState(() => isSending = false);
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('❌ خطأ: $e'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      }
+                    },
+            ),
+          ],
+        ),
       ),
     );
   }

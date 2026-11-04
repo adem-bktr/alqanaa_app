@@ -48,8 +48,7 @@ class _UserMainScreenState extends State<UserMainScreen>
   List<Category>    categories  = [];
   List<Product>     allProducts = [];
   List<BannerModel> banners     = [];
-  List<CartItem>    cart        = [];
-  final ValueNotifier<List<CartItem>> _cartNotifier = ValueNotifier([]);
+  List<CartItem> get cart       => CartService.cart;
   final searchController = TextEditingController();
   bool isLoading         = true;
   bool isProductsLoading = true;
@@ -172,11 +171,8 @@ class _UserMainScreenState extends State<UserMainScreen>
 
   Future<void> _loadSavedCart() async {
     try {
-      final savedCart = await CartService.loadCart();
-      if (savedCart.isNotEmpty && mounted) {
-        setState(() => cart = savedCart);
-        _cartNotifier.value = List.from(cart);
-      }
+      await CartService.loadCart();
+      if (mounted) setState(() {});
     } catch (e) {
       debugPrint('⚠️ فشل استعادة السلة: $e');
     }
@@ -309,7 +305,6 @@ class _UserMainScreenState extends State<UserMainScreen>
   @override
   void dispose() {
     _bannerTimer?.cancel();
-    _cartNotifier.dispose();
     searchController.dispose();
     _scrollController.dispose();
     _brandsScrollController.dispose();
@@ -754,8 +749,7 @@ class _UserMainScreenState extends State<UserMainScreen>
                       ).then((added) async {
                         if (added == true) {
                           setState(() {});
-                          _cartNotifier.value = List.from(cart);
-                          if (!widget.isPreviewMode) await CartService.saveCart(cart);
+                          if (!widget.isPreviewMode) await CartService.saveCart();
                         }
                       });
                     }
@@ -770,8 +764,7 @@ class _UserMainScreenState extends State<UserMainScreen>
                         category: catFound, cart: cart, user: widget.user,
                       )),
                     ).then((_) async {
-                      _cartNotifier.value = List.from(cart);
-                      if (!widget.isPreviewMode) await CartService.saveCart(cart);
+                      if (!widget.isPreviewMode) await CartService.saveCart();
                     });
                   } else if (banner.brandId != null && banner.brandId!.isNotEmpty) {
                     final brandFound = brands.firstWhere(
@@ -784,8 +777,7 @@ class _UserMainScreenState extends State<UserMainScreen>
                         brand: brandFound, cart: cart, isAdmin: false, user: widget.user,
                       )),
                     ).then((_) async {
-                      _cartNotifier.value = List.from(cart);
-                      if (!widget.isPreviewMode) await CartService.saveCart(cart);
+                      if (!widget.isPreviewMode) await CartService.saveCart();
                     });
                   } else if (banner.actionUrl != null && banner.actionUrl!.isNotEmpty) {
                     final rawUrl = banner.actionUrl!.trim();
@@ -933,8 +925,7 @@ class _UserMainScreenState extends State<UserMainScreen>
                   SlidePageRoute(page: CategoryProductsScreen(
                       category: cat, cart: cart, user: widget.user)),
                 ).then((_) async {
-                  _cartNotifier.value = List.from(cart);
-                  if (!widget.isPreviewMode) await CartService.saveCart(cart);
+                  if (!widget.isPreviewMode) await CartService.saveCart();
                 }),
                 child: TweenAnimationBuilder<double>(
                   tween: Tween(begin: 0.0, end: 1.0),
@@ -1062,8 +1053,7 @@ class _UserMainScreenState extends State<UserMainScreen>
             ).then((added) async {
               if (added == true) {
                 setState(() {});
-                _cartNotifier.value = List.from(cart);
-                if (!widget.isPreviewMode) await CartService.saveCart(cart);
+                if (!widget.isPreviewMode) await CartService.saveCart();
               }
             }),
           );
@@ -1115,8 +1105,7 @@ class _UserMainScreenState extends State<UserMainScreen>
         ).then((added) async {
           if (added == true) {
             setState(() {});
-            _cartNotifier.value = List.from(cart);
-            if (!widget.isPreviewMode) await CartService.saveCart(cart);
+            if (!widget.isPreviewMode) await CartService.saveCart();
           }
         }),
         borderRadius: BorderRadius.circular(12),
@@ -1360,8 +1349,7 @@ class _UserMainScreenState extends State<UserMainScreen>
                             ).then((added) async {
                               if (added == true) {
                                 setState(() {});
-                                _cartNotifier.value = List.from(cart);
-                                if (!widget.isPreviewMode) await CartService.saveCart(cart);
+                                if (!widget.isPreviewMode) await CartService.saveCart();
                               }
                             }),
                           );
@@ -1501,8 +1489,7 @@ class _UserMainScreenState extends State<UserMainScreen>
                   SlidePageRoute(page: ProductsScreen(
                       brand: filteredBrands[index], cart: cart, isAdmin: false, user: widget.user)),
                 ).then((_) async {
-                  _cartNotifier.value = List.from(cart);
-                  if (!widget.isPreviewMode) await CartService.saveCart(cart);
+                  if (!widget.isPreviewMode) await CartService.saveCart();
                 }),
               ),
             ),
@@ -1586,7 +1573,7 @@ class _UserMainScreenState extends State<UserMainScreen>
                         child: MouseRegion(
                           cursor: SystemMouseCursors.click,
                           child: ValueListenableBuilder<List<CartItem>>(
-                            valueListenable: _cartNotifier,
+                            valueListenable: CartService.cartNotifier,
                             builder: (context, currentCart, child) {
                               final cartCount = currentCart.fold<double>(0.0, (sum, item) => sum + item.quantity);
                               return badges.Badge(
@@ -1602,10 +1589,7 @@ class _UserMainScreenState extends State<UserMainScreen>
                                       page: CartScreen(cart: currentCart, isAdmin: false, user: widget.user),
                                       direction: SlideDirection.fromBottom,
                                     ),
-                                  ).then((_) async {
-                                    if (!widget.isPreviewMode) await CartService.saveCart(currentCart);
-                                    _cartNotifier.value = List.from(currentCart);
-                                  }),
+                                  ).then((_) => setState(() {})),
                                 ),
                               );
                             },

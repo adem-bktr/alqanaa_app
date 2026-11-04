@@ -901,12 +901,6 @@ class _CartScreenState extends State<CartScreen> {
         }
       }
 
-      NotificationService.notifyAdminNewOrder(
-        customerName: nameController.text.trim(),
-        total: total,
-        orderId: orderId,
-      );
-
       _updateOrderLocationInBackground(orderId);
 
       widget.cart.clear();
