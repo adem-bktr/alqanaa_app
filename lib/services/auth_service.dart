@@ -122,9 +122,7 @@ class AuthService {
   // ══════════════════════════════════
   static Future<UserModel?> signInWithGoogle() async {
     try {
-      final GoogleSignInAccount? googleUser = await GoogleSignIn(
-        serverClientId: '665302336531-e4f922bc2c61766f142be6.apps.googleusercontent.com',
-      ).signIn();
+      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
       if (googleUser == null) return null;
 
       final GoogleSignInAuthentication googleAuth = await googleUser.authentication;

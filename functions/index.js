@@ -1,5 +1,5 @@
 const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
-const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onRequest } = require("firebase-functions/v2/https");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
@@ -85,61 +85,17 @@ exports.notifyUserOrderStatus = onDocumentUpdated(
   }
 );
 
-// إرسال إشعار تذكيري جماعي للزبائن عبر Cloud Functions
-exports.broadcastReminderToCustomers = onCall(
-  { region: "us-central1" },
-  async (request) => {
-    if (!request.auth) {
-      throw new HttpsError("unauthenticated", "يجب تسجيل الدخول أولاً.");
-    }
-
-    const db = getFirestore();
-    const callerDoc = await db.collection("users").doc(request.auth.uid).get();
-    if (!callerDoc.exists || callerDoc.data().role !== "admin") {
-      throw new HttpsError("permission-denied", "صلاحيات غير صالحة.");
-    }
-
-    const { title, body } = request.data;
-    if (!title || !body) {
-      throw new HttpsError("invalid-argument", "العنوان والنص مطلوبان.");
-    }
-
-    const usersSnapshot = await db.collection("users").get();
-    const tokens = [];
-    usersSnapshot.docs.forEach((doc) => {
-      const data = doc.data();
-      if (data.role !== "admin" && data.fcmToken) {
-        tokens.push(data.fcmToken);
-      }
-    });
-
-    if (tokens.length === 0) {
-      return { success: true, sentCount: 0 };
-    }
-
-    let sentCount = 0;
-    for (let i = 0; i < tokens.length; i += 500) {
-      const batchTokens = tokens.slice(i, i + 500);
-      const response = await getMessaging().sendEachForMulticast({
-        tokens: batchTokens,
-        notification: { title, body },
-        data: { type: "broadcast_reminder" },
-      });
-      sentCount += response.successCount;
-    }
-
-    return { success: true, sentCount };
-  }
-);
-
-// إرسال إشعار تذكيري جماعي للزبائن عبر Firestore Queue
-exports.broadcastReminder = onDocumentCreated(
-  { document: "notifications_queue/{docId}", region: "us-central1" },
+// إرسال إشعار تذكيري جماعي للزبائن عبر announcements collection trigger
+exports.broadcastReminderFromAnnouncements = onDocumentCreated(
+  { document: "announcements/{docId}", region: "us-central1" },
   async (event) => {
     const data = event.data.data();
     if (!data) return null;
 
-    const { title, body } = data;
+    const title = data.title || "🛒 عروض جديدة!";
+    const body = data.message || data.body || "";
+    if (!body) return null;
+
     const db = getFirestore();
     const usersSnapshot = await db.collection("users").get();
 

@@ -309,22 +309,16 @@ class NotificationService {
     required String body,
   }) async {
     try {
-      debugPrint('📤 إرسال طلب الإشعار الجماعي إلى قائمة الانتظار...');
+      debugPrint('📤 إرسال الإشعار الجماعي عبر مجموعة الإعلانات (announcements)...');
 
-      await FirebaseFirestore.instance.collection('notifications_queue').add({
+      await FirebaseFirestore.instance.collection('announcements').add({
         'title': title,
-        'body': body,
-        'senderId': FirebaseAuth.instance.currentUser?.uid,
+        'message': body,
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      debugPrint('✅ تم إرسال طلب الإشعار الجماعي بنجاح');
+      debugPrint('✅ تم إرسال الإشعار الجماعي بنجاح');
       return 1;
-    } catch (e) {
-      debugPrint('❌ خطأ في broadcastNotificationToCustomers: $e');
-      return 0;
-    }
-  }
     } catch (e) {
       debugPrint('❌ خطأ في broadcastNotificationToCustomers: $e');
       return 0;
