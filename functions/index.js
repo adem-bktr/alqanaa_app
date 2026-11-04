@@ -131,3 +131,37 @@ exports.broadcastReminderToCustomers = onCall(
     return { success: true, sentCount };
   }
 );
+
+// إرسال إشعار تذكيري جماعي للزبائن عبر Firestore Queue
+exports.broadcastReminder = onDocumentCreated(
+  { document: "notifications_queue/{docId}", region: "us-central1" },
+  async (event) => {
+    const data = event.data.data();
+    if (!data) return null;
+
+    const { title, body } = data;
+    const db = getFirestore();
+    const usersSnapshot = await db.collection("users").get();
+
+    const tokens = [];
+    usersSnapshot.docs.forEach((doc) => {
+      const uData = doc.data();
+      if (uData.role !== "admin" && uData.fcmToken) {
+        tokens.push(uData.fcmToken);
+      }
+    });
+
+    if (tokens.length === 0) return null;
+
+    for (let i = 0; i < tokens.length; i += 500) {
+      const batchTokens = tokens.slice(i, i + 500);
+      await getMessaging().sendEachForMulticast({
+        tokens: batchTokens,
+        notification: { title, body },
+        data: { type: "broadcast_reminder" },
+      });
+    }
+
+    return null;
+  }
+);

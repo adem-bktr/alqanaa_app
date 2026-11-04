@@ -309,40 +309,22 @@ class NotificationService {
     required String body,
   }) async {
     try {
-      debugPrint('📤 إرسال إشعار جماعي للزبائن...');
+      debugPrint('📤 إرسال طلب الإشعار الجماعي إلى قائمة الانتظار...');
 
-      final snapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .get();
+      await FirebaseFirestore.instance.collection('notifications_queue').add({
+        'title': title,
+        'body': body,
+        'senderId': FirebaseAuth.instance.currentUser?.uid,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
 
-      if (snapshot.docs.isEmpty) {
-        debugPrint('⚠️ لا يوجد مستخدمين');
-        return 0;
-      }
-
-      int sent = 0;
-      for (final doc in snapshot.docs) {
-        final data = doc.data();
-        final role = data['role'] as String? ?? 'customer';
-        if (role == 'admin') continue;
-
-        final token = (data['fcmToken'] as String?) ?? '';
-        if (token.isEmpty) continue;
-
-        final success = await _sendFCMv1(
-          token: token,
-          title: title,
-          body: body,
-          data: {
-            'type': 'broadcast_reminder',
-          },
-        );
-
-        if (success) sent++;
-      }
-
-      debugPrint('✅ تم إرسال الإشعار الجماعي إلى $sent زبون');
-      return sent;
+      debugPrint('✅ تم إرسال طلب الإشعار الجماعي بنجاح');
+      return 1;
+    } catch (e) {
+      debugPrint('❌ خطأ في broadcastNotificationToCustomers: $e');
+      return 0;
+    }
+  }
     } catch (e) {
       debugPrint('❌ خطأ في broadcastNotificationToCustomers: $e');
       return 0;
