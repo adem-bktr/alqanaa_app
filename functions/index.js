@@ -1,9 +1,17 @@
 const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
-const { initializeApp } = require("firebase-admin/app");
+const { initializeApp, getApps } = require("firebase-admin/app");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
 
-initializeApp();
+function getAdmin() {
+  if (getApps().length === 0) {
+    initializeApp();
+  }
+  return {
+    db: getFirestore(),
+    messaging: getMessaging(),
+  };
+}
 
 /**
  * تنظيف التوكينات غير الصالحة من وثائق المستخدمين
@@ -39,10 +47,10 @@ async function removeInvalidTokens(db, userTokenMap, responses) {
 exports.notifyAdminNewOrder = onDocumentCreated(
   { document: "orders/{orderId}", region: "us-central1" },
   async (event) => {
-    const order = event.data.data();
+    const order = event.data ? event.data.data() : null;
     if (!order) return null;
 
-    const db = getFirestore();
+    const { db, messaging } = getAdmin();
     const adminsSnapshot = await db
       .collection("users")
       .where("role", "==", "admin")
@@ -65,7 +73,7 @@ exports.notifyAdminNewOrder = onDocumentCreated(
     }
 
     try {
-      const response = await getMessaging().sendEachForMulticast({
+      const response = await messaging.sendEachForMulticast({
         tokens,
         notification: {
           title: "📦 طلب جديد!",
@@ -93,13 +101,13 @@ exports.notifyAdminNewOrder = onDocumentCreated(
 exports.notifyUserOrderStatus = onDocumentUpdated(
   { document: "orders/{orderId}", region: "us-central1" },
   async (event) => {
-    const before = event.data.before.data();
-    const after = event.data.after.data();
+    const before = event.data ? event.data.before.data() : null;
+    const after = event.data ? event.data.after.data() : null;
 
     if (!before || !after || before.status === after.status) return null;
     if (!after.userId) return null;
 
-    const db = getFirestore();
+    const { db, messaging } = getAdmin();
     const userDoc = await db.collection("users").doc(after.userId).get();
 
     if (!userDoc.exists) return null;
@@ -120,7 +128,7 @@ exports.notifyUserOrderStatus = onDocumentUpdated(
     };
 
     try {
-      await getMessaging().send({
+      await messaging.send({
         token,
         notification: msg,
         data: {
@@ -147,7 +155,7 @@ exports.notifyUserOrderStatus = onDocumentUpdated(
 );
 
 // 📢 إرسال إشعار تذكيري جماعي للزبائن عبر مشغّل الإعلانات
-exports.broadcastReminderFromAnnouncements = onDocumentCreated(
+exports.onAnnouncementCreated = onDocumentCreated(
   { document: "announcements/{docId}", region: "us-central1" },
   async (event) => {
     const snap = event.data;
@@ -160,7 +168,7 @@ exports.broadcastReminderFromAnnouncements = onDocumentCreated(
     const body = data.message || data.body || "";
     if (!body) return null;
 
-    const db = getFirestore();
+    const { db, messaging } = getAdmin();
     const usersSnapshot = await db.collection("users").get();
 
     const tokens = [];
@@ -193,7 +201,7 @@ exports.broadcastReminderFromAnnouncements = onDocumentCreated(
       const batchMap = userTokenMap.slice(i, i + 500);
 
       try {
-        const response = await getMessaging().sendEachForMulticast({
+        const response = await messaging.sendEachForMulticast({
           tokens: batchTokens,
           notification: { title, body },
           data: { type: "broadcast_reminder" },

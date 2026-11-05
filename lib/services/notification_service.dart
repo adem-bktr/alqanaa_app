@@ -47,6 +47,21 @@ class NotificationService {
       },
     );
 
+    final androidPlugin = _localNotifications
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+    if (androidPlugin != null) {
+      await androidPlugin.createNotificationChannel(
+        const AndroidNotificationChannel(
+          'alqanaa_channel',
+          'القناعة',
+          description: 'إشعارات تطبيق القناعة',
+          importance: Importance.high,
+          playSound: true,
+        ),
+      );
+    }
+
     FirebaseMessaging.onBackgroundMessage(
       firebaseMessagingBackgroundHandler,
     );

@@ -124,7 +124,7 @@ class AuthService {
     try {
       final googleSignIn = GoogleSignIn(
         serverClientId:
-            '665302336531-e4f922bc2c61766f142be6.apps.googleusercontent.com',
+            '665302336531-ge78ss0i5h0pqmjvc1l67gqsdd5jtoq8.apps.googleusercontent.com',
         clientId: kIsWeb
             ? null
             : (defaultTargetPlatform == TargetPlatform.iOS
