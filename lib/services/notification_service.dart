@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(
@@ -86,8 +87,28 @@ class NotificationService {
   }
 
   // ══════════════════════════════════
-  //    حفظ FCM Token
+  //    طلب إذن الإشعارات وحفظ FCM Token
   // ══════════════════════════════════
+
+  static Future<void> requestPermissionAndSaveToken(String userId) async {
+    try {
+      final status = await Permission.notification.status;
+      if (status.isDenied || status.isPermanentlyDenied) {
+        final result = await Permission.notification.request();
+        debugPrint('🔔 نتيجة طلب إذن الإشعارات: $result');
+      } else {
+        await _messaging.requestPermission(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+      }
+      await saveToken(userId);
+    } catch (e) {
+      debugPrint('⚠️ خطأ في طلب إذن الإشعارات: $e');
+      await saveToken(userId);
+    }
+  }
 
   static Future<void> saveToken(String userId) async {
     try {

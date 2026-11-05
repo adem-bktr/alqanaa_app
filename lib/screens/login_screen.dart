@@ -150,7 +150,7 @@ class _LoginScreenState extends State<LoginScreen>
       if (!mounted) return;
 
       if (user != null) {
-        await NotificationService.saveToken(user.id);
+        await NotificationService.requestPermissionAndSaveToken(user.id);
 
         if (user.isAdmin) {
           Navigator.pushReplacement(

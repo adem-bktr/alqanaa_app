@@ -171,7 +171,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (!mounted) return;
 
       if (user != null) {
-        await NotificationService.saveToken(user.id);
+        await NotificationService.requestPermissionAndSaveToken(user.id);
         if (!mounted) return;
 
         Navigator.pushReplacement(
@@ -277,7 +277,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
         final updatedUser = await AuthService.getUser(user.id) ?? user;
 
-        await NotificationService.saveToken(updatedUser.id);
+        await NotificationService.requestPermissionAndSaveToken(updatedUser.id);
         if (!mounted) return;
 
         Navigator.pushReplacement(
