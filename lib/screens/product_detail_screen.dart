@@ -42,7 +42,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   @override
   void initState() {
     super.initState();
-    if (widget.product.sellType == SellType.unitOnly) isCarton = false;
+    if (widget.product.sellType == SellType.unitOnly || widget.product.isWeighed) isCarton = false;
     flavorQuantities = {
       for (var f in widget.product.flavors) f.name: 0,
     };
@@ -741,7 +741,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           ),
         const SizedBox(height: 16),
 
-        if (widget.product.sellType == SellType.both)
+        if (widget.product.sellType == SellType.both && !widget.product.isWeighed)
           _SectionAnimator(
             delay: 200,
             child: Container(
@@ -808,7 +808,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               ]),
             ),
           ),
-        if (widget.product.sellType == SellType.both) const SizedBox(height: 16),
+        if (widget.product.sellType == SellType.both && !widget.product.isWeighed) const SizedBox(height: 16),
 
         _SectionAnimator(
           delay: 300,
@@ -831,7 +831,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       : null,
                   color: const Color(0xFF2E7D32), textColor: textColor,
                 ),
-              if (widget.product.sellType == SellType.both)
+              if (widget.product.sellType == SellType.both && !widget.product.isWeighed)
                 Divider(color: isDark ? Colors.grey.shade700 : Colors.grey.shade200),
               if (widget.product.canSellUnit)
                 _priceRow(

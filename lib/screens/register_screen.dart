@@ -8,7 +8,6 @@ import '../utils/page_transitions.dart';
 import '../models/models.dart';
 import 'user_main_screen.dart';
 import 'main_screen.dart';
-import '../widgets/google_logo_widget.dart';
 
 class RegisterScreen extends StatefulWidget {
   final VoidCallback onToggleDarkMode;
@@ -580,7 +579,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 borderRadius: BorderRadius.circular(16),
                               ),
                             ),
-                            icon: const GoogleLogoWidget(size: 24),
+                            icon: GoogleLogoWidget(size: 24),
                             label: Text(
                               'التسجيل باستخدام Google',
                               style: TextStyle(

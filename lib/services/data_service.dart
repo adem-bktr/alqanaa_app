@@ -503,7 +503,8 @@ class DataService {
     'isFeatured': p.isFeatured,
     'purchasePrice': p.purchasePrice,
     'stockQuantity': p.stockQuantity,
-    'unitsPerCarton': p.unitsPerCarton, // ✅ إصلاح 1: كان غير محفوظ
+    'unitsPerCarton': p.unitsPerCarton,
+    'isWeighed': p.isWeighed,
   };
 
   static Future<void> saveProduct(app_models.Product product,
@@ -689,10 +690,14 @@ class DataService {
       if (pid.isNotEmpty) {
         final qtySold = toDouble(it['quantity']);
         final isCarton = it['isCarton'] == true;
+        final isWeighed = it['isWeighed'] == true;
 
-        // عدد الحبات في الكرتون (من التخزين المحلي أولاً: فوري ويعمل بلا إنترنت)
-        final upc = await _unitsPerCartonOf(pid);
-        if (upc != null) {
+        if (isWeighed) {
+          batch.update(_db.collection('products').doc(pid), {
+            'stockQuantity': FieldValue.increment(-qtySold),
+          });
+        } else {
+          final upc = await _unitsPerCartonOf(pid) ?? 1;
           final piecesToSubtract = isCarton ? (qtySold * upc) : qtySold;
 
           batch.update(_db.collection('products').doc(pid), {
@@ -721,11 +726,14 @@ class DataService {
 
       final qty = toDouble(it['quantity']);
       final isCarton = it['isCarton'] == true;
+      final isWeighed = it['isWeighed'] == true;
 
       final pRef = _db.collection('products').doc(pid);
-      final upc = await _unitsPerCartonOf(pid);
-      if (upc == null) continue;
-      final pieces = isCarton ? (qty * upc) : qty;
+      double pieces = qty;
+      if (!isWeighed) {
+        final upc = await _unitsPerCartonOf(pid) ?? 1;
+        pieces = isCarton ? (qty * upc) : qty;
+      }
 
       batch.update(pRef, {
         'stockQuantity': FieldValue.increment(restore ? pieces : -pieces),
@@ -816,10 +824,17 @@ class DataService {
       for (final it in items) {
         if (it is! Map) continue;
         final pid = it['productId']?.toString() ?? '';
-        if (!upcMap.containsKey(pid)) continue;
+        if (pid.isEmpty) continue;
         final qty = toDouble(it['quantity']);
         final isCarton = it['isCarton'] == true;
-        final pieces = isCarton ? qty * upcMap[pid]! : qty;
+        final isWeighed = it['isWeighed'] == true;
+
+        double pieces = qty;
+        if (!isWeighed) {
+          if (!upcMap.containsKey(pid)) continue;
+          final upc = upcMap[pid] ?? 1;
+          pieces = isCarton ? qty * upc : qty;
+        }
         net[pid] = (net[pid] ?? 0.0) + sign * pieces;
       }
     }
