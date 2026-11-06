@@ -687,7 +687,7 @@ class DataService {
     for (final it in order.items) {
       final pid = it['productId']?.toString() ?? '';
       if (pid.isNotEmpty) {
-        final qtySold = toInt(it['quantity']);
+        final qtySold = toDouble(it['quantity']);
         final isCarton = it['isCarton'] == true;
 
         // عدد الحبات في الكرتون (من التخزين المحلي أولاً: فوري ويعمل بلا إنترنت)
@@ -719,7 +719,7 @@ class DataService {
       final pid = it['productId']?.toString() ?? '';
       if (pid.isEmpty) continue;
 
-      final qty = toInt(it['quantity']);
+      final qty = toDouble(it['quantity']);
       final isCarton = it['isCarton'] == true;
 
       final pRef = _db.collection('products').doc(pid);
@@ -811,20 +811,20 @@ class DataService {
     }
 
     // 3) حساب الفرق الصافي لكل منتج (+ إرجاع، − خصم)
-    final net = <String, int>{};
-    void accumulate(List items, int sign) {
+    final net = <String, double>{};
+    void accumulate(List items, double sign) {
       for (final it in items) {
         if (it is! Map) continue;
         final pid = it['productId']?.toString() ?? '';
         if (!upcMap.containsKey(pid)) continue;
-        final qty = toInt(it['quantity']);
+        final qty = toDouble(it['quantity']);
         final isCarton = it['isCarton'] == true;
         final pieces = isCarton ? qty * upcMap[pid]! : qty;
-        net[pid] = (net[pid] ?? 0) + sign * pieces;
+        net[pid] = (net[pid] ?? 0.0) + sign * pieces;
       }
     }
-    if (oldCounted) accumulate(oldItems, 1);
-    if (newCounted) accumulate(order.items, -1);
+    if (oldCounted) accumulate(oldItems, 1.0);
+    if (newCounted) accumulate(order.items, -1.0);
 
     // 4) حفظ الطلب + تحديث المخزن في batch واحدة
     final batch = _db.batch();

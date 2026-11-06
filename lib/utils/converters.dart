@@ -13,7 +13,7 @@ String formatQuantity(dynamic v) {
   if (d == d.roundToDouble()) {
     return d.toInt().toString();
   }
-  return d.toStringAsFixed(2).replaceAll(RegExp(r'0+$'), '').replaceAll(RegExp(r'\.$'), '').replaceAll('.', ',');
+  return d.toStringAsFixed(3).replaceAll(RegExp(r'0+$'), '').replaceAll(RegExp(r'\.$'), '').replaceAll('.', ',');
 }
 
 /// ✅ تحويل آمن إلى Int

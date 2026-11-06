@@ -184,6 +184,104 @@ class _LoginScreenState extends State<LoginScreen>
     }
   }
 
+  Future<void> _loginWithGoogle() async {
+    setState(() => isLoading = true);
+    try {
+      final res = await AuthService.signInWithGoogleLoginOnly();
+      if (!mounted) return;
+
+      if (res.canceled) {
+        setState(() => isLoading = false);
+        return;
+      }
+
+      if (res.user != null) {
+        final user = res.user!;
+        await NotificationService.requestPermissionAndSaveToken(user.id);
+        if (!mounted) return;
+
+        if (user.isAdmin) {
+          Navigator.pushReplacement(
+            context,
+            FadeScaleRoute(
+              page: MainScreen(
+                onToggleDarkMode: widget.onToggleDarkMode,
+                isDarkMode: widget.isDarkMode,
+              ),
+            ),
+          );
+        } else {
+          Navigator.pushReplacement(
+            context,
+            FadeScaleRoute(
+              page: UserMainScreen(
+                user: user,
+                onToggleDarkMode: widget.onToggleDarkMode,
+                isDarkMode: widget.isDarkMode,
+              ),
+            ),
+          );
+        }
+      } else if (res.isNotRegistered) {
+        setState(() => isLoading = false);
+        final bool? shouldRegister = await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: const Row(
+              children: [
+                Icon(Icons.info_outline_rounded, color: Color(0xFF2E7D32)),
+                SizedBox(width: 8),
+                Text('حساب غير مسجل', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              ],
+            ),
+            content: const Text(
+              'هذا الحساب غير مسجل في تطبيق القناعة. هل تريد إنشاء حساب جديد؟',
+              style: TextStyle(fontSize: 14),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('إلغاء', style: TextStyle(color: Colors.grey, fontSize: 15)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2E7D32),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('نعم، إنشاء حساب جديد', style: TextStyle(color: Colors.white, fontSize: 15)),
+              ),
+            ],
+          ),
+        );
+
+        if (shouldRegister == true && mounted) {
+          Navigator.push(
+            context,
+            SlidePageRoute(
+              page: RegisterScreen(
+                onToggleDarkMode: widget.onToggleDarkMode,
+                isDarkMode: widget.isDarkMode,
+                initialGoogleCredential: res.credential,
+              ),
+              direction: SlideDirection.fromBottom,
+            ),
+          );
+        }
+      } else if (res.errorMsg != null) {
+        _showError(_getErrorMessage(res.errorMsg!));
+        setState(() => isLoading = false);
+      }
+    } catch (e) {
+      if (mounted) {
+        _showError(_getErrorMessage(e.toString()));
+        setState(() => isLoading = false);
+      }
+    }
+  }
+
   String _getErrorMessage(String error) {
     if (error.contains('sign_in_canceled') || error.contains('canceled') || error.contains('Sign in aborted')) {
       return 'تم إلغاء تسجيل الدخول';
@@ -572,7 +670,24 @@ class _LoginScreenState extends State<LoginScreen>
                             // Button
                             _buildLoginButton(isDark),
 
-                            const SizedBox(height: 24),
+                            const SizedBox(height: 12),
+
+                            Row(
+                              children: [
+                                Expanded(child: Divider(color: isDark ? Colors.grey.shade800 : Colors.grey.shade300)),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                                  child: Text('أو', style: TextStyle(color: isDark ? Colors.grey.shade500 : Colors.grey.shade500, fontSize: 13)),
+                                ),
+                                Expanded(child: Divider(color: isDark ? Colors.grey.shade800 : Colors.grey.shade300)),
+                              ],
+                            ),
+
+                            const SizedBox(height: 12),
+
+                            _buildGoogleButton(isDark),
+
+                            const SizedBox(height: 20),
 
                             // إنشاء حساب جديد
                             Row(
@@ -815,7 +930,24 @@ class _LoginScreenState extends State<LoginScreen>
                         // Button
                         _buildLoginButton(isDark),
 
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 12),
+
+                        Row(
+                          children: [
+                            Expanded(child: Divider(color: isDark ? Colors.grey.shade800 : Colors.grey.shade300)),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              child: Text('أو', style: TextStyle(color: isDark ? Colors.grey.shade500 : Colors.grey.shade500, fontSize: 13)),
+                            ),
+                            Expanded(child: Divider(color: isDark ? Colors.grey.shade800 : Colors.grey.shade300)),
+                          ],
+                        ),
+
+                        const SizedBox(height: 12),
+
+                        _buildGoogleButton(isDark),
+
+                        const SizedBox(height: 20),
 
                         // إنشاء حساب جديد
                         Row(
@@ -1032,6 +1164,35 @@ class _LoginScreenState extends State<LoginScreen>
                 ],
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGoogleButton(bool isDark) {
+    return SizedBox(
+      width: double.infinity,
+      height: 54,
+      child: OutlinedButton.icon(
+        onPressed: isLoading ? null : _loginWithGoogle,
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          side: BorderSide(
+            color: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
+          ),
+          backgroundColor: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        icon: const Icon(Icons.g_mobiledata, color: Colors.red, size: 34),
+        label: Text(
+          'تسجيل الدخول باستخدام Google',
+          style: TextStyle(
+            color: isDark ? Colors.white : Colors.black87,
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
           ),
         ),
       ),

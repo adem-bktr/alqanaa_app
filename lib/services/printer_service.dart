@@ -101,7 +101,7 @@ class PrinterService {
     if (qty == qty.roundToDouble()) {
       return qty.toInt().toString();
     }
-    return qty.toStringAsFixed(2).replaceAll(RegExp(r'0+$'), '').replaceAll(RegExp(r'\.$'), '');
+    return qty.toStringAsFixed(3).replaceAll(RegExp(r'0+$'), '').replaceAll(RegExp(r'\.$'), '');
   }
 
   // ══════════════════════════════════════════════════════

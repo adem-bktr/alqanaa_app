@@ -118,6 +118,7 @@ class NotificationService {
       await FirebaseFirestore.instance.collection('users').doc(userId).set(
         {
           'fcmToken': token,
+          'fcmTokens': FieldValue.arrayUnion([token]),
           'tokenUpdatedAt': FieldValue.serverTimestamp(),
         },
         SetOptions(merge: true),

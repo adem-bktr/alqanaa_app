@@ -1,7 +1,9 @@
 const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
+const { getAuth } = require("firebase-admin/auth");
 
 function getAdmin() {
   try {
@@ -21,7 +23,7 @@ function getAdmin() {
 /**
  * تنظيف التوكينات غير الصالحة من وثائق المستخدمين
  */
-async function removeInvalidTokens(db, userTokenMap, responses) {
+async function removeInvalidTokens(db, tokenMapping, responses) {
   const batch = db.batch();
   let count = 0;
 
@@ -32,10 +34,13 @@ async function removeInvalidTokens(db, userTokenMap, responses) {
         code === "messaging/invalid-registration-token" ||
         code === "messaging/registration-token-not-registered"
       ) {
-        const userId = userTokenMap[index];
-        if (userId) {
-          const ref = db.collection("users").doc(userId);
-          batch.update(ref, { fcmToken: FieldValue.delete() });
+        const item = tokenMapping[index];
+        if (item && item.userId && item.token) {
+          const ref = db.collection("users").doc(item.userId);
+          batch.update(ref, {
+            fcmTokens: FieldValue.arrayRemove(item.token),
+            fcmToken: FieldValue.delete(),
+          });
           count++;
         }
       }
@@ -46,6 +51,22 @@ async function removeInvalidTokens(db, userTokenMap, responses) {
     await batch.commit();
     console.log(`🧹 تم تنظيف ${count} توكين غير صالحة.`);
   }
+}
+
+/**
+ * استخراج التوكينات لمستخدم مع دعم التوافق مع الأجهزة المتعددة
+ */
+function extractUserTokens(userData) {
+  const tokens = new Set();
+  if (Array.isArray(userData.fcmTokens)) {
+    userData.fcmTokens.forEach((t) => {
+      if (t && typeof t === "string") tokens.add(t.trim());
+    });
+  }
+  if (userData.fcmToken && typeof userData.fcmToken === "string") {
+    tokens.add(userData.fcmToken.trim());
+  }
+  return Array.from(tokens);
 }
 
 // 📦 إشعار للأدمن عند طلب جديد
@@ -62,14 +83,14 @@ exports.notifyAdminNewOrder = onDocumentCreated(
       .get();
 
     const tokens = [];
-    const userTokenMap = [];
+    const tokenMapping = [];
 
     adminsSnapshot.docs.forEach((d) => {
-      const data = d.data();
-      if (data.fcmToken) {
-        tokens.push(data.fcmToken);
-        userTokenMap.push(d.id);
-      }
+      const userTokens = extractUserTokens(d.data());
+      userTokens.forEach((token) => {
+        tokens.push(token);
+        tokenMapping.push({ userId: d.id, token });
+      });
     });
 
     if (tokens.length === 0) {
@@ -92,8 +113,8 @@ exports.notifyAdminNewOrder = onDocumentCreated(
         },
       });
 
-      console.log(`✅ أُرسل إشعار الطلب الجديد بنجاح لـ ${response.successCount} أدمن.`);
-      await removeInvalidTokens(db, userTokenMap, response.responses);
+      console.log(`✅ أُرسل إشعار الطلب الجديد بنجاح لـ ${response.successCount} جهاز أدمن.`);
+      await removeInvalidTokens(db, tokenMapping, response.responses);
     } catch (error) {
       console.error("❌ خطأ في notifyAdminNewOrder:", error);
     }
@@ -102,7 +123,7 @@ exports.notifyAdminNewOrder = onDocumentCreated(
   }
 );
 
-// 🚚 إشعار للزبون عند تغيير حالة الطلب
+// 🚚 إشعار للزبون عند تغيير حالة الطلب (لجميع أجهزته)
 exports.notifyUserOrderStatus = onDocumentUpdated(
   { document: "orders/{orderId}", region: "us-central1" },
   async (event) => {
@@ -117,8 +138,10 @@ exports.notifyUserOrderStatus = onDocumentUpdated(
 
     if (!userDoc.exists) return null;
 
-    const token = userDoc.data().fcmToken;
-    if (!token) return null;
+    const tokens = extractUserTokens(userDoc.data());
+    if (tokens.length === 0) return null;
+
+    const tokenMapping = tokens.map((token) => ({ userId: after.userId, token }));
 
     const messages = {
       confirmed: { title: "✅ تم تأكيد طلبك", body: "طلبك قيد التجهيز الآن" },
@@ -133,8 +156,8 @@ exports.notifyUserOrderStatus = onDocumentUpdated(
     };
 
     try {
-      await messaging.send({
-        token,
+      const response = await messaging.sendEachForMulticast({
+        tokens,
         notification: msg,
         data: {
           type: "order_status",
@@ -142,17 +165,11 @@ exports.notifyUserOrderStatus = onDocumentUpdated(
           status: String(after.status),
         },
       });
-      console.log(`✅ أُرسل إشعار تغيير الحالة للزبون: ${after.userId}`);
+
+      console.log(`✅ أُرسل إشعار تغيير الحالة للزبون: ${after.userId} (نجح ${response.successCount}/${tokens.length})`);
+      await removeInvalidTokens(db, tokenMapping, response.responses);
     } catch (error) {
       console.error("❌ خطأ في notifyUserOrderStatus:", error);
-      if (
-        error.code === "messaging/invalid-registration-token" ||
-        error.code === "messaging/registration-token-not-registered"
-      ) {
-        await db.collection("users").doc(after.userId).update({
-          fcmToken: FieldValue.delete(),
-        });
-      }
     }
 
     return null;
@@ -177,13 +194,16 @@ exports.onAnnouncementCreated = onDocumentCreated(
     const usersSnapshot = await db.collection("users").get();
 
     const tokens = [];
-    const userTokenMap = [];
+    const tokenMapping = [];
 
     usersSnapshot.docs.forEach((doc) => {
       const uData = doc.data();
-      if (uData.role !== "admin" && uData.fcmToken) {
-        tokens.push(uData.fcmToken);
-        userTokenMap.push(doc.id);
+      if (uData.role !== "admin") {
+        const uTokens = extractUserTokens(uData);
+        uTokens.forEach((token) => {
+          tokens.push(token);
+          tokenMapping.push({ userId: doc.id, token });
+        });
       }
     });
 
@@ -191,6 +211,7 @@ exports.onAnnouncementCreated = onDocumentCreated(
       console.log("ℹ️ لا يوجد زبائن ذوي توكينات صالحة للإرسال الجماعي.");
       await snap.ref.update({
         processed: true,
+        targetedCount: 0,
         sentCount: 0,
         failCount: 0,
         sentAt: FieldValue.serverTimestamp(),
@@ -203,7 +224,7 @@ exports.onAnnouncementCreated = onDocumentCreated(
 
     for (let i = 0; i < tokens.length; i += 500) {
       const batchTokens = tokens.slice(i, i + 500);
-      const batchMap = userTokenMap.slice(i, i + 500);
+      const batchMap = tokenMapping.slice(i, i + 500);
 
       try {
         const response = await messaging.sendEachForMulticast({
@@ -223,12 +244,76 @@ exports.onAnnouncementCreated = onDocumentCreated(
 
     await snap.ref.update({
       processed: true,
+      targetedCount: tokens.length,
       sentCount: totalSuccess,
       failCount: totalFailure,
       sentAt: FieldValue.serverTimestamp(),
     });
 
-    console.log(`🎉 تم إكتمال الإرسال الجماعي: نجح ${totalSuccess}، فشل ${totalFailure}.`);
+    console.log(`🎉 تم إكتمال الإرسال الجماعي: استهدف ${tokens.length} جهاز (نجح ${totalSuccess}، فشل ${totalFailure}).`);
     return null;
+  }
+);
+
+// 🗑️ حذف حساب المستخدم كلياً (Authentication + Firestore) للأدمن فقط
+exports.deleteUserAccount = onCall(
+  { region: "us-central1" },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "يجب تسجيل الدخول كأدمن لصلحية الحذف.");
+    }
+
+    const callerUid = request.auth.uid;
+    const targetUid = request.data ? request.data.targetUid : null;
+
+    if (!targetUid || typeof targetUid !== "string") {
+      throw new HttpsError("invalid-argument", "معرّف المستخدم المطلوب حذفه غير صحيح.");
+    }
+
+    if (callerUid === targetUid) {
+      throw new HttpsError("permission-denied", "لا يمكنك حذف حساب الأدمن الخاص بك.");
+    }
+
+    const { db } = getAdmin();
+
+    const callerDoc = await db.collection("users").doc(callerUid).get();
+    if (!callerDoc.exists || callerDoc.data().role !== "admin") {
+      throw new HttpsError("permission-denied", "غير مصرح لك بحذف المستخدمين. يجب أن تكون أدمن.");
+    }
+
+    const targetDoc = await db.collection("users").doc(targetUid).get();
+    if (targetDoc.exists && targetDoc.data().role === "admin") {
+      throw new HttpsError("permission-denied", "لا يمكن حذف حساب أدمن من هذه الواجهة.");
+    }
+
+    try {
+      try {
+        await getAuth().deleteUser(targetUid);
+        console.log(`✅ تم حذف الحساب من Firebase Auth: ${targetUid}`);
+      } catch (authErr) {
+        if (authErr.code !== "auth/user-not-found") {
+          console.error(`⚠️ خطأ أثناء حذف الحساب من Auth:`, authErr);
+        }
+      }
+
+      if (targetDoc.exists) {
+        await db.collection("users").doc(targetUid).delete();
+        console.log(`✅ تم حذف وثيقة المستخدم من Firestore: ${targetUid}`);
+      }
+
+      await db.collection("audit_logs").add({
+        action: "delete_user",
+        deletedUid: targetUid,
+        deletedName: targetDoc.exists ? (targetDoc.data().name || "") : "",
+        deletedEmail: targetDoc.exists ? (targetDoc.data().email || "") : "",
+        performedBy: callerUid,
+        timestamp: FieldValue.serverTimestamp(),
+      });
+
+      return { success: true, message: "تم حذف المستخدم كلياً بنجاح." };
+    } catch (err) {
+      console.error("❌ خطأ أثناء تنفيذ deleteUserAccount:", err);
+      throw new HttpsError("internal", "فشلت عملية الحذف: " + err.message);
+    }
   }
 );

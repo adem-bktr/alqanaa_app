@@ -676,6 +676,7 @@ class UserModel {
   final String role;
   final String createdAt;
   final String fcmToken;
+  final List<String> fcmTokens;
   final double? latitude;
   final double? longitude;
   final String? address;
@@ -689,6 +690,7 @@ class UserModel {
     required this.role,
     required this.createdAt,
     this.fcmToken = '',
+    this.fcmTokens = const [],
     this.latitude,
     this.longitude,
     this.address,
@@ -721,28 +723,39 @@ class UserModel {
     'role': role,
     'createdAt': createdAt,
     'fcmToken': fcmToken,
+    'fcmTokens': fcmTokens,
     'latitude': latitude,
     'longitude': longitude,
     'address': address,
     'visitDays': visitDays,
   };
 
-  factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
-    id: _s(json['id']),
-    name: _s(json['name']),
-    email: _s(json['email']),
-    phone: _s(json['phone']),
-    role: _s(json['role']).isEmpty ? 'user_normal' : _s(json['role']),
-    createdAt: _s(json['createdAt']), // ✅ آمن من Timestamp
-    fcmToken: _s(json['fcmToken']),
-    latitude: json['latitude'] == null ? null : _d(json['latitude']),
-    longitude: json['longitude'] == null ? null : _d(json['longitude']),
-    address: json['address'] == null ? null : _s(json['address']),
-    visitDays: (json['visitDays'] as List<dynamic>?)
+  factory UserModel.fromJson(Map<String, dynamic> json) {
+    final singleToken = _s(json['fcmToken']);
+    final tokensList = (json['fcmTokens'] as List<dynamic>?)
             ?.map((e) => e.toString())
+            .where((t) => t.isNotEmpty)
             .toList() ??
-        const [],
-  );
+        (singleToken.isNotEmpty ? [singleToken] : const <String>[]);
+
+    return UserModel(
+      id: _s(json['id']),
+      name: _s(json['name']),
+      email: _s(json['email']),
+      phone: _s(json['phone']),
+      role: _s(json['role']).isEmpty ? 'user_normal' : _s(json['role']),
+      createdAt: _s(json['createdAt']),
+      fcmToken: singleToken,
+      fcmTokens: tokensList,
+      latitude: json['latitude'] == null ? null : _d(json['latitude']),
+      longitude: json['longitude'] == null ? null : _d(json['longitude']),
+      address: json['address'] == null ? null : _s(json['address']),
+      visitDays: (json['visitDays'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const [],
+    );
+  }
 
   UserModel copyWith({
     String? role,

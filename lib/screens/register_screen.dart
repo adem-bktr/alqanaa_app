@@ -1,20 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_service.dart';
 import '../services/notification_service.dart';
 import '../services/location_service.dart';
 import '../utils/page_transitions.dart';
 import '../models/models.dart';
 import 'user_main_screen.dart';
+import 'main_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   final VoidCallback onToggleDarkMode;
   final bool isDarkMode;
+  final AuthCredential? initialGoogleCredential;
 
   const RegisterScreen({
     super.key,
     required this.onToggleDarkMode,
     required this.isDarkMode,
+    this.initialGoogleCredential,
   });
 
   @override
@@ -30,6 +34,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool isLoading = false;
   bool obscurePassword = true;
   bool obscureConfirm = true;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialGoogleCredential != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _registerWithGoogle(credential: widget.initialGoogleCredential);
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -54,7 +68,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   bool _isValidEmail(String email) {
-    return RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email);
+    return RegExp(r'^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email);
   }
 
   // ✅ طلب إذن الموقع مع رسالة توضيحية
@@ -266,13 +280,50 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  Future<void> _registerWithGoogle() async {
+  Future<void> _registerWithGoogle({AuthCredential? credential}) async {
     setState(() => isLoading = true);
     try {
-      final user = await AuthService.signInWithGoogle();
+      final res = await AuthService.registerWithGoogle(existingCredential: credential);
       if (!mounted) return;
 
-      if (user != null) {
+      if (res.canceled) {
+        setState(() => isLoading = false);
+        return;
+      }
+
+      if (res.isAlreadyRegistered && res.alreadyRegisteredUser != null) {
+        final existing = res.alreadyRegisteredUser!;
+        _showSnackBar('هذا الحساب مسجل بالفعل. يرجى تسجيل الدخول', Colors.orange.shade800);
+        await NotificationService.requestPermissionAndSaveToken(existing.id);
+        if (!mounted) return;
+
+        if (existing.isAdmin) {
+          Navigator.pushReplacement(
+            context,
+            FadeScaleRoute(
+              page: MainScreen(
+                onToggleDarkMode: widget.onToggleDarkMode,
+                isDarkMode: widget.isDarkMode,
+              ),
+            ),
+          );
+        } else {
+          Navigator.pushReplacement(
+            context,
+            FadeScaleRoute(
+              page: UserMainScreen(
+                user: existing,
+                onToggleDarkMode: widget.onToggleDarkMode,
+                isDarkMode: widget.isDarkMode,
+              ),
+            ),
+          );
+        }
+        return;
+      }
+
+      if (res.user != null) {
+        final user = res.user!;
         await _promptForPhoneIfNeeded(user);
         if (!mounted) return;
 
@@ -296,16 +347,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
         await NotificationService.requestPermissionAndSaveToken(updatedUser.id);
         if (!mounted) return;
 
-        Navigator.pushReplacement(
-          context,
-          FadeScaleRoute(
-            page: UserMainScreen(
-              user: updatedUser,
-              onToggleDarkMode: widget.onToggleDarkMode,
-              isDarkMode: widget.isDarkMode,
+        if (updatedUser.isAdmin) {
+          Navigator.pushReplacement(
+            context,
+            FadeScaleRoute(
+              page: MainScreen(
+                onToggleDarkMode: widget.onToggleDarkMode,
+                isDarkMode: widget.isDarkMode,
+              ),
             ),
-          ),
-        );
+          );
+        } else {
+          Navigator.pushReplacement(
+            context,
+            FadeScaleRoute(
+              page: UserMainScreen(
+                user: updatedUser,
+                onToggleDarkMode: widget.onToggleDarkMode,
+                isDarkMode: widget.isDarkMode,
+              ),
+            ),
+          );
+        }
       } else {
         setState(() => isLoading = false);
       }

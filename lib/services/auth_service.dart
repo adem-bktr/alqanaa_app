@@ -6,6 +6,42 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'dart:convert';
 import '../models/models.dart';
 
+class GoogleLoginResult {
+  final UserModel? user;
+  final AuthCredential? credential;
+  final String? email;
+  final String? displayName;
+  final bool isNotRegistered;
+  final bool canceled;
+  final String? errorMsg;
+
+  GoogleLoginResult({
+    this.user,
+    this.credential,
+    this.email,
+    this.displayName,
+    this.isNotRegistered = false,
+    this.canceled = false,
+    this.errorMsg,
+  });
+}
+
+class GoogleRegisterResult {
+  final UserModel? user;
+  final UserModel? alreadyRegisteredUser;
+  final bool isAlreadyRegistered;
+  final bool canceled;
+  final String? errorMsg;
+
+  GoogleRegisterResult({
+    this.user,
+    this.alreadyRegisteredUser,
+    this.isAlreadyRegistered = false,
+    this.canceled = false,
+    this.errorMsg,
+  });
+}
+
 class AuthService {
   static final _auth = FirebaseAuth.instance;
   static final _db = FirebaseFirestore.instance;
@@ -118,11 +154,113 @@ class AuthService {
   }
 
   // ══════════════════════════════════
-  //    تسجيل الدخول / إنشاء حساب بواسطة Google
+  //    1. تسجيل الدخول بـ Google فقط (شاشة Login)
   // ══════════════════════════════════
-  static Future<UserModel?> signInWithGoogle() async {
+  static Future<GoogleLoginResult> signInWithGoogleLoginOnly() async {
     try {
       UserCredential userCred;
+      AuthCredential? credential;
+
+      if (kIsWeb) {
+        final GoogleAuthProvider googleProvider = GoogleAuthProvider();
+        googleProvider.addScope('email');
+        googleProvider.addScope('profile');
+        userCred = await _auth.signInWithPopup(googleProvider);
+        credential = userCred.credential;
+      } else {
+        final googleSignIn = GoogleSignIn(
+          serverClientId:
+              '665302336531-ge78ss0i5h0pqmjvc1l67gqsdd5jtoq8.apps.googleusercontent.com',
+          clientId: defaultTargetPlatform == TargetPlatform.iOS
+              ? '665302336531-gbdjt6n98grpt38p4etcepvf3cppas7r.apps.googleusercontent.com'
+              : null,
+        );
+
+        try {
+          await googleSignIn.signOut();
+        } catch (_) {}
+
+        final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+        if (googleUser == null) return GoogleLoginResult(canceled: true);
+
+        final GoogleSignInAuthentication googleAuth =
+            await googleUser.authentication;
+
+        credential = GoogleAuthProvider.credential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        );
+
+        userCred = await _auth.signInWithCredential(credential);
+      }
+
+      if (userCred.user == null) return GoogleLoginResult(canceled: true);
+
+      final firebaseUser = userCred.user!;
+      final doc = await _db.collection('users').doc(firebaseUser.uid).get();
+
+      if (doc.exists && doc.data() != null) {
+        final userModel = UserModel.fromJson({...doc.data()!, 'id': doc.id});
+        _cachedUser = userModel;
+        await _saveUserLocally(userModel);
+        return GoogleLoginResult(user: userModel);
+      } else {
+        // الحساب غير مسجل في قاعدة بيانات القناعة
+        return GoogleLoginResult(
+          isNotRegistered: true,
+          credential: credential,
+          email: firebaseUser.email,
+          displayName: firebaseUser.displayName,
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ خطأ في signInWithGoogleLoginOnly: $e');
+      final errStr = e.toString().toLowerCase();
+      if (errStr.contains('canceled') ||
+          errStr.contains('aborted') ||
+          errStr.contains('popup-closed-by-user')) {
+        return GoogleLoginResult(canceled: true);
+      }
+      return GoogleLoginResult(errorMsg: e.toString());
+    }
+  }
+
+  // ══════════════════════════════════
+  //    2. إنشاء حساب بـ Google فقط (شاشة Register)
+  // ══════════════════════════════════
+  static Future<GoogleRegisterResult> registerWithGoogle({
+    AuthCredential? existingCredential,
+  }) async {
+    try {
+      UserCredential userCred;
+
+      if (existingCredential != null && _auth.currentUser != null) {
+        final firebaseUser = _auth.currentUser!;
+        final doc = await _db.collection('users').doc(firebaseUser.uid).get();
+        if (doc.exists && doc.data() != null) {
+          final existing = UserModel.fromJson({...doc.data()!, 'id': doc.id});
+          _cachedUser = existing;
+          await _saveUserLocally(existing);
+          return GoogleRegisterResult(
+            alreadyRegisteredUser: existing,
+            isAlreadyRegistered: true,
+          );
+        }
+
+        final userModel = UserModel(
+          id: firebaseUser.uid,
+          name: firebaseUser.displayName ?? 'مستخدم جوجل',
+          email: firebaseUser.email ?? '',
+          phone: firebaseUser.phoneNumber ?? '',
+          role: 'user_normal',
+          createdAt: DateTime.now().toIso8601String(),
+        );
+
+        await _db.collection('users').doc(userModel.id).set(userModel.toJson());
+        _cachedUser = userModel;
+        await _saveUserLocally(userModel);
+        return GoogleRegisterResult(user: userModel);
+      }
 
       if (kIsWeb) {
         final GoogleAuthProvider googleProvider = GoogleAuthProvider();
@@ -143,7 +281,7 @@ class AuthService {
         } catch (_) {}
 
         final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
-        if (googleUser == null) return null;
+        if (googleUser == null) return GoogleRegisterResult(canceled: true);
 
         final GoogleSignInAuthentication googleAuth =
             await googleUser.authentication;
@@ -156,40 +294,57 @@ class AuthService {
         userCred = await _auth.signInWithCredential(credential);
       }
 
-      if (userCred.user == null) return null;
+      if (userCred.user == null) return GoogleRegisterResult(canceled: true);
 
       final firebaseUser = userCred.user!;
-
       final doc = await _db.collection('users').doc(firebaseUser.uid).get();
 
-      UserModel userModel;
       if (doc.exists && doc.data() != null) {
-        userModel = UserModel.fromJson({...doc.data()!, 'id': doc.id});
-      } else {
-        userModel = UserModel(
-          id: firebaseUser.uid,
-          name: firebaseUser.displayName ?? 'مستخدم جوجل',
-          email: firebaseUser.email ?? '',
-          phone: firebaseUser.phoneNumber ?? '',
-          role: 'user_normal',
-          createdAt: DateTime.now().toIso8601String(),
+        final existing = UserModel.fromJson({...doc.data()!, 'id': doc.id});
+        _cachedUser = existing;
+        await _saveUserLocally(existing);
+        return GoogleRegisterResult(
+          alreadyRegisteredUser: existing,
+          isAlreadyRegistered: true,
         );
-        await _db.collection('users').doc(userModel.id).set(userModel.toJson());
       }
 
+      final userModel = UserModel(
+        id: firebaseUser.uid,
+        name: firebaseUser.displayName ?? 'مستخدم جوجل',
+        email: firebaseUser.email ?? '',
+        phone: firebaseUser.phoneNumber ?? '',
+        role: 'user_normal',
+        createdAt: DateTime.now().toIso8601String(),
+      );
+
+      await _db.collection('users').doc(userModel.id).set(userModel.toJson());
       _cachedUser = userModel;
       await _saveUserLocally(userModel);
-      return userModel;
+      return GoogleRegisterResult(user: userModel);
     } catch (e) {
-      debugPrint('❌ خطأ في signInWithGoogle: $e');
+      debugPrint('❌ خطأ في registerWithGoogle: $e');
       final errStr = e.toString().toLowerCase();
       if (errStr.contains('canceled') ||
           errStr.contains('aborted') ||
           errStr.contains('popup-closed-by-user')) {
-        return null;
+        return GoogleRegisterResult(canceled: true);
       }
-      rethrow;
+      return GoogleRegisterResult(errorMsg: e.toString());
     }
+  }
+
+  // ══════════════════════════════════
+  //    تسجيل الدخول / إنشاء حساب بواسطة Google (للتوافق القديم)
+  // ══════════════════════════════════
+  static Future<UserModel?> signInWithGoogle() async {
+    final res = await signInWithGoogleLoginOnly();
+    if (res.user != null) return res.user;
+    if (res.isNotRegistered) {
+      final regRes = await registerWithGoogle(existingCredential: res.credential);
+      return regRes.user ?? regRes.alreadyRegisteredUser;
+    }
+    return null;
   }
 
   // ══════════════════════════════════

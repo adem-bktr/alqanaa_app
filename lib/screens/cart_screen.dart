@@ -2146,8 +2146,12 @@ class _ItemQuantityInputState extends State<_ItemQuantityInput> {
         IconButton(
           icon: const Icon(Icons.remove_circle_outline, color: Color(0xFF2E7D32), size: 22),
           onPressed: () {
-            if (widget.quantity > 1) {
-              final q = widget.quantity - 1;
+            if (widget.quantity > 1.0) {
+              final q = widget.quantity - 1.0;
+              _ctrl.text = formatQuantity(q);
+              widget.onChanged(q);
+            } else if (widget.quantity > 0.25) {
+              final q = (widget.quantity - 0.25 > 0.25) ? widget.quantity - 0.25 : 0.25;
               _ctrl.text = formatQuantity(q);
               widget.onChanged(q);
             } else {

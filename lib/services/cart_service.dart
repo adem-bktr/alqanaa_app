@@ -2,7 +2,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import '../models/models.dart';
-import '../utils/converters.dart';
 
 class CartService {
   static const String _cartKey = 'saved_cart';

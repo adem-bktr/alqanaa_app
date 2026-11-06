@@ -84,8 +84,10 @@ class _EditOrderScreenState extends State<EditOrderScreen> {
                         IconButton(icon: const Icon(Icons.remove_circle_outline), onPressed: () {
                           setState(() {
                             final q = toDouble(item['quantity']);
-                            if (q > 1) {
-                              item['quantity'] = q - 1;
+                            if (q > 1.0) {
+                              item['quantity'] = q - 1.0;
+                            } else if (q > 0.25) {
+                              item['quantity'] = (q - 0.25 > 0.25) ? q - 0.25 : 0.25;
                             } else {
                               items.removeAt(index);
                             }
@@ -95,7 +97,7 @@ class _EditOrderScreenState extends State<EditOrderScreen> {
                           width: 50,
                           height: 32,
                           child: TextFormField(
-                            key: ValueKey('order_item_${index}_${item['quantity']}'),
+                            key: ValueKey('order_item_$index'),
                             initialValue: formatQuantity(item['quantity']),
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
                             textAlign: TextAlign.center,

@@ -29,6 +29,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   final formatter = NumberFormat('#,##0.00', 'fr_FR');
   late Map<String, int> flavorQuantities;
   double quantity = 1;
+  late TextEditingController _qtyController;
 
   String? _focusedFlavor;
   bool _quantityFocused = false;
@@ -45,10 +46,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     flavorQuantities = {
       for (var f in widget.product.flavors) f.name: 0,
     };
+    _qtyController = TextEditingController(text: formatQuantity(quantity));
   }
 
   @override
   void dispose() {
+    _qtyController.dispose();
     _screenFocusNode.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -571,16 +574,27 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   children: [
                     // ✅ زر - مع تغيير شكل الفأرة
                     MouseRegion(
-                      cursor: quantity > 1
+                      cursor: quantity > (widget.product.isWeighed ? 0.25 : 1.0)
                           ? SystemMouseCursors.click
                           : SystemMouseCursors.forbidden,
                       child: GestureDetector(
-                        onTap: () { if (quantity > 1) setState(() => quantity--); },
+                        onTap: () {
+                          final minQ = widget.product.isWeighed ? 0.25 : 1.0;
+                          final step = widget.product.isWeighed ? 0.25 : 1.0;
+                          if (quantity > minQ) {
+                            setState(() {
+                              quantity = (quantity - step > minQ) ? quantity - step : minQ;
+                              _qtyController.text = formatQuantity(quantity);
+                            });
+                          }
+                        },
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
                           width: 52, height: 52,
                           decoration: BoxDecoration(
-                            color: quantity > 1 ? const Color(0xFF2E7D32) : Colors.grey.shade300,
+                            color: quantity > (widget.product.isWeighed ? 0.25 : 1.0)
+                                ? const Color(0xFF2E7D32)
+                                : Colors.grey.shade300,
                             borderRadius: BorderRadius.circular(14),
                           ),
                           child: const Icon(Icons.remove, color: Colors.white, size: 24),
@@ -594,8 +608,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         width: 90,
                         height: 48,
                         child: TextFormField(
-                          key: ValueKey('detail_qty_$quantity'),
-                          initialValue: formatQuantity(quantity),
+                          controller: _qtyController,
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
                           textAlign: TextAlign.center,
                           style: TextStyle(
@@ -647,7 +660,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           if (isCarton && maxQty > 0 && currentCartQty + quantity >= maxQty) {
                             _showMaxQtySnackBar(); return;
                           }
-                          setState(() => quantity++);
+                          final step = widget.product.isWeighed ? 0.25 : 1.0;
+                          setState(() {
+                            quantity += step;
+                            _qtyController.text = formatQuantity(quantity);
+                          });
                         },
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 200),

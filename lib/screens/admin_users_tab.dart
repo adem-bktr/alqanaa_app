@@ -277,6 +277,35 @@ extension AdminUsersTabX on _AdminScreenState {
                   ),
                 ),
               ),
+              if (!user.isAdmin) ...[
+                const SizedBox(width: 6),
+                InkWell(
+                  onTap: () => _confirmDeleteUser(user),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.red.shade200),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.delete_outline, size: 12, color: Colors.red),
+                        SizedBox(width: 4),
+                        Text(
+                          'حذف',
+                          style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.red,
+                              fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ],
@@ -456,9 +485,139 @@ extension AdminUsersTabX on _AdminScreenState {
                   ),
                 ),
               ),
+              if (!user.isAdmin) ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  child: InkWell(
+                    onTap: () => _confirmDeleteUser(user),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.red.shade200),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.delete_outline, size: 14, color: Colors.red),
+                          SizedBox(width: 4),
+                          Text(
+                            'حذف',
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.red,
+                                fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  // 🗑️ نافذة حوار تأكيد حذف المستخدم للأدمن
+  Future<void> _confirmDeleteUser(UserModel user) async {
+    if (user.isAdmin) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('لا يمكن حذف حساب الأدمن من هذه الواجهة')),
+      );
+      return;
+    }
+
+    bool isDeleting = false;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: const Row(
+              children: [
+                Icon(Icons.warning_amber_rounded, color: Colors.red, size: 28),
+                SizedBox(width: 8),
+                Text('تأكيد حذف المستخدم', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('هل أنت تأكد من رغبتك في حذف هذا المستخدم نهائياً؟', style: TextStyle(color: Colors.grey.shade800, fontSize: 14)),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.red.shade200),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('الاسم: ${user.name}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                      if (user.email.isNotEmpty) Text('البريد: ${user.email}', style: const TextStyle(fontSize: 12, color: Colors.black87)),
+                      if (user.phone.isNotEmpty) Text('الهاتف: ${user.phone}', style: const TextStyle(fontSize: 12, color: Colors.black87)),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+                const Text('ملاحظة: سيتم حذف الحساب نهائياً، مع الحفاظ الكامل على الفواتير والطلبات والديون المربوطة باسمه.', style: TextStyle(fontSize: 11, color: Colors.red, fontStyle: FontStyle.italic)),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: isDeleting ? null : () => Navigator.pop(dialogCtx),
+                child: const Text('إلغاء', style: TextStyle(color: Colors.grey, fontSize: 15)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red.shade700,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                onPressed: isDeleting
+                    ? null
+                    : () async {
+                        setDialogState(() => isDeleting = true);
+                        try {
+                          await AuthService.deleteUser(user.id);
+                          if (!mounted) return;
+                          Navigator.pop(dialogCtx);
+                          loadUsers();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('✅ تم حذف حساب المستخدم (${user.name}) بنجاح'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        } catch (e) {
+                          setDialogState(() => isDeleting = false);
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('❌ فشل حذف المستخدم: $e'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                child: isDeleting
+                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : const Text('حذف نهائياً', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

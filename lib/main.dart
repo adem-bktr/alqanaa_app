@@ -17,9 +17,14 @@ import 'dart:io';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // ✅ كبح ذاكرة الصور لجميع الأجهزة لمنع مسح الصور أثناء التمرير ولمنع نفاد الذاكرة في iOS
-  PaintingBinding.instance.imageCache.maximumSizeBytes = 200 * 1024 * 1024; // 200 MB
-  PaintingBinding.instance.imageCache.maximumSize = 250;
+  // ✅ ضبط ذاكرة الصور بشكل متوازن لمنع سواد الصور أو نفاد ذاكرة WebGL على الويب
+  if (kIsWeb) {
+    PaintingBinding.instance.imageCache.maximumSizeBytes = 30 * 1024 * 1024; // 30 MB للويب
+    PaintingBinding.instance.imageCache.maximumSize = 50;
+  } else {
+    PaintingBinding.instance.imageCache.maximumSizeBytes = 100 * 1024 * 1024; // 100 MB للهواتف
+    PaintingBinding.instance.imageCache.maximumSize = 150;
+  }
 
   // ✅ معالجة الأخطاء العالمية غير المعالجة لمنع انهيار iOS/Android الفجائي
   FlutterError.onError = (details) {
