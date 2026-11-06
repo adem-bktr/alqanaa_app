@@ -97,11 +97,14 @@ class PrinterService {
     return (isNeg ? '-' : '') + buf.toString();
   }
 
-  static String _fmtQty(num qty) {
-    if (qty == qty.roundToDouble()) {
-      return qty.toInt().toString();
+  static String _fmtQty(num qty, {bool isWeighed = false}) {
+    final d = qty.toDouble();
+    if (d == d.roundToDouble()) {
+      final s = d.toInt().toString();
+      return isWeighed ? '$s KG' : s;
     }
-    return qty.toStringAsFixed(3).replaceAll(RegExp(r'0+$'), '').replaceAll(RegExp(r'\.$'), '');
+    final s = d.toStringAsFixed(3).replaceAll(RegExp(r'0+$'), '').replaceAll(RegExp(r'\.$'), '');
+    return isWeighed ? '$s KG' : s;
   }
 
   // ══════════════════════════════════════════════════════
@@ -514,7 +517,8 @@ class PrinterService {
     for (final it in items) {
       final rawName = it['productName']?.toString() ?? 'Unknown product';
       final isCarton = it['isCarton'] == true;
-      final key = '$rawName-$isCarton';
+      final isWeighed = it['isWeighed'] == true;
+      final key = '$rawName-$isCarton-$isWeighed';
       final price = (it['price'] as num? ?? 0).toDouble();
       final qty = (it['quantity'] as num? ?? 0).toDouble();
       final flavor = _clean(it['flavor']);
@@ -524,7 +528,7 @@ class PrinterService {
         grouped[key]!['total'] = (grouped[key]!['total'] as double) + (qty * price);
         if (flavor.isNotEmpty) {
           final flavors = grouped[key]!['flavors'] as List<String>;
-          flavors.add('$flavor (${_fmtQty(qty)})');
+          flavors.add('$flavor (${_fmtQty(qty, isWeighed: isWeighed)})');
         }
       } else {
         grouped[key] = {
@@ -532,8 +536,9 @@ class PrinterService {
           'quantity': qty,
           'total': qty * price,
           'isCarton': isCarton,
+          'isWeighed': isWeighed,
           'flavors': flavor.isNotEmpty
-              ? ['$flavor (${_fmtQty(qty)})']
+              ? ['$flavor (${_fmtQty(qty, isWeighed: isWeighed)})']
               : <String>[],
         };
       }
@@ -546,6 +551,7 @@ class PrinterService {
         final qty = (data['quantity'] as num).toDouble();
         final total = (data['total'] as num).toDouble();
         final isCarton = data['isCarton'] == true;
+        final isWeighed = data['isWeighed'] == true;
         final type = isCarton ? 'Crt' : 'Unt';
         final flavorsList = data['flavors'] as List<String>;
 
@@ -556,7 +562,7 @@ class PrinterService {
               bold: true, align: PosAlign.left, height: PosTextSize.size2, fontType: PosFontType.fontA),
         );
         b += g.row([
-          _c('   Qte: ${_fmtQty(qty)}', 6,
+          _c('   Qte: ${_fmtQty(qty, isWeighed: isWeighed)}', 6,
               const PosStyles(align: PosAlign.left, height: PosTextSize.size2, fontType: PosFontType.fontA)),
           _c('${_money(total)} DA', 6,
               const PosStyles(
@@ -647,7 +653,8 @@ class PrinterService {
     for (final it in order.items) {
       final rawName = it['productName']?.toString() ?? 'Produit';
       final isCarton = it['isCarton'] == true;
-      final key = '$rawName-$isCarton';
+      final isWeighed = it['isWeighed'] == true;
+      final key = '$rawName-$isCarton-$isWeighed';
       final price = (it['price'] as num? ?? 0).toDouble();
       final qty = (it['quantity'] as num? ?? 0).toDouble();
       final flavor = _clean(it['flavor']);
@@ -658,7 +665,7 @@ class PrinterService {
             (grouped[key]!['total'] as double) + (qty * price);
         if (flavor.isNotEmpty) {
           (grouped[key]!['flavors'] as List<String>)
-              .add('$flavor (${_fmtQty(qty)})');
+              .add('$flavor (${_fmtQty(qty, isWeighed: isWeighed)})');
         }
       } else {
         grouped[key] = {
@@ -666,8 +673,9 @@ class PrinterService {
           'quantity': qty,
           'total': qty * price,
           'isCarton': isCarton,
+          'isWeighed': isWeighed,
           'flavors': flavor.isNotEmpty
-              ? <String>['$flavor (${_fmtQty(qty)})']
+              ? <String>['$flavor (${_fmtQty(qty, isWeighed: isWeighed)})']
               : <String>[],
         };
       }
@@ -676,15 +684,17 @@ class PrinterService {
     int idx = 1;
     for (final data in grouped.values) {
       final nm = data['productName'] as String;
-      final qty = data['quantity'] as double;
-      final totalItem = data['total'] as double;
-      final type = data['isCarton'] == true ? 'Crt' : 'Unt';
+      final qty = (data['quantity'] as num).toDouble();
+      final totalItem = (data['total'] as num).toDouble();
+      final isCarton = data['isCarton'] == true;
+      final isWeighed = data['isWeighed'] == true;
+      final type = isCarton ? 'Crt' : 'Unt';
       final flavorsList = data['flavors'] as List<String>;
 
       b += _t(g, '$idx. $nm ($type)', styles: const PosStyles(bold: true, fontType: PosFontType.fontA));
       b += g.row([
         PosColumn(
-          text: _ascii('   Qte: ${_fmtQty(qty)}'),
+          text: _ascii('   Qte: ${_fmtQty(qty, isWeighed: isWeighed)}'),
           width: 6,
           styles: const PosStyles(align: PosAlign.left, fontType: PosFontType.fontA),
         ),
@@ -1059,7 +1069,8 @@ class PrinterService {
                     for (final it in order.items) {
                       final pName = _clean(it['productName'] ?? 'Produit');
                       final isCarton = it['isCarton'] == true;
-                      final key = '$pName-$isCarton';
+                      final isWeighed = it['isWeighed'] == true;
+                      final key = '$pName-$isCarton-$isWeighed';
                       final price = (it['price'] as num? ?? 0).toDouble();
                       final qty = (it['quantity'] as num? ?? 0).toDouble();
 
@@ -1069,7 +1080,7 @@ class PrinterService {
                         final flavor = it['flavor']?.toString() ?? '';
                         if (flavor.isNotEmpty) {
                           final flavors = grouped[key]!['flavors'] as List<String>;
-                          flavors.add('$flavor (${_fmtQty(qty)})');
+                          flavors.add('$flavor (${_fmtQty(qty, isWeighed: isWeighed)})');
                         }
                       } else {
                         final flavor = it['flavor']?.toString() ?? '';
@@ -1078,8 +1089,9 @@ class PrinterService {
                           'quantity': qty,
                           'total': qty * price,
                           'isCarton': isCarton,
+                          'isWeighed': isWeighed,
                           'flavors': flavor.isNotEmpty
-                              ? ['$flavor (${_fmtQty(qty)})']
+                              ? ['$flavor (${_fmtQty(qty, isWeighed: isWeighed)})']
                               : <String>[],
                         };
                       }
@@ -1091,6 +1103,7 @@ class PrinterService {
                       final qty = data['quantity'] as double;
                       final totalItem = data['total'] as double;
                       final isCarton = data['isCarton'] == true;
+                      final isWeighed = data['isWeighed'] == true;
                       final type = isCarton ? 'Crt' : 'Unt';
                       final flavorsList = data['flavors'] as List<String>;
                       final currentIdx = idx++;
@@ -1111,7 +1124,7 @@ class PrinterService {
                               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                               children: [
                                 pw.Text(
-                                  '   Qte: ${_fmtQty(qty)}',
+                                  '   Qte: ${_fmtQty(qty, isWeighed: isWeighed)}',
                                   style: pw.TextStyle(
                                     fontWeight: pw.FontWeight.bold,
                                     fontSize: 9.5,

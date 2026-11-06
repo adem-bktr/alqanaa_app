@@ -440,6 +440,7 @@ class CartItem {
     'isCarton': isCarton,
     'typeLabel': typeLabel,
     'flavor': flavor ?? '',
+    'isWeighed': product.isWeighed,
   };
 }
 

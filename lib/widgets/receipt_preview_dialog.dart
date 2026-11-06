@@ -66,11 +66,14 @@ class _ReceiptPreviewDialogState extends State<ReceiptPreviewDialog> {
     return (isNeg ? '-' : '') + buf.toString();
   }
 
-  String _fmtQty(num qty) {
-    if (qty == qty.roundToDouble()) {
-      return qty.toInt().toString();
+  String _fmtQty(num qty, {bool isWeighed = false}) {
+    final d = qty.toDouble();
+    if (d == d.roundToDouble()) {
+      final s = d.toInt().toString();
+      return isWeighed ? '$s KG' : s;
     }
-    return qty.toStringAsFixed(2).replaceAll(RegExp(r'0+$'), '').replaceAll(RegExp(r'\.$'), '');
+    final s = d.toStringAsFixed(2).replaceAll(RegExp(r'0+$'), '').replaceAll(RegExp(r'\.$'), '');
+    return isWeighed ? '$s KG' : s;
   }
 
   Future<void> _handlePrint() async {
@@ -273,7 +276,8 @@ class _ReceiptPreviewDialogState extends State<ReceiptPreviewDialog> {
                             for (final it in widget.order.items) {
                               final name = it['productName']?.toString() ?? 'Produit';
                               final isCarton = it['isCarton'] == true;
-                              final key = '$name-$isCarton';
+                              final isWeighed = it['isWeighed'] == true;
+                              final key = '$name-$isCarton-$isWeighed';
                               final price = (it['price'] as num? ?? 0).toDouble();
                               final qty = (it['quantity'] as num? ?? 0).toDouble();
 
@@ -283,7 +287,7 @@ class _ReceiptPreviewDialogState extends State<ReceiptPreviewDialog> {
                                 final flavor = it['flavor']?.toString() ?? '';
                                 if (flavor.isNotEmpty) {
                                   final flavors = grouped[key]!['flavors'] as List<String>;
-                                  flavors.add('$flavor (${_fmtQty(qty)})');
+                                  flavors.add('$flavor (${_fmtQty(qty, isWeighed: isWeighed)})');
                                 }
                               } else {
                                 final flavor = it['flavor']?.toString() ?? '';
@@ -292,8 +296,9 @@ class _ReceiptPreviewDialogState extends State<ReceiptPreviewDialog> {
                                   'quantity': qty,
                                   'total': qty * price,
                                   'isCarton': isCarton,
+                                  'isWeighed': isWeighed,
                                   'flavors': flavor.isNotEmpty
-                                      ? ['$flavor (${_fmtQty(qty)})']
+                                      ? ['$flavor (${_fmtQty(qty, isWeighed: isWeighed)})']
                                       : <String>[],
                                 };
                               }
@@ -310,6 +315,7 @@ class _ReceiptPreviewDialogState extends State<ReceiptPreviewDialog> {
                                 final qty = data['quantity'] as double;
                                 final total = data['total'] as double;
                                 final isCarton = data['isCarton'] == true;
+                                final isWeighed = data['isWeighed'] == true;
                                 final type = isCarton ? 'Crt' : 'Unt';
                                 final flavorsList = data['flavors'] as List<String>;
 
@@ -332,7 +338,7 @@ class _ReceiptPreviewDialogState extends State<ReceiptPreviewDialog> {
                                         MainAxisAlignment.spaceBetween,
                                         children: [
                                           Text(
-                                            '   Qte: ${_fmtQty(qty)}',
+                                            '   Qte: ${_fmtQty(qty, isWeighed: isWeighed)}',
                                             style: const TextStyle(
                                               fontSize: 10.5,
                                               color: Colors.black,

@@ -34,11 +34,14 @@ class ReceiptRenderer {
     return (isNeg ? '-' : '') + buf.toString();
   }
 
-  static String _fmtQty(num qty) {
-    if (qty == qty.roundToDouble()) {
-      return qty.toInt().toString();
+  static String _fmtQty(num qty, {bool isWeighed = false}) {
+    final d = qty.toDouble();
+    if (d == d.roundToDouble()) {
+      final s = d.toInt().toString();
+      return isWeighed ? '$s KG' : s;
     }
-    return qty.toStringAsFixed(3).replaceAll(RegExp(r'0+$'), '').replaceAll(RegExp(r'\.$'), '');
+    final s = d.toStringAsFixed(3).replaceAll(RegExp(r'0+$'), '').replaceAll(RegExp(r'\.$'), '');
+    return isWeighed ? '$s KG' : s;
   }
 
   // ══════════════════════════════════════════════════════
@@ -158,7 +161,8 @@ class ReceiptRenderer {
     for (final it in order.items) {
       final name = it['productName']?.toString() ?? 'Produit';
       final isCarton = it['isCarton'] == true;
-      final key = '$name-$isCarton';
+      final isWeighed = it['isWeighed'] == true;
+      final key = '$name-$isCarton-$isWeighed';
       final price = (it['price'] as num? ?? 0).toDouble();
       final qty = (it['quantity'] as num? ?? 0).toDouble();
       final flavor = it['flavor']?.toString() ?? '';
@@ -169,7 +173,7 @@ class ReceiptRenderer {
             (grouped[key]!['total'] as double) + (qty * price);
         if (flavor.isNotEmpty) {
           (grouped[key]!['flavors'] as List<String>)
-              .add('$flavor (${_fmtQty(qty)})');
+              .add('$flavor (${_fmtQty(qty, isWeighed: isWeighed)})');
         }
       } else {
         grouped[key] = {
@@ -177,8 +181,9 @@ class ReceiptRenderer {
           'quantity': qty,
           'total': qty * price,
           'isCarton': isCarton,
+          'isWeighed': isWeighed,
           'flavors': flavor.isNotEmpty
-              ? <String>['$flavor (${_fmtQty(qty)})']
+              ? <String>['$flavor (${_fmtQty(qty, isWeighed: isWeighed)})']
               : <String>[],
         };
       }
@@ -189,11 +194,13 @@ class ReceiptRenderer {
       final name = data['productName'] as String;
       final qty = data['quantity'] as double;
       final totalItem = data['total'] as double;
-      final type = data['isCarton'] == true ? 'Crt' : 'Unt';
+      final isCarton = data['isCarton'] == true;
+      final isWeighed = data['isWeighed'] == true;
+      final type = isCarton ? 'Crt' : 'Unt';
       final flavorsList = data['flavors'] as List<String>;
 
       addText('$idx. $name ($type)', 11.5, gap: 1);
-      addRow('   Qte: ${_fmtQty(qty)}', '${_money(totalItem)} DA',
+      addRow('   Qte: ${_fmtQty(qty, isWeighed: isWeighed)}', '${_money(totalItem)} DA',
           10.5, 11.5, lBold: false, rBold: true);
       if (flavorsList.isNotEmpty) {
         addText('   Aromes: ${flavorsList.join(", ")}', 9.5,

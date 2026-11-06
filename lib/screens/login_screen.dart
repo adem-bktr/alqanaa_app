@@ -6,6 +6,7 @@ import '../utils/page_transitions.dart';
 import 'main_screen.dart';
 import 'user_main_screen.dart';
 import 'register_screen.dart';
+import '../widgets/google_logo_widget.dart';
 
 class LoginScreen extends StatefulWidget {
   final VoidCallback onToggleDarkMode;
@@ -1188,7 +1189,7 @@ class _LoginScreenState extends State<LoginScreen>
             borderRadius: BorderRadius.circular(16),
           ),
         ),
-        icon: const Icon(Icons.g_mobiledata, color: Colors.red, size: 34),
+        icon: const GoogleLogoWidget(size: 24),
         label: Text(
           'تسجيل الدخول باستخدام Google',
           style: TextStyle(

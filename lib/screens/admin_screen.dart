@@ -101,6 +101,7 @@ class _AdminScreenState extends State<AdminScreen>
   String _selectedBannerLinkType = 'none';
 
   SellType selectedSellType = SellType.cartonOnly;
+  bool isWeighedNewProduct = false;
   List<FlavorModel> newProductFlavors = [];
 
   final picker = ImagePicker();
@@ -1232,6 +1233,7 @@ class _AdminScreenState extends State<AdminScreen>
         purchasePrice: double.tryParse(purchasePriceController.text) ?? 0,
         stockQuantity: toDouble(stockQuantityController.text),
         unitsPerCarton: int.tryParse(unitsPerCartonController.text) ?? 1,
+        isWeighed: isWeighedNewProduct,
       );
 
       debugPrint('📸 رفع الصورة للمنتج...');
@@ -1253,6 +1255,7 @@ class _AdminScreenState extends State<AdminScreen>
       setState(() {
         productImagePath = null;
         selectedSellType = SellType.cartonOnly;
+        isWeighedNewProduct = false;
         selectedCategoryForProduct = null;
         newProductFlavors = [];
         isLoadingProduct = false;
@@ -1741,6 +1744,7 @@ class _AdminScreenState extends State<AdminScreen>
     Category? editCategory = _categoryById(product.categoryId);
     String? newImagePath;
     SellType editSellType = product.sellType;
+    bool editIsWeighed = product.isWeighed;
     bool editIsFeatured = product.isFeatured;
     List<FlavorModel> editFlavors = List<FlavorModel>.from(product.flavors);
     final editFlavorController = TextEditingController();
@@ -1813,6 +1817,14 @@ class _AdminScreenState extends State<AdminScreen>
                   ),
                   const SizedBox(height: 12),
                   _dialogField(nameCtrl, 'اسم المنتج'),
+                  const SizedBox(height: 8),
+                  CheckboxListTile(
+                    title: const Text('منتج موزون (يُباع بالكيلوغرام KG)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    value: editIsWeighed,
+                    onChanged: (v) => setSt(() => editIsWeighed = v ?? false),
+                    contentPadding: EdgeInsets.zero,
+                    controlAffinity: ListTileControlAffinity.leading,
+                  ),
                   const SizedBox(height: 10),
                   DropdownButtonFormField<Brand>(
                     value: _safeBrandValue(editBrand),
@@ -2121,6 +2133,7 @@ class _AdminScreenState extends State<AdminScreen>
                     purchasePrice: double.tryParse(buyPriceCtrl.text) ?? 0,
                     unitsPerCarton: int.tryParse(upcCtrl.text) ?? 1,
                     stockQuantity: stockToSave,
+                    isWeighed: editIsWeighed,
                   );
                   await DataService.updateProduct(updated,
                       imagePath: newImagePath);
@@ -3539,6 +3552,14 @@ class _AdminScreenState extends State<AdminScreen>
               const SizedBox(height: 8),
               _sellTypeSelector(selectedSellType,
                       (v) => setState(() => selectedSellType = v)),
+              const SizedBox(height: 8),
+              CheckboxListTile(
+                title: const Text('منتج موزون (يُباع بالكيلوغرام KG)', style: TextStyle(fontWeight: FontWeight.bold)),
+                value: isWeighedNewProduct,
+                onChanged: (v) => setState(() => isWeighedNewProduct = v ?? false),
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+              ),
             ],
           ),
         ),

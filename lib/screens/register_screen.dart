@@ -8,6 +8,7 @@ import '../utils/page_transitions.dart';
 import '../models/models.dart';
 import 'user_main_screen.dart';
 import 'main_screen.dart';
+import '../widgets/google_logo_widget.dart';
 
 class RegisterScreen extends StatefulWidget {
   final VoidCallback onToggleDarkMode;
@@ -566,19 +567,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         const SizedBox(height: 12),
                         SizedBox(
                           width: double.infinity,
+                          height: 54,
                           child: OutlinedButton.icon(
                             onPressed: isLoading ? null : _registerWithGoogle,
                             style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              side: BorderSide(color: Colors.grey.shade300),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              side: BorderSide(
+                                color: widget.isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300,
+                              ),
+                              backgroundColor: widget.isDarkMode ? const Color(0xFF1E1E2E) : Colors.white,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
+                                borderRadius: BorderRadius.circular(16),
                               ),
                             ),
-                            icon: const Icon(Icons.g_mobiledata, color: Colors.red, size: 32),
-                            label: const Text(
+                            icon: const GoogleLogoWidget(size: 24),
+                            label: Text(
                               'التسجيل باستخدام Google',
-                              style: TextStyle(color: Colors.black87, fontSize: 15, fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                color: widget.isDarkMode ? Colors.white : Colors.black87,
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                         ),
