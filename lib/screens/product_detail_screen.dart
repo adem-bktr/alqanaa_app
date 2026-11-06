@@ -198,7 +198,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         }
       }
       _showSnackBar(
-        '✅ تمت الإضافة - $totalFlavorQty ${isCarton ? 'كرتون' : 'حبة'}',
+        '✅ تمت الإضافة - $totalFlavorQty ${widget.product.isWeighed ? 'KG' : (isCarton ? 'كرتون' : 'حبة')}',
         const Color(0xFF2E7D32),
       );
     } else {
@@ -214,7 +214,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       );
       CartService.addItem(newItem, save: true);
       _showSnackBar(
-        '✅ تمت الإضافة - ${formatQuantity(quantity)} ${isCarton ? 'كرتون' : 'حبة'}',
+        '✅ تمت الإضافة - ${formatQuantity(quantity)} ${widget.product.isWeighed ? 'KG' : (isCarton ? 'كرتون' : 'حبة')}',
         const Color(0xFF2E7D32),
       );
     }
@@ -546,7 +546,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(children: [
-                  Text('الكمية (${isCarton ? 'كرتون' : 'حبة'})',
+                  Text('الكمية (${widget.product.isWeighed ? 'KG' : (isCarton ? 'كرتون' : 'حبة')})',
                       style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor)),
                   const Spacer(),
                   if (isDesktop && _quantityFocused)
@@ -835,7 +835,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 Divider(color: isDark ? Colors.grey.shade700 : Colors.grey.shade200),
               if (widget.product.canSellUnit)
                 _priceRow(
-                  icon: Icons.shopping_bag_outlined, label: 'سعر الحبة', price: unitPrice,
+                  icon: Icons.shopping_bag_outlined, label: widget.product.isWeighed ? 'سعر الكيلوغرام' : 'سعر الحبة', price: unitPrice,
                   originalPrice: widget.product.discount > 0
                       ? (widget.isSpecialPrice
                       ? widget.product.priceUnitSpecial

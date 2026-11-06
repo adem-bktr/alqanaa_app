@@ -428,7 +428,7 @@ class CartItem {
   }
 
   double get totalPrice => unitPrice * quantity;
-  String get typeLabel => product.isWeighed ? 'كغ' : (isCarton ? 'كرتون' : 'حبة');
+  String get typeLabel => product.isWeighed ? 'KG' : (isCarton ? 'كرتون' : 'حبة');
 
   /// ✅ للحفظ في الطلب — نفس المفاتيح المستخدمة في الطباعة والـ PDF
   Map<String, dynamic> toOrderItem() => {

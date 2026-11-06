@@ -6,7 +6,7 @@ import '../utils/page_transitions.dart';
 import 'main_screen.dart';
 import 'user_main_screen.dart';
 import 'register_screen.dart';
-import '../models/models.dart';
+import '../widgets/google_logo_widget.dart';
 
 class LoginScreen extends StatefulWidget {
   final VoidCallback onToggleDarkMode;

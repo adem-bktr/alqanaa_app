@@ -697,7 +697,11 @@ class DataService {
             'stockQuantity': FieldValue.increment(-qtySold),
           });
         } else {
-          final upc = await _unitsPerCartonOf(pid) ?? 1;
+          final upc = await _unitsPerCartonOf(pid);
+          if (upc == null || upc <= 0) {
+            debugPrint('❌ خطأ حماية المخزن: تعذر جلب unitsPerCarton للمنتج العادي $pid — تم تخطي خصم المخزن تفادياً للخطأ');
+            continue;
+          }
           final piecesToSubtract = isCarton ? (qtySold * upc) : qtySold;
 
           batch.update(_db.collection('products').doc(pid), {
@@ -731,7 +735,11 @@ class DataService {
       final pRef = _db.collection('products').doc(pid);
       double pieces = qty;
       if (!isWeighed) {
-        final upc = await _unitsPerCartonOf(pid) ?? 1;
+        final upc = await _unitsPerCartonOf(pid);
+        if (upc == null || upc <= 0) {
+          debugPrint('❌ خطأ حماية المخزن: تعذر جلب unitsPerCarton للمنتج العادي $pid أثناء تغيير المخزن — تم تخطي العملية');
+          continue;
+        }
         pieces = isCarton ? (qty * upc) : qty;
       }
 
@@ -815,7 +823,11 @@ class DataService {
     final upcMap = <String, int>{};
     for (final pid in pids) {
       final upc = await _unitsPerCartonOf(pid);
-      if (upc != null) upcMap[pid] = upc;
+      if (upc != null && upc > 0) {
+        upcMap[pid] = upc;
+      } else {
+        debugPrint('⚠️ تحذير: تعذر قراءة unitsPerCarton للمنتج $pid في updateFullOrder');
+      }
     }
 
     // 3) حساب الفرق الصافي لكل منتج (+ إرجاع، − خصم)
@@ -831,8 +843,11 @@ class DataService {
 
         double pieces = qty;
         if (!isWeighed) {
-          if (!upcMap.containsKey(pid)) continue;
-          final upc = upcMap[pid] ?? 1;
+          if (!upcMap.containsKey(pid)) {
+            debugPrint('❌ تخطي المنتج $pid في حساب مخزون updateFullOrder لعدم توفر unitsPerCarton');
+            continue;
+          }
+          final upc = upcMap[pid]!;
           pieces = isCarton ? qty * upc : qty;
         }
         net[pid] = (net[pid] ?? 0.0) + sign * pieces;

@@ -6,6 +6,7 @@ import '../services/notification_service.dart';
 import '../services/location_service.dart';
 import '../utils/page_transitions.dart';
 import '../models/models.dart';
+import '../widgets/google_logo_widget.dart';
 import 'user_main_screen.dart';
 import 'main_screen.dart';
 
