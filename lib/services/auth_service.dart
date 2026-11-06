@@ -511,9 +511,51 @@ class AuthService {
   }
 
   // ══════════════════════════════════
-  //    حذف مستخدم
+  //    إلغاء الجلسة المؤقتة لحساب غير مسجل
+  // ══════════════════════════════════
+  static Future<void> cancelPendingGoogleAuth() async {
+    try {
+      final user = _auth.currentUser;
+      if (user != null) {
+        final doc = await _db.collection('users').doc(user.uid).get();
+        if (!doc.exists) {
+          await _auth.signOut();
+          _cachedUser = null;
+          await _clearLocalUser();
+          debugPrint('🧹 تم تنظيف الجلسة المؤقتة عند الإلغاء');
+        }
+      }
+    } catch (e) {
+      debugPrint('⚠️ cancelPendingGoogleAuth: $e');
+    }
+  }
+
+  // ══════════════════════════════════
+  //    حذف مستخدم كلياً (Auth + Firestore)
   // ══════════════════════════════════
   static Future<void> deleteUser(String userId) async {
+    try {
+      final currentUser = _auth.currentUser;
+      if (currentUser != null) {
+        try {
+          final token = await currentUser.getIdToken();
+          final response = await http.post(
+            Uri.parse('https://us-central1-alqanaa-f16e4.cloudfunctions.net/deleteUserAccount'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({
+              'data': {'targetUid': userId}
+            }),
+          );
+          debugPrint('🗑️ استجابة Cloud Function لحذف الحساب: ${response.statusCode}');
+        } catch (fErr) {
+          debugPrint('⚠️ فشل طلب Cloud Function لحذف Auth: $fErr');
+        }
+      }
+    } catch (_) {}
+
     await _queuedWrite(_db.collection('users').doc(userId).delete());
     if (_cachedUser?.id == userId) {
       _cachedUser = null;

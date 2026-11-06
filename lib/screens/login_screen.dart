@@ -269,6 +269,8 @@ class _LoginScreenState extends State<LoginScreen>
               direction: SlideDirection.fromBottom,
             ),
           );
+        } else {
+          await AuthService.cancelPendingGoogleAuth();
         }
       } else if (res.errorMsg != null) {
         _showError(_getErrorMessage(res.errorMsg!));
