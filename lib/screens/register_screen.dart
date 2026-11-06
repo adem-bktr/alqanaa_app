@@ -190,15 +190,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
       String errorMsg = 'حدث خطأ أثناء التسجيل';
       final err = e.toString();
       if (err.contains('email-already-in-use')) {
-        errorMsg = '❌ البريد الإلكتروني مستخدم بالفعل';
-      } else if (err.contains('invalid-email')) {
-        errorMsg = '❌ البريد الإلكتروني غير صحيح';
-      } else if (err.contains('weak-password')) {
-        errorMsg = '❌ كلمة المرور ضعيفة جداً';
-      } else if (err.contains('network-request-failed')) {
-        errorMsg = '📶 تحقق من اتصالك بالإنترنت';
+        errorMsg = '❌ هذا البريد مسجل بالفعل، يرجى تسجيل الدخول';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('هذا البريد مسجل بالفعل، هل تريد الانتقال لتسجيل الدخول؟'),
+            backgroundColor: Colors.orange[800],
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            action: SnackBarAction(
+              label: 'تسجيل الدخول',
+              textColor: Colors.white,
+              onPressed: () => Navigator.pop(context),
+            ),
+            duration: const Duration(seconds: 6),
+          ),
+        );
+      } else {
+        if (err.contains('invalid-email')) {
+          errorMsg = '❌ البريد الإلكتروني غير صحيح';
+        } else if (err.contains('weak-password')) {
+          errorMsg = '❌ كلمة المرور ضعيفة جداً';
+        } else if (err.contains('network-request-failed')) {
+          errorMsg = '📶 تحقق من اتصالك بالإنترنت';
+        }
+        _showSnackBar(errorMsg, Colors.red);
       }
-      _showSnackBar(errorMsg, Colors.red);
       setState(() => isLoading = false);
     }
   }

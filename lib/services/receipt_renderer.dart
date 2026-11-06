@@ -207,7 +207,7 @@ class ReceiptRenderer {
     // ── الحسابات (خطوط عريضة وواضحة جداً) ──
     final totalBoxTop = y;
     y += 4 * s;
-    addRow('TOTAL A PAYER :', '${_money(total)} DA', 13.5, 15.5, lBold: true, rBold: true);
+    addRow('TOTAL A PAYER :', '${_money(total)} DA', 12, 12, lBold: true, rBold: true);
     y += 3 * s;
     addRow('Montant Verse :', '${_money(paid)} DA', 12, 12, lBold: true, rBold: true);
     if (remaining > 0) {
@@ -236,7 +236,7 @@ class ReceiptRenderer {
       y += 8 * s;
       final boxTop = y;
       y += 4 * s;
-      addText('=== COMPTE CLIENT / كشف الحساب ===', 10.5, align: TextAlign.center, bold: true);
+      addText('=== COMPTE CLIENT ===', 10.5, align: TextAlign.center, bold: true);
       y += 2 * s;
       addRow('Ancien Solde :', '${_money(prevDebt)} DA', 12, 12,
           lBold: true, rBold: true);

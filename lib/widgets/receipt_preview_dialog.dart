@@ -394,7 +394,7 @@ class _ReceiptPreviewDialogState extends State<ReceiptPreviewDialog> {
                                     'TOTAL A PAYER :',
                                     style: TextStyle(
                                       fontWeight: FontWeight.w900,
-                                      fontSize: 14,
+                                      fontSize: 11.5,
                                       color: Colors.black,
                                       letterSpacing: 0.3,
                                     ),
@@ -403,7 +403,7 @@ class _ReceiptPreviewDialogState extends State<ReceiptPreviewDialog> {
                                     '${_money(total)} DA',
                                     style: const TextStyle(
                                       fontWeight: FontWeight.w900,
-                                      fontSize: 16,
+                                      fontSize: 11.5,
                                       color: Colors.black,
                                     ),
                                   ),
@@ -486,7 +486,7 @@ class _ReceiptPreviewDialogState extends State<ReceiptPreviewDialog> {
                               children: [
                                 const Center(
                                   child: Text(
-                                    '=== COMPTE CLIENT / كشف الحساب ===',
+                                    '=== COMPTE CLIENT ===',
                                     style: TextStyle(
                                       fontWeight: FontWeight.w900,
                                       fontSize: 11,

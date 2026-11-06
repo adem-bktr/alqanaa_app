@@ -122,33 +122,40 @@ class AuthService {
   // ══════════════════════════════════
   static Future<UserModel?> signInWithGoogle() async {
     try {
-      final googleSignIn = GoogleSignIn(
-        serverClientId:
-            '665302336531-ge78ss0i5h0pqmjvc1l67gqsdd5jtoq8.apps.googleusercontent.com',
-        clientId: kIsWeb
-            ? null
-            : (defaultTargetPlatform == TargetPlatform.iOS
-                ? '665302336531-gbdjt6n98grpt38p4etcepvf3cppas7r.apps.googleusercontent.com'
-                : null),
-      );
+      UserCredential userCred;
 
-      try {
-        await googleSignIn.signOut();
-      } catch (_) {}
+      if (kIsWeb) {
+        final GoogleAuthProvider googleProvider = GoogleAuthProvider();
+        googleProvider.addScope('email');
+        googleProvider.addScope('profile');
+        userCred = await _auth.signInWithPopup(googleProvider);
+      } else {
+        final googleSignIn = GoogleSignIn(
+          serverClientId:
+              '665302336531-ge78ss0i5h0pqmjvc1l67gqsdd5jtoq8.apps.googleusercontent.com',
+          clientId: defaultTargetPlatform == TargetPlatform.iOS
+              ? '665302336531-gbdjt6n98grpt38p4etcepvf3cppas7r.apps.googleusercontent.com'
+              : null,
+        );
 
-      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
-      if (googleUser == null) return null;
+        try {
+          await googleSignIn.signOut();
+        } catch (_) {}
 
-      final GoogleSignInAuthentication googleAuth =
-          await googleUser.authentication;
+        final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+        if (googleUser == null) return null;
 
-      final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
+        final GoogleSignInAuthentication googleAuth =
+            await googleUser.authentication;
 
-      final UserCredential userCred =
-          await _auth.signInWithCredential(credential);
+        final credential = GoogleAuthProvider.credential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        );
+
+        userCred = await _auth.signInWithCredential(credential);
+      }
+
       if (userCred.user == null) return null;
 
       final firebaseUser = userCred.user!;
@@ -161,9 +168,7 @@ class AuthService {
       } else {
         userModel = UserModel(
           id: firebaseUser.uid,
-          name: firebaseUser.displayName ??
-              googleUser.displayName ??
-              'مستخدم جوجل',
+          name: firebaseUser.displayName ?? 'مستخدم جوجل',
           email: firebaseUser.email ?? '',
           phone: firebaseUser.phoneNumber ?? '',
           role: 'user_normal',
@@ -178,7 +183,9 @@ class AuthService {
     } catch (e) {
       debugPrint('❌ خطأ في signInWithGoogle: $e');
       final errStr = e.toString().toLowerCase();
-      if (errStr.contains('canceled') || errStr.contains('aborted')) {
+      if (errStr.contains('canceled') ||
+          errStr.contains('aborted') ||
+          errStr.contains('popup-closed-by-user')) {
         return null;
       }
       rethrow;

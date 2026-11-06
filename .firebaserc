@@ -1,6 +1,7 @@
 {
   "projects": {
-    "default": "alqanaa-f16e4"
+    "default": "alqanaa-f16e4",
+    "firebase deploy --only functions": "alqanaa-f16e4"
   },
   "targets": {
     "alqanaa-f16e4": {

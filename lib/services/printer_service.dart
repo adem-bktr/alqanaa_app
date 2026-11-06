@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:printing/printing.dart'; // للطباعة على الويندوز والحاسوب
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:permission_handler/permission_handler.dart';
 import '../models/models.dart';
 import 'receipt_renderer.dart';
 
@@ -200,7 +201,23 @@ class PrinterService {
   }
 
   static Future<bool> requestPermissions() async {
-    return true;
+    if (kIsWeb || Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
+      return true;
+    }
+    try {
+      final statuses = await [
+        Permission.bluetoothConnect,
+        Permission.bluetoothScan,
+        Permission.location,
+      ].request();
+
+      return statuses[Permission.bluetoothConnect]?.isGranted == true ||
+          statuses[Permission.bluetoothScan]?.isGranted == true ||
+          statuses[Permission.location]?.isGranted == true;
+    } catch (e) {
+      debugPrint('❌ Permission request error: $e');
+      return true;
+    }
   }
 
   static Future<List<BluetoothInfo>> getAvailableDevices() async {
@@ -376,7 +393,7 @@ class PrinterService {
 
   /// إرسال مجزّأ (للصور الكبيرة): دفعات صغيرة مع تأخير بسيط حتى لا تفيض ذاكرة الطابعة
   static Future<bool> _sendChunked(List<int> bytes,
-      {int size = 1024, int delayMs = 90}) async {
+      {int size = 512, int delayMs = 130}) async {
     debugPrint('📤 Sending ${bytes.length} bytes in chunks...');
     try {
       for (int i = 0; i < bytes.length; i += size) {
@@ -536,14 +553,14 @@ class PrinterService {
           g,
           '$idx. $name ($type)',
           styles: const PosStyles(
-              bold: true, align: PosAlign.left, height: PosTextSize.size2),
+              bold: true, align: PosAlign.left, height: PosTextSize.size2, fontType: PosFontType.fontA),
         );
         b += g.row([
           _c('   Qte: ${_fmtQty(qty)}', 6,
-              const PosStyles(align: PosAlign.left, height: PosTextSize.size2)),
+              const PosStyles(align: PosAlign.left, height: PosTextSize.size2, fontType: PosFontType.fontA)),
           _c('${_money(total)} DA', 6,
               const PosStyles(
-                  align: PosAlign.right, bold: true, height: PosTextSize.size2)),
+                  align: PosAlign.right, bold: true, height: PosTextSize.size2, fontType: PosFontType.fontA)),
         ]);
         if (flavorsList.isNotEmpty) {
           b += _t(
@@ -664,17 +681,17 @@ class PrinterService {
       final type = data['isCarton'] == true ? 'Crt' : 'Unt';
       final flavorsList = data['flavors'] as List<String>;
 
-      b += _t(g, '$idx. $nm ($type)', styles: const PosStyles(bold: true));
+      b += _t(g, '$idx. $nm ($type)', styles: const PosStyles(bold: true, fontType: PosFontType.fontA));
       b += g.row([
         PosColumn(
           text: _ascii('   Qte: ${_fmtQty(qty)}'),
           width: 6,
-          styles: const PosStyles(align: PosAlign.left),
+          styles: const PosStyles(align: PosAlign.left, fontType: PosFontType.fontA),
         ),
         PosColumn(
           text: _ascii('${_money(totalItem)} DA'),
           width: 6,
-          styles: const PosStyles(align: PosAlign.right, bold: true),
+          styles: const PosStyles(align: PosAlign.right, bold: true, fontType: PosFontType.fontA),
         ),
       ]);
       if (flavorsList.isNotEmpty) {
@@ -690,7 +707,7 @@ class PrinterService {
 
     // ── الحسابات ──
     b += _lr(g, 'TOTAL A PAYER :', '${_money(total)} DA',
-        bold: true, big: true);
+        bold: true, big: false);
     b += _lr(g, 'Montant Verse :', '${_money(paid)} DA');
     if (remaining > 0) {
       b += _lr(g, 'Reste Facture :', '${_money(remaining)} DA', bold: true);
@@ -705,7 +722,7 @@ class PrinterService {
     final newSolde = prevDebt + remaining;
     if (prevDebt > 0 || newSolde > 0 || (newSolde < 0 && customerName.isNotEmpty)) {
       b += _t(g, '================================');
-      b += _t(g, '  COMPTE CLIENT / كشف الحساب   ', styles: centerBold);
+      b += _t(g, '  COMPTE CLIENT  ', styles: centerBold);
       b += _lr(g, 'Ancien Solde :', '${_money(prevDebt)} DA');
       b += _lr(g, 'NOUVEAU SOLDE :', '${_money(newSolde)} DA', bold: true);
       b += _t(g, '================================');

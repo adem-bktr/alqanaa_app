@@ -1,16 +1,21 @@
 const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
-const { initializeApp, getApps } = require("firebase-admin/app");
+const { initializeApp } = require("firebase-admin/app");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
 
 function getAdmin() {
-  if (getApps().length === 0) {
+  try {
+    return {
+      db: getFirestore(),
+      messaging: getMessaging(),
+    };
+  } catch (e) {
     initializeApp();
+    return {
+      db: getFirestore(),
+      messaging: getMessaging(),
+    };
   }
-  return {
-    db: getFirestore(),
-    messaging: getMessaging(),
-  };
 }
 
 /**
