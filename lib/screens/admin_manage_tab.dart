@@ -659,8 +659,10 @@ extension AdminManageTabX on _AdminScreenState {
             String stockLabel = 'المخزن: ';
             if (product.isWeighed) {
               stockLabel += '${formatQuantity(product.stockQuantity)} كغ';
+            } else if (product.stockQuantity < 0) {
+              stockLabel += '${formatQuantity(product.stockQuantity)} قطعة';
             } else if (product.unitsPerCarton > 1) {
-              final crt = product.stockQuantity ~/ product.unitsPerCarton;
+              final crt = (product.stockQuantity / product.unitsPerCarton).floor();
               final double rem = product.stockQuantity % product.unitsPerCarton;
               final pcs = formatQuantity(rem);
               stockLabel += '$crt كرتون و $pcs حبة';

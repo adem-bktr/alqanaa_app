@@ -734,8 +734,11 @@ class _MainScreenState extends State<MainScreen>
     if (p.isWeighed) {
       return '${formatQuantity(p.stockQuantity)} كغ';
     }
+    if (p.stockQuantity < 0) {
+      return '${formatQuantity(p.stockQuantity)} حبة';
+    }
     if (p.unitsPerCarton > 1) {
-      int crt = p.stockQuantity ~/ p.unitsPerCarton;
+      int crt = (p.stockQuantity / p.unitsPerCarton).floor();
       final pcs = formatQuantity(p.stockQuantity % p.unitsPerCarton);
       return '$crt كرتون و $pcs حبة';
     }

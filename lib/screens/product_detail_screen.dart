@@ -43,6 +43,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   void initState() {
     super.initState();
     if (widget.product.sellType == SellType.unitOnly || widget.product.isWeighed) isCarton = false;
+    if (widget.product.isWeighed) quantity = 1.0;
     flavorQuantities = {
       for (var f in widget.product.flavors) f.name: 0,
     };
@@ -574,13 +575,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   children: [
                     // ✅ زر - مع تغيير شكل الفأرة
                     MouseRegion(
-                      cursor: quantity > (widget.product.isWeighed ? 0.25 : 1.0)
+                      cursor: quantity > (widget.product.isWeighed ? 1.0 : 1.0)
                           ? SystemMouseCursors.click
                           : SystemMouseCursors.forbidden,
                       child: GestureDetector(
                         onTap: () {
-                          final minQ = widget.product.isWeighed ? 0.25 : 1.0;
-                          final step = widget.product.isWeighed ? 0.25 : 1.0;
+                          final minQ = widget.product.isWeighed ? 1.0 : 1.0;
+                          final step = widget.product.isWeighed ? 1.0 : 1.0;
                           if (quantity > minQ) {
                             setState(() {
                               quantity = (quantity - step > minQ) ? quantity - step : minQ;
@@ -592,7 +593,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           duration: const Duration(milliseconds: 200),
                           width: 52, height: 52,
                           decoration: BoxDecoration(
-                            color: quantity > (widget.product.isWeighed ? 0.25 : 1.0)
+                            color: quantity > (widget.product.isWeighed ? 1.0 : 1.0)
                                 ? const Color(0xFF2E7D32)
                                 : Colors.grey.shade300,
                             borderRadius: BorderRadius.circular(14),
@@ -609,6 +610,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         height: 48,
                         child: TextFormField(
                           controller: _qtyController,
+                          readOnly: widget.product.isWeighed,
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
                           textAlign: TextAlign.center,
                           style: TextStyle(
@@ -620,7 +622,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             isDense: true,
                             border: OutlineInputBorder(),
                           ),
-                          onChanged: (val) {
+                          onChanged: widget.product.isWeighed ? null : (val) {
                             if (val.trim().isEmpty) return;
                             final newQ = toDouble(val);
                             if (newQ > 0) {
@@ -660,7 +662,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           if (isCarton && maxQty > 0 && currentCartQty + quantity >= maxQty) {
                             _showMaxQtySnackBar(); return;
                           }
-                          final step = widget.product.isWeighed ? 0.25 : 1.0;
+                          final step = widget.product.isWeighed ? 1.0 : 1.0;
                           setState(() {
                             quantity += step;
                             _qtyController.text = formatQuantity(quantity);
