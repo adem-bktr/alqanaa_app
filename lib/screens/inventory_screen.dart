@@ -20,7 +20,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
   final _moneyFmt = NumberFormat('#,##0', 'fr_FR');
   final _priceFmt = NumberFormat('#,##0.##', 'fr_FR');
-  final _qtyFmt = NumberFormat('#,##0.##', 'fr_FR');
+  final _qtyFmt = NumberFormat('#,##0.##', 'en_US');
   final _searchCtrl = TextEditingController();
 
   List<Product> _products = [];

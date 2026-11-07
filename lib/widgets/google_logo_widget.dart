@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 class GoogleLogoWidget extends StatelessWidget {
@@ -17,58 +16,67 @@ class GoogleLogoWidget extends StatelessWidget {
   }
 }
 
+/// ✅ رسم أصل شعار Google الرسمي متعدد الألوان بالمسارات المتجهية الدقيقة
 class GoogleLogoPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final center = Offset(w / 2, w / 2);
-    final strokeWidth = w * 0.24;
-    final radius = (w - strokeWidth) / 2;
-    final rect = Rect.fromCircle(center: center, radius: radius);
+    final scale = size.width / 24.0;
+    canvas.save();
+    canvas.scale(scale, scale);
 
-    final paintBlue = Paint()
-      ..color = const Color(0xFF4285F4)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.butt;
+    // 1. Blue path (#4285F4)
+    final pathBlue = Path()
+      ..moveTo(22.56, 12.25)
+      ..cubicTo(22.56, 11.47, 22.49, 10.72, 22.36, 10.0)
+      ..lineTo(12.0, 10.0)
+      ..lineTo(12.0, 14.26)
+      ..lineTo(17.92, 14.26)
+      ..cubicTo(17.66, 15.63, 16.88, 16.79, 15.71, 17.57)
+      ..lineTo(15.71, 20.34)
+      ..lineTo(19.28, 20.34)
+      ..cubicTo(21.36, 18.42, 22.56, 15.6, 22.56, 12.25)
+      ..close();
+    canvas.drawPath(pathBlue, Paint()..color = const Color(0xFF4285F4)..style = PaintingStyle.fill);
 
-    final paintRed = Paint()
-      ..color = const Color(0xFFEA4335)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.butt;
+    // 2. Green path (#34A853)
+    final pathGreen = Path()
+      ..moveTo(12.0, 23.0)
+      ..cubicTo(14.97, 23.0, 17.46, 22.02, 19.28, 20.34)
+      ..lineTo(15.71, 17.57)
+      ..cubicTo(14.73, 18.23, 13.48, 18.63, 12.0, 18.63)
+      ..cubicTo(9.14, 18.63, 6.71, 16.7, 5.84, 14.1)
+      ..lineTo(2.18, 14.1)
+      ..lineTo(2.18, 16.94)
+      ..cubicTo(3.99, 20.53, 7.7, 23.0, 12.0, 23.0)
+      ..close();
+    canvas.drawPath(pathGreen, Paint()..color = const Color(0xFF34A853)..style = PaintingStyle.fill);
 
-    final paintYellow = Paint()
-      ..color = const Color(0xFFFBBC05)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.butt;
+    // 3. Yellow path (#FBBC05)
+    final pathYellow = Path()
+      ..moveTo(5.84, 14.1)
+      ..cubicTo(5.62, 13.44, 5.49, 12.74, 5.49, 12.0)
+      ..cubicTo(5.49, 11.26, 5.62, 10.56, 5.84, 9.9)
+      ..lineTo(5.84, 7.06)
+      ..lineTo(2.18, 7.06)
+      ..cubicTo(1.43, 8.55, 1.0, 10.22, 1.0, 12.0)
+      ..cubicTo(1.0, 13.78, 1.43, 15.45, 2.18, 16.94)
+      ..lineTo(5.84, 14.1)
+      ..close();
+    canvas.drawPath(pathYellow, Paint()..color = const Color(0xFFFBBC05)..style = PaintingStyle.fill);
 
-    final paintGreen = Paint()
-      ..color = const Color(0xFF34A853)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.butt;
+    // 4. Red path (#EA4335)
+    final pathRed = Path()
+      ..moveTo(12.0, 5.38)
+      ..cubicTo(13.62, 5.38, 15.06, 5.94, 16.21, 7.02)
+      ..lineTo(19.36, 3.87)
+      ..cubicTo(17.45, 2.09, 14.97, 1.0, 12.0, 1.0)
+      ..cubicTo(7.7, 1.0, 3.99, 3.47, 2.18, 7.06)
+      ..lineTo(5.84, 9.9)
+      ..cubicTo(6.71, 7.3, 9.14, 5.38, 12.0, 5.38)
+      ..close();
+    canvas.drawPath(pathRed, Paint()..color = const Color(0xFFEA4335)..style = PaintingStyle.fill);
 
-    // Arcs
-    canvas.drawArc(rect, -math.pi / 2, math.pi / 2, false, paintBlue);
-    canvas.drawArc(rect, -math.pi, math.pi / 2, false, paintRed);
-    canvas.drawArc(rect, math.pi / 2, math.pi / 2, false, paintYellow);
-    canvas.drawArc(rect, 0, math.pi / 2, false, paintGreen);
-
-    // Horizontal blue bar on the right
-    final barPaint = Paint()
-      ..color = const Color(0xFF4285F4)
-      ..style = PaintingStyle.fill;
-    canvas.drawRect(
-      Rect.fromLTWH(
-          center.dx, center.dy - strokeWidth / 2, radius + strokeWidth / 2, strokeWidth),
-      barPaint,
-    );
-
-    // Inner white cutout to form the hollow 'G'
-    final innerRadius = radius - strokeWidth / 2;
-    canvas.drawCircle(center, innerRadius * 0.65, Paint()..color = Colors.white);
+    canvas.restore();
   }
 
   @override

@@ -102,15 +102,25 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       return;
     }
 
-    // ── الكمية العادية ──
+    // ── الكمية العادية / الموزونة ──
     if (!widget.product.hasFlavors && _quantityFocused) {
+      final minQ = widget.product.isWeighed ? 1.0 : 1.0;
+      final step = widget.product.isWeighed ? 1.0 : 1.0;
       if (key == LogicalKeyboardKey.arrowUp) {
         if (isCarton && maxQty > 0 && currentCartQty + quantity >= maxQty) {
           _showMaxQtySnackBar(); return;
         }
-        setState(() => quantity++);
+        setState(() {
+          quantity += step;
+          _qtyController.text = formatQuantity(quantity);
+        });
       } else if (key == LogicalKeyboardKey.arrowDown) {
-        if (quantity > 1) setState(() => quantity--);
+        if (quantity > minQ) {
+          setState(() {
+            quantity = (quantity - step >= minQ) ? quantity - step : minQ;
+            _qtyController.text = formatQuantity(quantity);
+          });
+        }
       }
     }
   }
@@ -550,7 +560,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   Text('الكمية (${widget.product.isWeighed ? 'KG' : (isCarton ? 'كرتون' : 'حبة')})',
                       style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor)),
                   const Spacer(),
-                  if (isDesktop && _quantityFocused)
+                  if (isDesktop && _quantityFocused && !widget.product.isWeighed)
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
@@ -603,7 +613,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       ),
                     ),
                     Column(children: [
-                      if (isDesktop && _quantityFocused)
+                      if (isDesktop && _quantityFocused && !widget.product.isWeighed)
                         const Icon(Icons.keyboard_arrow_up_rounded, color: Colors.blue, size: 20),
                       SizedBox(
                         width: 90,
@@ -631,7 +641,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           },
                         ),
                       ),
-                      if (isDesktop && _quantityFocused)
+                      if (isDesktop && _quantityFocused && !widget.product.isWeighed)
                         const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.blue, size: 20),
                       Text('${formatter.format(currentPrice * quantity)} DA',
                           style: TextStyle(color: subColor, fontSize: 13)),
