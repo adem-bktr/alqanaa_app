@@ -833,6 +833,7 @@ class _CartScreenState extends State<CartScreen> {
           'typeLabel': i.typeLabel,
           'flavor': i.flavor ?? '',
           'priceOverridden': i.hasOverridePrice,
+          'isWeighed': i.product.isWeighed,
         })
             .toList(),
         total: total,

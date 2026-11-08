@@ -257,10 +257,11 @@ class _EditOrderScreenState extends State<EditOrderScreen> {
       'price': price,
       'unitPrice': price,
       'isCarton': isCarton,
-      'typeLabel': isCarton ? 'كرتون' : 'حبة',
+      'typeLabel': p.isWeighed ? 'KG' : (isCarton ? 'كرتون' : 'حبة'),
       'flavor': '',
       // تكلفة الشراء وقت الإضافة (لسجل الأرباح)
       'cost': isCarton ? p.purchasePrice * p.unitsPerCarton : p.purchasePrice,
+      'isWeighed': p.isWeighed,
     };
   }
 

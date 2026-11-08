@@ -348,6 +348,7 @@ class _DesktopPosViewState extends State<DesktopPosView> {
               ? i.product.purchasePrice * i.product.unitsPerCarton
               : i.product.purchasePrice,
           'priceOverridden': i.hasOverridePrice,
+          'isWeighed': i.product.isWeighed,
         })
             .toList(),
         total: total,

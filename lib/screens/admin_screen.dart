@@ -767,8 +767,9 @@ class _AdminScreenState extends State<AdminScreen>
       'cost': isCarton ? p.purchasePrice * p.unitsPerCarton : p.purchasePrice,
       'unitPrice': price,
       'isCarton': isCarton,
-      'typeLabel': isCarton ? 'كرتون' : 'حبة',
+      'typeLabel': p.isWeighed ? 'KG' : (isCarton ? 'كرتون' : 'حبة'),
       'flavor': '',
+      'isWeighed': p.isWeighed,
     };
   }
 
