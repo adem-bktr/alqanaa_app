@@ -94,6 +94,14 @@
           }
         },
         {
+          "client_id": "665302336531-1kvccg4387lcseb4vbk329h9s4pe1jao.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.alqanaaapp.grossiste",
+            "certificate_hash": "132d5f88a6828f0c5f29292f0f010f64fc970d56"
+          }
+        },
+        {
           "client_id": "665302336531-53i72b3h4j4k9nd3il7tqjpjnkqbcr3b.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
