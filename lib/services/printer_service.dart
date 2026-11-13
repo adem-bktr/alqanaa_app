@@ -575,6 +575,7 @@ class PrinterService {
             styles: const PosStyles(
                 fontType: PosFontType.fontB, height: PosTextSize.size2),
           );
+          b += _t(g, '', styles: const PosStyles(fontType: PosFontType.fontA));
         }
         b += _t(g, _dotLine);
         idx++;
@@ -599,12 +600,12 @@ class PrinterService {
       PosColumn(
         text: _ascii(left),
         width: 7,
-        styles: PosStyles(bold: bold, height: h, align: PosAlign.left),
+        styles: PosStyles(bold: bold, height: h, align: PosAlign.left, fontType: PosFontType.fontA),
       ),
       PosColumn(
         text: _ascii(right),
         width: 5,
-        styles: PosStyles(bold: bold, height: h, align: PosAlign.right),
+        styles: PosStyles(bold: bold, height: h, align: PosAlign.right, fontType: PosFontType.fontA),
       ),
     ]);
   }
@@ -710,6 +711,7 @@ class PrinterService {
           '   Aromes: ${flavorsList.join(", ")}',
           styles: const PosStyles(fontType: PosFontType.fontB),
         );
+        b += _t(g, '', styles: const PosStyles(fontType: PosFontType.fontA));
       }
       idx++;
     }

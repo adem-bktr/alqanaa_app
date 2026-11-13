@@ -168,17 +168,19 @@ class _AdminScreenState extends State<AdminScreen>
     );
     _checkAdminPassword();
 
-    // ✅ مراقبة تغييرات الأسعار لحساب الربح والتحويل التلقائي
+    // ✅ مراقبة تغييرات الأسعار لحساب الربح والتحويل التلقائي في الاتجاهين وبدقة تامة (بدون تقريب)
     purchasePriceCartonController.addListener(_onCartonPriceChanged);
-    unitsPerCartonController.addListener(_onCartonPriceChanged);
+    purchasePriceController.addListener(_onUnitPurchaseChanged);
+    
     cartonNormalController.addListener(_onCartonNormalChanged);
     unitNormalController.addListener(_onUnitNormalChanged);
-    unitsPerCartonController.addListener(_onCartonNormalChanged);
 
-    // مستمعين لتحديث واجهة الربح عند تغيير أسعار البيع
-    cartonSpecialController.addListener(refresh);
-    unitSpecialController.addListener(refresh);
-    purchasePriceController.addListener(refresh);
+    cartonSpecialController.addListener(_onCartonSpecialChanged);
+    unitSpecialController.addListener(_onUnitSpecialChanged);
+
+    unitsPerCartonController.addListener(_onCartonPriceChanged);
+    unitsPerCartonController.addListener(_onCartonNormalChanged);
+    unitsPerCartonController.addListener(_onCartonSpecialChanged);
   }
 
   bool _isUpdatingPrice = false;
@@ -186,13 +188,29 @@ class _AdminScreenState extends State<AdminScreen>
   void _onCartonPriceChanged() {
     if (_isUpdatingPrice) return;
     final pCarton = double.tryParse(purchasePriceCartonController.text.replaceAll(',', '.')) ?? 0;
-    final units = double.tryParse(unitsPerCartonController.text) ?? 1;
+    final units = double.tryParse(unitsPerCartonController.text.replaceAll(',', '.')) ?? 1;
     if (pCarton > 0 && units > 0) {
-      final pUnit = (pCarton / units).round();
+      final pUnit = _trimNum(pCarton / units, 4);
       final currentUnit = double.tryParse(purchasePriceController.text.replaceAll(',', '.')) ?? 0;
-      if (currentUnit != pUnit) {
+      if (currentUnit.toString() != pUnit) {
         _isUpdatingPrice = true;
-        purchasePriceController.text = pUnit.toString();
+        purchasePriceController.text = pUnit;
+        _isUpdatingPrice = false;
+      }
+    }
+    refresh();
+  }
+
+  void _onUnitPurchaseChanged() {
+    if (_isUpdatingPrice) return;
+    final pUnit = double.tryParse(purchasePriceController.text.replaceAll(',', '.')) ?? 0;
+    final units = double.tryParse(unitsPerCartonController.text.replaceAll(',', '.')) ?? 1;
+    if (pUnit > 0 && units > 0) {
+      final pCarton = _trimNum(pUnit * units, 2);
+      final currentCarton = double.tryParse(purchasePriceCartonController.text.replaceAll(',', '.')) ?? 0;
+      if (currentCarton.toString() != pCarton) {
+        _isUpdatingPrice = true;
+        purchasePriceCartonController.text = pCarton;
         _isUpdatingPrice = false;
       }
     }
@@ -202,13 +220,13 @@ class _AdminScreenState extends State<AdminScreen>
   void _onCartonNormalChanged() {
     if (_isUpdatingPrice) return;
     final cartonPrice = double.tryParse(cartonNormalController.text.replaceAll(',', '.')) ?? 0;
-    final units = double.tryParse(unitsPerCartonController.text) ?? 1;
+    final units = double.tryParse(unitsPerCartonController.text.replaceAll(',', '.')) ?? 1;
     if (cartonPrice > 0 && units > 0) {
-      final unitPrice = (cartonPrice / units).round();
+      final unitPrice = _trimNum(cartonPrice / units, 4);
       final currentUnit = double.tryParse(unitNormalController.text.replaceAll(',', '.')) ?? 0;
-      if (currentUnit != unitPrice) {
+      if (currentUnit.toString() != unitPrice) {
         _isUpdatingPrice = true;
-        unitNormalController.text = unitPrice.toString();
+        unitNormalController.text = unitPrice;
         _isUpdatingPrice = false;
       }
     }
@@ -218,13 +236,45 @@ class _AdminScreenState extends State<AdminScreen>
   void _onUnitNormalChanged() {
     if (_isUpdatingPrice) return;
     final unitPrice = double.tryParse(unitNormalController.text.replaceAll(',', '.')) ?? 0;
-    final units = double.tryParse(unitsPerCartonController.text) ?? 1;
+    final units = double.tryParse(unitsPerCartonController.text.replaceAll(',', '.')) ?? 1;
     if (unitPrice > 0 && units > 0) {
-      final cartonPrice = (unitPrice * units).round();
+      final cartonPrice = _trimNum(unitPrice * units, 2);
       final currentCarton = double.tryParse(cartonNormalController.text.replaceAll(',', '.')) ?? 0;
-      if (currentCarton != cartonPrice) {
+      if (currentCarton.toString() != cartonPrice) {
         _isUpdatingPrice = true;
-        cartonNormalController.text = cartonPrice.toString();
+        cartonNormalController.text = cartonPrice;
+        _isUpdatingPrice = false;
+      }
+    }
+    refresh();
+  }
+
+  void _onCartonSpecialChanged() {
+    if (_isUpdatingPrice) return;
+    final cartonPrice = double.tryParse(cartonSpecialController.text.replaceAll(',', '.')) ?? 0;
+    final units = double.tryParse(unitsPerCartonController.text.replaceAll(',', '.')) ?? 1;
+    if (cartonPrice > 0 && units > 0) {
+      final unitPrice = _trimNum(cartonPrice / units, 4);
+      final currentUnit = double.tryParse(unitSpecialController.text.replaceAll(',', '.')) ?? 0;
+      if (currentUnit.toString() != unitPrice) {
+        _isUpdatingPrice = true;
+        unitSpecialController.text = unitPrice;
+        _isUpdatingPrice = false;
+      }
+    }
+    refresh();
+  }
+
+  void _onUnitSpecialChanged() {
+    if (_isUpdatingPrice) return;
+    final unitPrice = double.tryParse(unitSpecialController.text.replaceAll(',', '.')) ?? 0;
+    final units = double.tryParse(unitsPerCartonController.text.replaceAll(',', '.')) ?? 1;
+    if (unitPrice > 0 && units > 0) {
+      final cartonPrice = _trimNum(unitPrice * units, 2);
+      final currentCarton = double.tryParse(cartonSpecialController.text.replaceAll(',', '.')) ?? 0;
+      if (currentCarton.toString() != cartonPrice) {
+        _isUpdatingPrice = true;
+        cartonSpecialController.text = cartonPrice;
         _isUpdatingPrice = false;
       }
     }
