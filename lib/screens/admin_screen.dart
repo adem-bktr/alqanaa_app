@@ -1934,7 +1934,7 @@ class _AdminScreenState extends State<AdminScreen>
                           Expanded(
                               child: _dialogField(
                                   buyPriceCartonCtrl, 'سعر الكرتون',
-                                  type: TextInputType.number)),
+                                  type: const TextInputType.numberWithOptions(decimal: true))),
                           const SizedBox(width: 8),
                           Expanded(
                               child: _dialogField(
@@ -1946,7 +1946,7 @@ class _AdminScreenState extends State<AdminScreen>
                           Expanded(
                               child: _dialogField(
                                   buyPriceCtrl, 'سعر الحبة',
-                                  type: TextInputType.number)),
+                                  type: const TextInputType.numberWithOptions(decimal: true))),
                           const SizedBox(width: 8),
                           Expanded(
                               child: _dialogField(
@@ -1993,12 +1993,12 @@ class _AdminScreenState extends State<AdminScreen>
                           Expanded(
                               child: _dialogField(
                                   cartonNCtrl, 'سعر الكرتون',
-                                  type: TextInputType.number)),
+                                  type: const TextInputType.numberWithOptions(decimal: true))),
                           const SizedBox(width: 8),
                           Expanded(
                               child: _dialogField(
                                   unitNCtrl, 'سعر الحبة',
-                                  type: TextInputType.number)),
+                                  type: const TextInputType.numberWithOptions(decimal: true))),
                         ]),
                       ],
                     ),
@@ -2020,12 +2020,12 @@ class _AdminScreenState extends State<AdminScreen>
                           Expanded(
                               child: _dialogField(
                                   cartonSCtrl, 'سعر الكرتون',
-                                  type: TextInputType.number)),
+                                  type: const TextInputType.numberWithOptions(decimal: true))),
                           const SizedBox(width: 8),
                           Expanded(
                               child: _dialogField(
                                   unitSCtrl, 'سعر الحبة',
-                                  type: TextInputType.number)),
+                                  type: const TextInputType.numberWithOptions(decimal: true))),
                         ]),
                       ],
                     ),
@@ -2047,7 +2047,7 @@ class _AdminScreenState extends State<AdminScreen>
                                 color: Colors.grey, fontSize: 11)),
                         const SizedBox(height: 8),
                         _dialogField(discountCtrl, '0',
-                            type: TextInputType.number),
+                            type: const TextInputType.numberWithOptions(decimal: true)),
                       ],
                     ),
                   ),
@@ -3519,7 +3519,7 @@ class _AdminScreenState extends State<AdminScreen>
                 Expanded(
                   child: TextField(
                     controller: purchasePriceCartonController,
-                    keyboardType: TextInputType.number,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     decoration: InputDecoration(
                       labelText: 'سعر شراء الكرتون',
                       hintText: '0.0',
@@ -3555,7 +3555,7 @@ class _AdminScreenState extends State<AdminScreen>
                 Expanded(
                   child: TextField(
                     controller: purchasePriceController,
-                    keyboardType: TextInputType.number,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     decoration: InputDecoration(
                       labelText: 'سعر شراء الحبة',
                       hintText: '0.0',
@@ -3632,7 +3632,7 @@ class _AdminScreenState extends State<AdminScreen>
                   Expanded(
                     child: TextField(
                       controller: cartonNormalController,
-                      keyboardType: TextInputType.number,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       decoration: InputDecoration(
                         hintText: 'سعر الكرتون',
                         filled: true,
@@ -3650,7 +3650,7 @@ class _AdminScreenState extends State<AdminScreen>
                   Expanded(
                     child: TextField(
                       controller: unitNormalController,
-                      keyboardType: TextInputType.number,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       decoration: InputDecoration(
                         hintText: 'سعر الحبة',
                         filled: true,
@@ -3687,7 +3687,7 @@ class _AdminScreenState extends State<AdminScreen>
                     child: TextField(
                       style: const TextStyle(color: Colors.black87),
                       controller: cartonSpecialController,
-                      keyboardType: TextInputType.number,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       decoration: InputDecoration(
                         hintText: 'سعر الكرتون',
                         filled: true,
@@ -3704,7 +3704,7 @@ class _AdminScreenState extends State<AdminScreen>
                     child: TextField(
                       style: const TextStyle(color: Colors.black87),
                       controller: unitSpecialController,
-                      keyboardType: TextInputType.number,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       decoration: InputDecoration(
                         hintText: 'سعر الحبة',
                         filled: true,
@@ -3740,7 +3740,7 @@ class _AdminScreenState extends State<AdminScreen>
               TextField(
                 style: const TextStyle(color: Colors.black87),
                 controller: discountController,
-                keyboardType: TextInputType.number,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 decoration: InputDecoration(
                   hintText: 'مثال: 10 = خصم 10%',
                   filled: true,
