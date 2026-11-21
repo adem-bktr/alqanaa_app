@@ -366,7 +366,10 @@ exports.submitOrder = onCall(
       const existingOrderDoc = await transaction.get(orderRef);
       if (existingOrderDoc.exists) {
         console.log(`ℹ️ طلب مكرر تم معالجته مسبقاً: ${orderId}`);
-        const existingData = existingOrderDoc.data();
+        const existingData = existingOrderDoc.data() || {};
+        if (existingData.userId && existingData.userId !== userId) {
+          throw new HttpsError("permission-denied", "معرّف الطلبية مستخدم لحساب آخر.");
+        }
         return {
           success: true,
           orderId: orderId,

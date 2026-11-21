@@ -41,6 +41,8 @@ class _CartScreenState extends State<CartScreen> {
 
   // ✅ ربط الطلبية بزبون من دليل الديون (اختياري)
   CustomerModel? _selectedCustomer;
+  // ✅ معرّف الطلبية الثابت لإعادة المحاولة (Idempotency)
+  String? _pendingOrderId;
 
   // ══════════════════════════════════
   //  Responsive
@@ -785,8 +787,8 @@ class _CartScreenState extends State<CartScreen> {
       final date =
       DateFormat('dd/MM/yyyy - HH:mm', 'en_US').format(DateTime.now());
       final currentUser = await AuthService.getCurrentUser();
-      final orderId =
-      DateTime.now().millisecondsSinceEpoch.toString();
+      _pendingOrderId ??= DateTime.now().millisecondsSinceEpoch.toString();
+      final orderId = _pendingOrderId!;
 
       final paid = double.tryParse(
           amountPaidController.text.trim().replaceAll(',', '.')) ??
@@ -910,6 +912,7 @@ class _CartScreenState extends State<CartScreen> {
 
       widget.cart.clear();
       await CartService.clearCart();
+      _pendingOrderId = null;
 
       setState(() {
         _selectedCustomer = null;

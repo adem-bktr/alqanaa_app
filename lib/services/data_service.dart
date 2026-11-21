@@ -3,6 +3,7 @@ import 'dart:convert' show utf8, jsonEncode, jsonDecode;
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
@@ -716,18 +717,16 @@ class DataService {
     debugPrint('✅ الطلب محفوظ وتم تحديث المخزن: ${order.id}');
   }
 
-  /// ✅ إرسال طلبية الزبون بصورة آمنة عبر Cloud Function (Transaction + الخصم الفوري للمخزن + Idempotency)
+  /// ✅ إرسال طلبية الزبون بصورة آمنة عبر Cloud Function الرسمية (Transaction + الخصم الفوري للمخزن + Idempotency)
   static Future<Map<String, dynamic>> submitOrderViaFunction(app_models.Order order) async {
-    final currentUser = FirebaseAuth.instance.currentUser;
-    if (currentUser == null) {
-      throw Exception('يجب تسجيل الدخول لإرسال الطلبية.');
-    }
+    try {
+      final functions = FirebaseFunctions.instanceFor(region: 'us-central1');
+      final callable = functions.httpsCallable(
+        'submitOrder',
+        options: HttpsCallableOptions(timeout: const Duration(seconds: 25)),
+      );
 
-    final token = await currentUser.getIdToken();
-    final url = Uri.parse('https://us-central1-alqanaa-f16e4.cloudfunctions.net/submitOrder');
-
-    final payload = {
-      'data': {
+      final payload = {
         'orderId': order.id,
         'customerName': order.customerName,
         'customerPhone': order.customerPhone,
@@ -738,38 +737,33 @@ class DataService {
         if (order.latitude != null) 'latitude': order.latitude,
         if (order.longitude != null) 'longitude': order.longitude,
         if (order.address != null && order.address!.isNotEmpty) 'address': order.address,
-      }
-    };
+      };
 
-    final response = await http.post(
-      url,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-      body: jsonEncode(payload),
-    ).timeout(
-      const Duration(seconds: 25),
-      onTimeout: () => throw Exception('انتهت مهلة الاتصال. يرجى التحقق من اتصال الإنترنت والمحاولة مجدداً.'),
-    );
+      final result = await callable.call(payload);
+      final resData = Map<String, dynamic>.from(result.data as Map);
 
-    final resBody = jsonDecode(response.body);
-    if (response.statusCode == 200 && resBody['result'] != null) {
-      final result = resBody['result'];
-      if (result['success'] == true) {
-        return Map<String, dynamic>.from(result);
+      if (resData['success'] == true) {
+        return resData;
       }
+      throw Exception(resData['message'] ?? 'حدث خطأ أثناء حفظ الطلبية، حاول مجدداً');
+    } on FirebaseFunctionsException catch (e) {
+      debugPrint('❌ FirebaseFunctionsException: code=${e.code}, message=${e.message}, details=${e.details}');
+      String errorMsg = switch (e.code) {
+        'unauthenticated' => 'يجب تسجيل الدخول لإرسال الطلبية.',
+        'permission-denied' => 'غير مصرح لك بإرسال هذه الطلبية.',
+        'not-found' => e.message ?? 'بيانات الطلبية غير موجودة.',
+        'failed-precondition' => e.message ?? 'المخزون غير كافٍ أو المنتج غير متاح حالياً.',
+        'invalid-argument' => e.message ?? 'بيانات الطلب غير صالحة.',
+        'unavailable' => 'تعذر الاتصال بالخادم، يرجى التحقق من اتصال الإنترنت والمحاولة مجدداً.',
+        'deadline-exceeded' => 'انتهت مهلة الاتصال بالخادم، يرجى إعادة المحاولة.',
+        _ => e.message ?? 'حدث خطأ غير متوقع، حاول مجدداً.',
+      };
+      throw Exception(errorMsg);
+    } catch (e) {
+      debugPrint('❌ submitOrderViaFunction Error: $e');
+      if (e is Exception) rethrow;
+      throw Exception('تعذر إرسال الطلب: $e');
     }
-
-    String errorMsg = 'حدث خطأ أثناء حفظ الطلبية، حاول مجدداً';
-    if (resBody is Map && resBody['error'] != null) {
-      final err = resBody['error'];
-      if (err is Map && err['message'] != null) {
-        errorMsg = err['message'].toString();
-      }
-    }
-
-    throw Exception(errorMsg);
   }
 
   /// ✅ إصلاح 3: دالة مساعدة لإرجاع/خصم المخزن ضمن batch
