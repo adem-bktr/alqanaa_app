@@ -6,6 +6,7 @@ import '../models/models.dart';
 import '../services/data_service.dart';
 import '../services/printer_service.dart';
 import '../utils/converters.dart';
+import '../utils/order_helpers.dart';
 import '../widgets/receipt_preview_dialog.dart';
 import 'edit_order_screen.dart';
 
@@ -273,7 +274,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
       customerName: order.customerName,
       customerPhone: order.customerPhone,
       amountPaid: order.paidAmount,
-      customerDebtBalance: order.remainingBalance,
+      customerDebtBalance: previousDebtOf(order),
     );
   }
 
