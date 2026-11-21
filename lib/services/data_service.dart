@@ -1,8 +1,9 @@
 import 'dart:io' show File;
-import 'dart:convert' show utf8;
+import 'dart:convert' show utf8, jsonEncode, jsonDecode;
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -715,6 +716,62 @@ class DataService {
     debugPrint('✅ الطلب محفوظ وتم تحديث المخزن: ${order.id}');
   }
 
+  /// ✅ إرسال طلبية الزبون بصورة آمنة عبر Cloud Function (Transaction + الخصم الفوري للمخزن + Idempotency)
+  static Future<Map<String, dynamic>> submitOrderViaFunction(app_models.Order order) async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) {
+      throw Exception('يجب تسجيل الدخول لإرسال الطلبية.');
+    }
+
+    final token = await currentUser.getIdToken();
+    final url = Uri.parse('https://us-central1-alqanaa-f16e4.cloudfunctions.net/submitOrder');
+
+    final payload = {
+      'data': {
+        'orderId': order.id,
+        'customerName': order.customerName,
+        'customerPhone': order.customerPhone,
+        'items': order.items,
+        'isSpecialPrice': order.isSpecialPrice,
+        'paidAmount': order.paidAmount,
+        'date': order.date,
+        if (order.latitude != null) 'latitude': order.latitude,
+        if (order.longitude != null) 'longitude': order.longitude,
+        if (order.address != null && order.address!.isNotEmpty) 'address': order.address,
+      }
+    };
+
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(payload),
+    ).timeout(
+      const Duration(seconds: 25),
+      onTimeout: () => throw Exception('انتهت مهلة الاتصال. يرجى التحقق من اتصال الإنترنت والمحاولة مجدداً.'),
+    );
+
+    final resBody = jsonDecode(response.body);
+    if (response.statusCode == 200 && resBody['result'] != null) {
+      final result = resBody['result'];
+      if (result['success'] == true) {
+        return Map<String, dynamic>.from(result);
+      }
+    }
+
+    String errorMsg = 'حدث خطأ أثناء حفظ الطلبية، حاول مجدداً';
+    if (resBody is Map && resBody['error'] != null) {
+      final err = resBody['error'];
+      if (err is Map && err['message'] != null) {
+        errorMsg = err['message'].toString();
+      }
+    }
+
+    throw Exception(errorMsg);
+  }
+
   /// ✅ إصلاح 3: دالة مساعدة لإرجاع/خصم المخزن ضمن batch
   /// restore = true  → إرجاع الكميات للمخزن
   /// restore = false → خصم الكميات من المخزن
@@ -749,36 +806,103 @@ class DataService {
     }
   }
 
-  /// ✅ إصلاح 3: عند الرفض يُرجع المخزن، وعند التراجع عن الرفض يُخصم من جديد
+  /// ✅ إصلاح 3: عند الرفض يُرجع المخزن، وعند التراجع عن الرفض يُفحص المخزون ويُخصم من جديد بحصانة ضد التزامن (Transaction)
   static Future<void> updateOrderStatus(String orderId, String status) async {
     final orderRef = _db.collection('orders').doc(orderId);
-    final doc = await _getDocBounded(orderRef);
-    final data = doc.data();
-    final oldStatus = (data?['status'] ?? 'pending').toString();
-    final items = (data?['items'] is List) ? data!['items'] as List : const [];
 
-    final batch = _db.batch();
+    String oldStatus = 'pending';
+    List items = const [];
+    double total = 0.0;
+    double paid = 0.0;
 
-    if (oldStatus != 'rejected' && status == 'rejected') {
-      // رُفض الآن → أرجع المخزن
-      await _applyStockChange(batch, items, restore: true);
-    } else if (oldStatus == 'rejected' && status != 'rejected') {
-      // تراجع عن الرفض → اخصم المخزن مجدداً
-      await _applyStockChange(batch, items, restore: false);
-    }
+    await _db.runTransaction((transaction) async {
+      final doc = await transaction.get(orderRef);
+      if (!doc.exists) {
+        throw Exception('الطلب المطلوب غير موجود');
+      }
+      final data = doc.data() ?? {};
+      oldStatus = (data['status'] ?? 'pending').toString();
+      items = (data['items'] is List) ? data['items'] as List : const [];
+      total = _d(data['total']);
+      paid = _d(data['paidAmount']);
 
-    batch.update(orderRef, {
-      'status': status,
-      'updatedAt': FieldValue.serverTimestamp(),
+      if (oldStatus == status) return;
+
+      if (oldStatus != 'rejected' && status == 'rejected') {
+        // 1) رُفض الآن → أرجع المخزن لكل منتج
+        for (final it in items) {
+          if (it is! Map) continue;
+          final pid = it['productId']?.toString() ?? '';
+          if (pid.isEmpty) continue;
+
+          final qty = toDouble(it['quantity']);
+          final isCarton = it['isCarton'] == true;
+          final isWeighed = it['isWeighed'] == true;
+
+          final pRef = _db.collection('products').doc(pid);
+          final pDoc = await transaction.get(pRef);
+          if (!pDoc.exists) continue;
+
+          double pieces = qty;
+          if (!isWeighed) {
+            final upc = toInt(pDoc.data()?['unitsPerCarton'] ?? 1);
+            pieces = isCarton ? (qty * (upc > 0 ? upc : 1)) : qty;
+          }
+
+          final currentStock = toDouble(pDoc.data()?['stockQuantity']);
+          transaction.update(pRef, {
+            'stockQuantity': currentStock + pieces,
+          });
+        }
+      } else if (oldStatus == 'rejected' && status != 'rejected') {
+        // 2) تراجع عن الرفض → افحص المخزون أولاً لجميع المنتجات ثم اخصمه
+        final updates = <DocumentReference, double>{};
+
+        for (final it in items) {
+          if (it is! Map) continue;
+          final pid = it['productId']?.toString() ?? '';
+          if (pid.isEmpty) continue;
+
+          final qty = toDouble(it['quantity']);
+          final isCarton = it['isCarton'] == true;
+          final isWeighed = it['isWeighed'] == true;
+
+          final pRef = _db.collection('products').doc(pid);
+          final pDoc = await transaction.get(pRef);
+          if (!pDoc.exists) {
+            throw Exception('المنتج $pid لم يعد موجوداً في قاعدة البيانات');
+          }
+
+          double pieces = qty;
+          if (!isWeighed) {
+            final upc = toInt(pDoc.data()?['unitsPerCarton'] ?? 1);
+            pieces = isCarton ? (qty * (upc > 0 ? upc : 1)) : qty;
+          }
+
+          final pName = (pDoc.data()?['name'] ?? 'منتج').toString();
+          final currentStock = toDouble(pDoc.data()?['stockQuantity']);
+          if (currentStock < pieces) {
+            throw Exception(
+              'المخزون غير كافٍ لإعادة قبول الطلب! للمنتج "$pName" (المتوفر: $currentStock، المطلوب: $pieces)',
+            );
+          }
+
+          updates[pRef] = currentStock - pieces;
+        }
+
+        updates.forEach((pRef, newStock) {
+          transaction.update(pRef, {'stockQuantity': newStock});
+        });
+      }
+
+      transaction.update(orderRef, {
+        'status': status,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
     });
 
-    await _commitQueued(batch);
-
-    // ✅ إصلاح 2: الدين المسجّل على الزبون لهذه الطلبية يتبع حالتها
-    // (رفض → يُلغى الدين، تراجع عن الرفض → يعود). لا يؤثر على الطلبات غير المربوطة بزبون.
+    // 3) مزامنة الدين المسجّل على الزبون لهذه الطلبية
     try {
-      final total = _d(data?['total']);
-      final paid = _d(data?['paidAmount']);
       final remaining = (total - paid) > 0 ? (total - paid) : 0.0;
       if (oldStatus != 'rejected' && status == 'rejected') {
         await syncOrderDebt(orderId: orderId, newRemaining: 0);

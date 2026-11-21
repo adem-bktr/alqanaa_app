@@ -868,7 +868,11 @@ class _CartScreenState extends State<CartScreen> {
         }
       }
 
-      await DataService.saveOrder(order);
+      if (widget.isAdmin) {
+        await DataService.saveOrder(order);
+      } else {
+        await DataService.submitOrderViaFunction(order);
+      }
       debugPrint('✅ الطلب محفوظ: $orderId');
 
       // ✅ تسجيل الدين أو التسديد إذا الطلبية مربوطة بزبون
@@ -922,7 +926,8 @@ class _CartScreenState extends State<CartScreen> {
     } catch (e) {
       debugPrint('❌ خطأ في _saveOrder: $e');
       if (!mounted) return;
-      _showSnackBar('حدث خطأ، حاول مجدداً', Colors.red);
+      final msg = e.toString().replaceAll('Exception: ', '');
+      _showSnackBar(msg.isNotEmpty ? msg : 'حدث خطأ، حاول مجدداً', Colors.red);
     } finally {
       if (mounted) setState(() => isLoading = false);
     }
@@ -1396,7 +1401,7 @@ class _CartScreenState extends State<CartScreen> {
           // ✅ ربط بزبون (اختياري - أدمن فقط)
           _buildCustomerLinkSection(isDark),
 
-          // المجموع وتفاصيل الكرتون/الحبة
+          // المجموع الكلي
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -1405,39 +1410,17 @@ class _CartScreenState extends State<CartScreen> {
               border: Border.all(
                   color: const Color(0xFF2E7D32).withOpacity(0.3)),
             ),
-            child: Column(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                if (cartonTotal > 0 && unitTotal > 0) ...[
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('مجموع الكرتون:', style: TextStyle(fontSize: 12, color: isDark ? Colors.grey.shade300 : Colors.grey.shade800)),
-                      Text(formatPrice(cartonTotal), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF2E7D32))),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('مجموع الحبات:', style: TextStyle(fontSize: 12, color: isDark ? Colors.grey.shade300 : Colors.grey.shade800)),
-                      Text(formatPrice(unitTotal), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blue)),
-                    ],
-                  ),
-                  const Divider(height: 12),
-                ],
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('المجموع الكلي:',
-                        style: TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 16)),
-                    Text(formatPrice(total),
-                        style: const TextStyle(
-                            color: Color(0xFF2E7D32),
-                            fontWeight: FontWeight.bold,
-                            fontSize: 22)),
-                  ],
-                ),
+                const Text('المجموع الكلي:',
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 16)),
+                Text(formatPrice(total),
+                    style: const TextStyle(
+                        color: Color(0xFF2E7D32),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 22)),
               ],
             ),
           ),
@@ -1831,50 +1814,16 @@ class _CartScreenState extends State<CartScreen> {
                               borderRadius: BorderRadius.circular(14),
                               border: Border.all(color: const Color(0xFF2E7D32).withOpacity(0.3)),
                             ),
-                            child: Column(
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                if (cartonTotal > 0 && unitTotal > 0) ...[
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text('مجموع الكرتون:',
-                                          style: TextStyle(
-                                              fontSize: 12,
-                                              color: isDark ? Colors.grey.shade300 : Colors.grey.shade800)),
-                                      Text(formatPrice(cartonTotal),
-                                          style: const TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.bold,
-                                              color: Color(0xFF2E7D32))),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text('مجموع الحبات:',
-                                          style: TextStyle(
-                                              fontSize: 12,
-                                              color: isDark ? Colors.grey.shade300 : Colors.grey.shade800)),
-                                      Text(formatPrice(unitTotal),
-                                          style: const TextStyle(
-                                              fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blue)),
-                                    ],
-                                  ),
-                                  const Divider(height: 12),
-                                ],
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    const Text('المجموع الإجمالي:',
-                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                                    Text(formatPrice(total),
-                                        style: const TextStyle(
-                                            color: Color(0xFF2E7D32),
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 18)),
-                                  ],
-                                ),
+                                const Text('المجموع الإجمالي:',
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                                Text(formatPrice(total),
+                                    style: const TextStyle(
+                                        color: Color(0xFF2E7D32),
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 18)),
                               ],
                             ),
                           );

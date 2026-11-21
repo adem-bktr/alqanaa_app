@@ -317,3 +317,199 @@ exports.deleteUserAccount = onCall(
     }
   }
 );
+
+// 📦 تأكيد طلبية الزبون بصورة آمنة مع خصم المخزن الذري ومنع التكرار (Idempotency)
+exports.submitOrder = onCall(
+  { region: "us-central1" },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "يجب تسجيل الدخول لإرسال طلبية.");
+    }
+
+    const userId = request.auth.uid;
+    const data = request.data || {};
+
+    const orderId = String(data.orderId || Date.now());
+    const customerName = String(data.customerName || "").trim();
+    const customerPhone = String(data.customerPhone || "").trim();
+    const rawItems = Array.isArray(data.items) ? data.items : [];
+    const isSpecialPriceRequested = Boolean(data.isSpecialPrice);
+    const paidAmount = Number(data.paidAmount) || 0;
+    const address = data.address ? String(data.address).trim() : null;
+    const latitude = data.latitude !== undefined && data.latitude !== null ? Number(data.latitude) : null;
+    const longitude = data.longitude !== undefined && data.longitude !== null ? Number(data.longitude) : null;
+
+    if (!customerName || !customerPhone) {
+      throw new HttpsError("invalid-argument", "يرجى تقديم اسم ورقم هاتف الزبون.");
+    }
+
+    if (rawItems.length === 0) {
+      throw new HttpsError("invalid-argument", "السلة فارغة، لا يمكن إرسال طلبية فارغة.");
+    }
+
+    const { db } = getAdmin();
+
+    // 1. التحقق من حساب المستخدم ورتبته
+    const userDoc = await db.collection("users").doc(userId).get();
+    if (!userDoc.exists) {
+      throw new HttpsError("not-found", "حساب المستخدم غير موجود.");
+    }
+    const userData = userDoc.data();
+    const userRole = userData.role || "user_normal";
+    const seesSpecial = userRole === "admin" || userRole === "user_special";
+    const isSpecialPrice = isSpecialPriceRequested && seesSpecial;
+
+    // 2. استخدام Firestore Transaction لمنع التعارض وخصم المخزن ذرياً وإطعام Idempotency
+    return await db.runTransaction(async (transaction) => {
+      // أ. التحقق من وجود الطلبية مسبقاً (Idempotency Check)
+      const orderRef = db.collection("orders").doc(orderId);
+      const existingOrderDoc = await transaction.get(orderRef);
+      if (existingOrderDoc.exists) {
+        console.log(`ℹ️ طلب مكرر تم معالجته مسبقاً: ${orderId}`);
+        const existingData = existingOrderDoc.data();
+        return {
+          success: true,
+          orderId: orderId,
+          total: existingData.total || 0,
+          duplicate: true,
+          message: "تم استقبال الطلبية مسبقاً بنجاح.",
+        };
+      }
+
+      // ب. قراءة جميع المستندات المطلوبة أولاً (قاعدة Firestore: Read before Write in Transaction)
+      const productRefs = [];
+      for (const item of rawItems) {
+        const pid = String(item.productId || "").trim();
+        if (!pid) {
+          throw new HttpsError("invalid-argument", "يوجد عنصر غير صالح في السلة.");
+        }
+        productRefs.push(db.collection("products").doc(pid));
+      }
+
+      // جلب جميع منتجات السلة داخل Transaction
+      const productDocs = [];
+      for (const pRef of productRefs) {
+        const pDoc = await transaction.get(pRef);
+        if (!pDoc.exists) {
+          throw new HttpsError("not-found", `المنتج (${pRef.id}) غير موجود في قاعدة البيانات.`);
+        }
+        productDocs.push(pDoc);
+      }
+
+      // ج. التحقق من توفر كل منتج ومخزونه وحساب الأسعار
+      const validatedItems = [];
+      const stockUpdates = [];
+      let calculatedTotal = 0;
+
+      for (let i = 0; i < rawItems.length; i++) {
+        const item = rawItems[i];
+        const pDoc = productDocs[i];
+        const pData = pDoc.data();
+
+        if (pData.isAvailable === false) {
+          throw new HttpsError("failed-precondition", `المنتج "${pData.name || "عنصر"}" غير متاح حالياً.`);
+        }
+
+        const qty = Number(item.quantity) || 0;
+        if (qty <= 0) {
+          throw new HttpsError("invalid-argument", `الكمية غير صالحة للمنتج "${pData.name}".`);
+        }
+
+        const isCarton = Boolean(item.isCarton);
+        const isWeighed = Boolean(pData.isWeighed);
+        const unitsPerCarton = Number(pData.unitsPerCarton) > 0 ? Number(pData.unitsPerCarton) : 1;
+
+        // حساب الكمية بالقطع/الوزن المقابلة للخصم
+        let requiredPieces = qty;
+        if (!isWeighed) {
+          requiredPieces = isCarton ? qty * unitsPerCarton : qty;
+        }
+
+        const currentStock = Number(pData.stockQuantity) || 0;
+        if (currentStock < requiredPieces) {
+          throw new HttpsError(
+            "failed-precondition",
+            `المخزون غير كافٍ للمنتج "${pData.name || "المنتج"}". (المتوفر: ${currentStock}، المطلوب: ${requiredPieces})`
+          );
+        }
+
+        // تحديد سعر الوحدة بناءً على نوع السعر والتخفيض
+        let unitPrice = 0;
+        if (item.priceOverridden === true && userRole === "admin" && item.unitPrice !== undefined) {
+          unitPrice = Number(item.unitPrice) || 0;
+        } else {
+          if (isCarton) {
+            unitPrice = isSpecialPrice ? Number(pData.priceCartonSpecial || 0) : Number(pData.priceCartonNormal || 0);
+          } else {
+            unitPrice = isSpecialPrice ? Number(pData.priceUnitSpecial || 0) : Number(pData.priceUnitNormal || 0);
+          }
+          const discount = Number(pData.discount) || 0;
+          if (discount > 0) {
+            unitPrice = unitPrice - (unitPrice * discount / 100);
+          }
+        }
+
+        const lineTotal = unitPrice * qty;
+        calculatedTotal += lineTotal;
+
+        const purchasePrice = Number(pData.purchasePrice) || 0;
+        const itemCost = isCarton ? purchasePrice * unitsPerCarton : purchasePrice;
+
+        validatedItems.push({
+          productId: pDoc.id,
+          productName: String(pData.name || item.productName || ""),
+          cost: itemCost,
+          quantity: qty,
+          price: unitPrice,
+          unitPrice: unitPrice,
+          isCarton: isCarton,
+          typeLabel: isWeighed ? "KG" : (isCarton ? "كرتون" : "حبة"),
+          flavor: item.flavor ? String(item.flavor) : "",
+          priceOverridden: Boolean(item.priceOverridden),
+          isWeighed: isWeighed,
+        });
+
+        stockUpdates.push({
+          ref: pDoc.ref,
+          newStock: currentStock - requiredPieces,
+        });
+      }
+
+      // د. تنفيذ التعديلات (Writes after Reads inside Transaction)
+      for (const update of stockUpdates) {
+        transaction.update(update.ref, { stockQuantity: update.newStock });
+      }
+
+      const remainingBalance = calculatedTotal - paidAmount > 0 ? calculatedTotal - paidAmount : 0;
+      const dateStr = data.date ? String(data.date) : new Date().toISOString();
+
+      transaction.set(orderRef, {
+        id: orderId,
+        customerName: customerName,
+        customerPhone: customerPhone,
+        items: validatedItems,
+        total: calculatedTotal,
+        isSpecialPrice: isSpecialPrice,
+        date: dateStr,
+        userId: userId,
+        status: "pending",
+        paidAmount: paidAmount,
+        remainingBalance: remainingBalance,
+        latitude: latitude,
+        longitude: longitude,
+        address: address,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+
+      console.log(`✅ تم إنشاء الطلبية وتحديث المخزن بنجاح: ${orderId}`);
+
+      return {
+        success: true,
+        orderId: orderId,
+        total: calculatedTotal,
+        message: "تم إرسال الطلبية بنجاح.",
+      };
+    });
+  }
+);
+
