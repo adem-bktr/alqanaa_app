@@ -98,7 +98,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
     if (result != null) {
       try {
-        final newRemaining = (order.total - result) > 0 ? (order.total - result) : 0.0;
+        // ✅ السماح بالقيم السالبة (التسديد الزائد) لكي تُخصم من الدين السابق عبر syncOrderDebt
+        final newRemaining = order.total - result;
         final customerBalance = await DataService.syncOrderDebt(
           orderId: order.id,
           newRemaining: newRemaining,

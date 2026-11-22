@@ -12,6 +12,7 @@ import '../services/data_service.dart';
 import '../services/printer_service.dart';
 import '../services/notification_service.dart';
 import '../utils/converters.dart';
+import '../utils/order_helpers.dart';
 import '../widgets/receipt_preview_dialog.dart';
 import 'stats_screen.dart';
 import 'inventory_screen.dart';
@@ -1027,13 +1028,8 @@ class _AdminScreenState extends State<AdminScreen>
       _showSnackBar('⚠️ يرجى الاتصال بطابعة أولاً', Colors.orange);
       return;
     }
-    // ✅ إصلاح 2: remainingBalance المخزَّن = رصيد الزبون "بعد" الفاتورة،
-    // والوصل يحتاج الرصيد "قبلها" (Ancien Solde) فنطرح متبقي هذه الفاتورة
-    final orderRemaining =
-    (order.total - order.paidAmount) > 0 ? (order.total - order.paidAmount) : 0.0;
-    final previousDebt = (order.remainingBalance - orderRemaining) > 0
-        ? (order.remainingBalance - orderRemaining)
-        : 0.0;
+    // ✅ إصلاح 1: استخدام دالة previousDebtOf الموحدة (تدعم المتبقي والتسديد الزائد بدقة)
+    final previousDebt = previousDebtOf(order);
     showDialog(
       context: context,
       barrierDismissible: false,

@@ -142,19 +142,36 @@ class _EditOrderScreenState extends State<EditOrderScreen> {
                   decoration: const InputDecoration(labelText: 'المبلغ المدفوع حالياً', suffixText: 'DA', border: OutlineInputBorder()),
                   onChanged: (v) => setState(() {}),
                 ),
-                // ✅ المتبقي (دين) بعد التعديل
+                // ✅ الملخص المالي اللحظي (الدين السابق، الإجمالي، المدفوع، المتبقي، التسديد الزائد، الدين الجديد)
                 Builder(builder: (_) {
+                  final prevDebt = previousDebtOf(widget.order);
                   final paid = double.tryParse(paidAmountController.text.trim().replaceAll(',', '.')) ?? 0;
-                  final rem = total - paid;
-                  if (rem <= 0.05) return const SizedBox.shrink();
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  final invoiceRemaining = (total - paid).clamp(0.0, double.infinity);
+                  final overpayment = (paid - total).clamp(0.0, double.infinity);
+                  final newCustomerDebt = (prevDebt + invoiceRemaining - overpayment).clamp(0.0, double.infinity);
+
+                  return Container(
+                    margin: const EdgeInsets.symmetric(vertical: 8),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.grey.shade900 : Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('المتبقي (دين):', style: TextStyle(fontWeight: FontWeight.bold)),
-                        Text('${formatter.format(rem)} DA',
-                            style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 15)),
+                        const Text('الملخص المالي:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.blueAccent)),
+                        const Divider(height: 8),
+                        _summaryRow('الدين السابق للزبون:', '${formatter.format(prevDebt)} DA'),
+                        _summaryRow('إجمالي الطلب:', '${formatter.format(total)} DA'),
+                        _summaryRow('المبلغ المدفوع:', '${formatter.format(paid)} DA'),
+                        if (invoiceRemaining > 0)
+                          _summaryRow('المتبقي من الفاتورة:', '${formatter.format(invoiceRemaining)} DA', color: Colors.orange),
+                        if (overpayment > 0)
+                          _summaryRow('التسديد الزائد:', '${formatter.format(overpayment)} DA', color: Colors.green),
+                        const Divider(height: 8),
+                        _summaryRow('الدين الجديد المتوقع:', '${formatter.format(newCustomerDebt)} DA', bold: true, color: Colors.blue.shade700),
                       ],
                     ),
                   );
@@ -183,7 +200,8 @@ class _EditOrderScreenState extends State<EditOrderScreen> {
     try {
       final newTotal = total;
       final paid = double.tryParse(paidAmountController.text.trim().replaceAll(',', '.')) ?? widget.order.paidAmount;
-      final newRemaining = (newTotal - paid) > 0 ? (newTotal - paid) : 0.0;
+      // ✅ دعم التسديد الزائد عبر السماح بالقيم السالبة في newRemaining
+      final newRemaining = newTotal - paid;
 
       // ✅ مزامنة دين الزبون (إن كانت الطلبية مسجّلة على زبون)
       final customerBalance = await DataService.syncOrderDebt(
@@ -333,6 +351,19 @@ class _EditOrderScreenState extends State<EditOrderScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _summaryRow(String label, String value, {bool bold = false, Color? color}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: TextStyle(fontSize: 12, fontWeight: bold ? FontWeight.bold : FontWeight.normal, color: Colors.grey.shade700)),
+          Text(value, style: TextStyle(fontSize: 13, fontWeight: bold ? FontWeight.bold : FontWeight.w500, color: color ?? (bold ? Colors.black : null))),
+        ],
       ),
     );
   }
