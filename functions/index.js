@@ -399,15 +399,16 @@ exports.submitOrder = onCall(
         productDocs.push(pDoc);
       }
 
-      // ج. التحقق من توفر كل منتج ومخزونه وحساب الأسعار
+      // ج. التحقق من توفر كل منتج وحساب الأسعار (مع دعم المخزون السالب وتجميع المنتجات المكررة)
       const validatedItems = [];
-      const stockUpdates = [];
       let calculatedTotal = 0;
+      const productStockMap = new Map();
 
       for (let i = 0; i < rawItems.length; i++) {
         const item = rawItems[i];
         const pDoc = productDocs[i];
         const pData = pDoc.data();
+        const pid = pDoc.id;
 
         if (pData.isAvailable === false) {
           throw new HttpsError("failed-precondition", `المنتج "${pData.name || "عنصر"}" غير متاح حالياً.`);
@@ -422,19 +423,23 @@ exports.submitOrder = onCall(
         const isWeighed = Boolean(pData.isWeighed);
         const unitsPerCarton = Number(pData.unitsPerCarton) > 0 ? Number(pData.unitsPerCarton) : 1;
 
-        // حساب الكمية بالقطع/الوزن المقابلة للخصم
         let requiredPieces = qty;
         if (!isWeighed) {
           requiredPieces = isCarton ? qty * unitsPerCarton : qty;
         }
 
-        const currentStock = Number(pData.stockQuantity) || 0;
-        if (currentStock < requiredPieces) {
-          throw new HttpsError(
-            "failed-precondition",
-            `المخزون غير كافٍ للمنتج "${pData.name || "المنتج"}". (المتوفر: ${currentStock}، المطلوب: ${requiredPieces})`
-          );
+        if (!productStockMap.has(pid)) {
+          const currentStock = Number(pData.stockQuantity) || 0;
+          productStockMap.set(pid, {
+            pDoc,
+            pData,
+            unitsPerCarton,
+            isWeighed,
+            currentStock,
+            totalRequiredPieces: 0,
+          });
         }
+        productStockMap.get(pid).totalRequiredPieces += requiredPieces;
 
         // تحديد سعر الوحدة بناءً على نوع السعر والتخفيض
         let unitPrice = 0;
@@ -471,16 +476,12 @@ exports.submitOrder = onCall(
           priceOverridden: Boolean(item.priceOverridden),
           isWeighed: isWeighed,
         });
-
-        stockUpdates.push({
-          ref: pDoc.ref,
-          newStock: currentStock - requiredPieces,
-        });
       }
 
-      // د. تنفيذ التعديلات (Writes after Reads inside Transaction)
-      for (const update of stockUpdates) {
-        transaction.update(update.ref, { stockQuantity: update.newStock });
+      // د. تنفيذ التعديلات (Writes after Reads inside Transaction) - السماح بأن يصبح المخزون سالباً
+      for (const [pid, entry] of productStockMap.entries()) {
+        const newStock = entry.currentStock - entry.totalRequiredPieces;
+        transaction.update(entry.pDoc.ref, { stockQuantity: newStock });
       }
 
       const remainingBalance = calculatedTotal - paidAmount > 0 ? calculatedTotal - paidAmount : 0;

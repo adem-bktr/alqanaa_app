@@ -686,32 +686,32 @@ class DataService {
       'createdAt': FieldValue.serverTimestamp(),
     });
 
-    // 2) خصم المخزن لكل منتج في الطلبية
+    // 2) خصم المخزن لكل منتج في الطلبية (مع تجميع المنتجات المكررة ودعم المخزون السالب)
+    final productPiecesMap = <String, double>{};
     for (final it in order.items) {
       final pid = it['productId']?.toString() ?? '';
-      if (pid.isNotEmpty) {
-        final qtySold = toDouble(it['quantity']);
-        final isCarton = it['isCarton'] == true;
-        final isWeighed = it['isWeighed'] == true;
+      if (pid.isEmpty) continue;
+      final qtySold = toDouble(it['quantity']);
+      final isCarton = it['isCarton'] == true;
+      final isWeighed = it['isWeighed'] == true;
 
-        if (isWeighed) {
-          batch.update(_db.collection('products').doc(pid), {
-            'stockQuantity': FieldValue.increment(-qtySold),
-          });
-        } else {
-          final upc = await _unitsPerCartonOf(pid);
-          if (upc == null || upc <= 0) {
-            debugPrint('❌ خطأ حماية المخزن: تعذر جلب unitsPerCarton للمنتج العادي $pid — تم تخطي خصم المخزن تفادياً للخطأ');
-            continue;
-          }
-          final piecesToSubtract = isCarton ? (qtySold * upc) : qtySold;
-
-          batch.update(_db.collection('products').doc(pid), {
-            'stockQuantity': FieldValue.increment(-piecesToSubtract),
-          });
+      double pieces = qtySold;
+      if (!isWeighed) {
+        final upc = await _unitsPerCartonOf(pid);
+        if (upc == null || upc <= 0) {
+          debugPrint('❌ خطأ حماية المخزن: تعذر جلب unitsPerCarton للمنتج العادي $pid — تم تخطي خصم المخزن تفادياً للخطأ');
+          continue;
         }
+        pieces = isCarton ? (qtySold * upc) : qtySold;
       }
+      productPiecesMap[pid] = (productPiecesMap[pid] ?? 0.0) + pieces;
     }
+
+    productPiecesMap.forEach((pid, totalPieces) {
+      batch.update(_db.collection('products').doc(pid), {
+        'stockQuantity': FieldValue.increment(-totalPieces),
+      });
+    });
 
     await _commitQueued(batch);
     debugPrint('✅ الطلب محفوظ وتم تحديث المخزن: ${order.id}');
@@ -849,7 +849,7 @@ class DataService {
           });
         }
       } else if (oldStatus == 'rejected' && status != 'rejected') {
-        // 2) تراجع عن الرفض → افحص المخزون أولاً لجميع المنتجات ثم اخصمه
+        // 2) تراجع عن الرفض → خصم الكميات من المخزن (مع دعم المخزون السالب والتكرار)
         final updates = <DocumentReference, double>{};
 
         for (final it in items) {
@@ -873,15 +873,9 @@ class DataService {
             pieces = isCarton ? (qty * (upc > 0 ? upc : 1)) : qty;
           }
 
-          final pName = (pDoc.data()?['name'] ?? 'منتج').toString();
           final currentStock = toDouble(pDoc.data()?['stockQuantity']);
-          if (currentStock < pieces) {
-            throw Exception(
-              'المخزون غير كافٍ لإعادة قبول الطلب! للمنتج "$pName" (المتوفر: $currentStock، المطلوب: $pieces)',
-            );
-          }
-
-          updates[pRef] = currentStock - pieces;
+          final baseStock = updates.containsKey(pRef) ? updates[pRef]! : currentStock;
+          updates[pRef] = baseStock - pieces;
         }
 
         updates.forEach((pRef, newStock) {
