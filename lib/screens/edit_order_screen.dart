@@ -200,35 +200,31 @@ class _EditOrderScreenState extends State<EditOrderScreen> {
     try {
       final newTotal = total;
       final paid = double.tryParse(paidAmountController.text.trim().replaceAll(',', '.')) ?? widget.order.paidAmount;
-      // ✅ دعم التسديد الزائد عبر السماح بالقيم السالبة في newRemaining
-      final newRemaining = newTotal - paid;
-
-      // ✅ مزامنة دين الزبون (إن كانت الطلبية مسجّلة على زبون)
-      final customerBalance = await DataService.syncOrderDebt(
-        orderId: widget.order.id,
-        newRemaining: newRemaining,
-      );
 
       final updatedOrder = widget.order.copyWith(
         items: items,
         total: newTotal,
         paidAmount: paid,
+      );
+
+      // ✅ تحديث الطلب ومزامنة الدين بشكل متزامن وآمن
+      final customerBalance = await DataService.updateOrderAndSyncDebt(updatedOrder);
+
+      final finalOrder = updatedOrder.copyWith(
         remainingBalance: customerBalance ?? widget.order.remainingBalance,
       );
 
-      // 1. تحديث في Firestore
-      await DataService.updateFullOrder(updatedOrder);
       if (!mounted) return;
 
       // 2. معاينة وطباعة الوصل المحدث
       // ✅ الرصيد السابق (وليس الرصيد بعد الفاتورة) حتى لا يُحسب دين الفاتورة مرتين على الورقة
       await ReceiptPreviewDialog.show(
         context,
-        order: updatedOrder,
-        customerName: updatedOrder.customerName,
-        customerPhone: updatedOrder.customerPhone,
+        order: finalOrder,
+        customerName: finalOrder.customerName,
+        customerPhone: finalOrder.customerPhone,
         amountPaid: paid,
-        customerDebtBalance: previousDebtOf(updatedOrder),
+        customerDebtBalance: previousDebtOf(finalOrder),
       );
 
       if (mounted) {

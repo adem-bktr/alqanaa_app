@@ -98,17 +98,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
     if (result != null) {
       try {
-        // ✅ السماح بالقيم السالبة (التسديد الزائد) لكي تُخصم من الدين السابق عبر syncOrderDebt
-        final newRemaining = order.total - result;
-        final customerBalance = await DataService.syncOrderDebt(
-          orderId: order.id,
-          newRemaining: newRemaining,
-        );
         final updatedOrder = order.copyWith(
           paidAmount: result,
-          remainingBalance: customerBalance ?? order.remainingBalance,
         );
-        await DataService.updateFullOrder(updatedOrder);
+        final customerBalance = await DataService.updateOrderAndSyncDebt(updatedOrder);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(

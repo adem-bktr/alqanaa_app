@@ -1689,6 +1689,15 @@ class DataService {
     debugPrint('✅ معاملة دين مسجّلة: $type $amount للزبون $customerId');
   }
 
+  static final Set<String> _syncingOrders = {};
+
+  /// ✅ تحديث الطلب أولاً ثم مزامنة الدين لضمان تطابق البيانات وعدم اختلاف الحالة في حال فشل التحديث
+  static Future<double?> updateOrderAndSyncDebt(app_models.Order order) async {
+    await updateFullOrder(order);
+    final newRemaining = order.total - order.paidAmount;
+    return await syncOrderDebt(orderId: order.id, newRemaining: newRemaining);
+  }
+
   /// ✅ إصلاح 4: مزامنة دين الزبون عند تعديل الطلبية.
   /// تقارن الدين المسجّل فعلاً لهذه الطلبية في سجل الحركات بالدين الجديد
   /// وتسجّل الفرق فقط (إضافة دين أو تسديد). آمنة عند التكرار (لا تُسجّل شيئاً إن لم يتغير الدين).
@@ -1697,6 +1706,10 @@ class DataService {
     required String orderId,
     required double newRemaining,
   }) async {
+    while (_syncingOrders.contains(orderId)) {
+      await Future.delayed(const Duration(milliseconds: 100));
+    }
+    _syncingOrders.add(orderId);
     try {
       final snap = await _db
           .collection('debt_transactions')
@@ -1756,6 +1769,8 @@ class DataService {
     } catch (e) {
       debugPrint('❌ syncOrderDebt: $e');
       rethrow;
+    } finally {
+      _syncingOrders.remove(orderId);
     }
   }
 
